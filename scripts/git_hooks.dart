@@ -6,6 +6,7 @@
 // ignore_for_file: avoid_print
 import "dart:io";
 
+import "package:dart_pre_commit/dart_pre_commit.dart";
 import "package:git_hooks/git_hooks.dart";
 
 import "common/check_copyright.dart";
@@ -13,14 +14,16 @@ import "common/check_copyright.dart";
 /// Script entry point for git hooks.
 /// See [git_hooks] package docs for more details.
 void main(List arguments) {
-  Map<Git, UserBackFun> params = {
-    Git.preCommit: preCommit
-  };
+  Map<Git, UserBackFun> params = {Git.preCommit: _preCommit};
   GitHooks.call(arguments, params);
 }
 
-Future<bool> preCommit() async {
-  final allChecksPassed = checkSourceFilesHaveCopyright();
+Future<bool> _preCommit() async {
+  print('🔄 Lint staged files...');
+
+  final formattingCheckResult = await DartPreCommit.run();
+  final allChecksPassed =
+      _checkSourceFilesHaveCopyright() && formattingCheckResult.isSuccess;
 
   if (!allChecksPassed) {
     print('⛔ Commit aborted due to failed checks.');
@@ -31,25 +34,26 @@ Future<bool> preCommit() async {
   return allChecksPassed;
 }
 
-bool checkSourceFilesHaveCopyright() {
+bool _checkSourceFilesHaveCopyright() {
   print('🔄 Check staged files for copyright header...');
 
-  final result = Process.runSync(
-    'git',
-    ['diff', '--cached', '--name-only', '--diff-filter=ACM'],
-    runInShell: true,
-  );
+  final diffResult = Process.runSync('git', [
+    'diff',
+    '--cached',
+    '--name-only',
+    '--diff-filter=ACM',
+  ], runInShell: true);
 
-  if (result.exitCode != 0) {
-    print('❌ Failed to get git diff: ${result.stderr}');
+  if (diffResult.exitCode != 0) {
+    print('❌ Failed to get git diff: ${diffResult.stderr}');
     return false;
   }
-  
-  final stagedFiles = (result.stdout as String)
+
+  final stagedFiles = (diffResult.stdout as String)
       .split('\n')
       .where((file) => file.isNotEmpty)
       .toList();
-  
+
   if (stagedFiles.isEmpty) {
     print('✅ No staged files to check.');
     return true;
@@ -58,13 +62,15 @@ bool checkSourceFilesHaveCopyright() {
   final filesToCheck = stagedFiles.where((filePath) {
     return filePath.startsWith('lib/') || filePath.startsWith('scripts/');
   }).toList();
-  
+
   if (filesToCheck.isEmpty) {
     print('✅ No staged files in lib or scripts directories.');
     return true;
   }
 
-  final filesWithoutCopyright = filesToCheck.where((filePath) => !checkCopyrightInStagedFile(filePath));
+  final filesWithoutCopyright = filesToCheck.where(
+    (filePath) => !checkCopyrightInStagedFile(filePath),
+  );
 
   if (filesWithoutCopyright.isNotEmpty) {
     print('❌ The following files are missing copyright headers:');
