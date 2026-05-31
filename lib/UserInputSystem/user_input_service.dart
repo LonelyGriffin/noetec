@@ -72,6 +72,10 @@ class UserInputService {
       switch (delta) {
         case TextEditingDeltaInsertion():
           _handleInsertion(documentId, document, delta);
+        case TextEditingDeltaReplacement():
+          _handleReplacement(documentId, document, delta);
+        case TextEditingDeltaNonTextUpdate():
+          _handleNonTextUpdate(documentId, document, delta);
         default:
           break;
       }
@@ -99,6 +103,52 @@ class UserInputService {
     ));
 
     imeState.value = delta.apply(imeState.value);
+  }
+
+  void _handleReplacement(
+    String documentId,
+    DocumentModel document,
+    TextEditingDeltaReplacement delta,
+  ) {
+    final selection = document.selection.value;
+    if (selection is! SingleCursorSelectionState) return;
+
+    final cursor = selection.cursorPos;
+    if (cursor is! CursorPositionInTextBlock) return;
+
+    _actionService.handleAction(ReplaceText(
+      documentId: documentId,
+      blockId: cursor.blockId,
+      flatStart: delta.replacedRange.start,
+      flatEnd: delta.replacedRange.end,
+      replacementText: delta.replacementText,
+    ));
+
+    getImeState(documentId).value = document.computeTextEditingValue();
+  }
+
+  void _handleNonTextUpdate(
+    String documentId,
+    DocumentModel document,
+    TextEditingDeltaNonTextUpdate delta,
+  ) {
+    // Only handle collapsed selections (single cursor).
+    // Range selections from IME are ignored for now.
+    if (!delta.selection.isCollapsed) return;
+
+    final selection = document.selection.value;
+    if (selection is! SingleCursorSelectionState) return;
+
+    final cursor = selection.cursorPos;
+    if (cursor is! CursorPositionInTextBlock) return;
+
+    _actionService.handleAction(SetCursorPosition(
+      documentId: documentId,
+      blockId: cursor.blockId,
+      flatOffset: delta.selection.baseOffset,
+    ));
+
+    getImeState(documentId).value = document.computeTextEditingValue();
   }
 
   // ---------------------------------------------------------------------------

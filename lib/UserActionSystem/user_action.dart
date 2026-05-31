@@ -96,6 +96,43 @@ class DeleteTextForward extends UserAction {
   });
 }
 
+/// IME autocomplete/suggestion replaced a range of characters in a text block.
+///
+/// Characters in the half-open range [flatStart]..[flatEnd) are removed and
+/// [replacementText] is inserted at [flatStart]. The replacement inherits the
+/// format of the first affected segment.
+@immutable
+class ReplaceText extends UserAction {
+  final String documentId;
+  final String blockId;
+  final int flatStart;
+  final int flatEnd;
+  final String replacementText;
+
+  const ReplaceText({
+    required this.documentId,
+    required this.blockId,
+    required this.flatStart,
+    required this.flatEnd,
+    required this.replacementText,
+  });
+}
+
+/// Platform IME moved the cursor to a specific flat offset (e.g. after
+/// accepting an autocomplete suggestion that did not change the text).
+@immutable
+class SetCursorPosition extends UserAction {
+  final String documentId;
+  final String blockId;
+  final int flatOffset;
+
+  const SetCursorPosition({
+    required this.documentId,
+    required this.blockId,
+    required this.flatOffset,
+  });
+}
+
 /// Move cursor within a text block.
 @immutable
 class MoveCursor extends UserAction {

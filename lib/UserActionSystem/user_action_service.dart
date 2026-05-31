@@ -31,6 +31,10 @@ class UserActionService {
         _handleDeleteTextForward(action);
       case MoveCursor():
         _handleMoveCursor(action);
+      case ReplaceText():
+        _handleReplaceText(action);
+      case SetCursorPosition():
+        _handleSetCursorPosition(action);
     }
   }
 
@@ -73,6 +77,18 @@ class UserActionService {
         segmentIndex: action.segmentIndex,
         offset: action.offset,
       ),
+    );
+  }
+
+  void _handleSetCursorPosition(SetCursorPosition action) {
+    final document = _documentsManager.getDocument(action.documentId);
+    if (document == null) return;
+
+    final block = document.getBlockById(action.blockId);
+    if (block is! TextBlock) return;
+
+    document.selection.value = SingleCursorSelectionState(
+      cursorPos: block.cursorPosFromFlatOffset(action.flatOffset),
     );
   }
 
@@ -218,6 +234,47 @@ class UserActionService {
         segmentIndex: 0,
         offset: 0,
       ),
+    );
+  }
+
+  void _handleReplaceText(ReplaceText action) {
+    final document = _documentsManager.getDocument(action.documentId);
+    if (document == null) return;
+
+    final block = document.getBlockById(action.blockId);
+    if (block is! TextBlock) return;
+
+    final segs = block.segments.value;
+
+    // 1. Split at flatStart → (before, fromStart).
+    final (before, fromStart) = splitSegmentsAt(segs, action.flatStart);
+
+    // 2. Split fromStart at the replaced range length → (replaced, after).
+    final rangeLen = action.flatEnd - action.flatStart;
+    final (replaced, after) = splitSegmentsAt(fromStart, rangeLen);
+
+    // 3. Build replacement segment inheriting format from the first segment
+    //    of the replaced range.
+    final newSegs = <TextSegment>[
+      ...before,
+      if (action.replacementText.isNotEmpty)
+        replaced.isNotEmpty
+            ? replaced.first.cloneWithText(action.replacementText)
+            : TextSegment(text: action.replacementText),
+      ...after,
+    ];
+
+    // Remove empty segments but keep at least one.
+    final filtered = newSegs.where((s) => s.text.isNotEmpty).toList();
+    final normalized =
+        filtered.isEmpty ? [const TextSegment(text: '')] : filtered;
+
+    block.segments.replaceRange(0, block.segments.length, normalized);
+
+    // 4. Place cursor at end of replacement text.
+    final newFlatOffset = action.flatStart + action.replacementText.length;
+    document.selection.value = SingleCursorSelectionState(
+      cursorPos: block.cursorPosFromFlatOffset(newFlatOffset),
     );
   }
 

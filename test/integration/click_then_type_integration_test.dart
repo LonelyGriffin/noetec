@@ -327,6 +327,260 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // IME autocomplete / suggestion after click mid-word
+  // ---------------------------------------------------------------------------
+
+  group('IME autocomplete / suggestion after click mid-word', () {
+    // -------------------------------------------------------------------------
+    // Scenario A — Composing region replacement.
+    //
+    // Sequence:
+    //   1. Document has "Hello World".
+    //   2. User clicks mid-word at flat offset 8 (inside "Wor|ld", segment 0).
+    //   3. IME presents a suggestion for the whole word under the cursor.
+    //   4. User picks "Worldwide" from the suggestion bar.
+    //   5. Platform sends TextEditingDeltaReplacement replacing "World" [6, 11)
+    //      with "Worldwide".
+    //   6. Expected text: "Hello Worldwide", cursor at flat offset 15.
+    // -------------------------------------------------------------------------
+    test(
+      'composing region: applying suggestion replaces the whole word correctly',
+      () {
+        final (doc, blockId) = createSingleSegmentDocument(
+          text: 'Hello World',
+        );
+        env.documentsManager.openDocument(doc);
+
+        // Click at flat offset 8 (inside "World", position "Wor|ld").
+        env.inputService.handleTextClick(doc.id, blockId, 0, 8);
+
+        final imeAfterClick = env.inputService.getImeState(doc.id).value;
+        expect(
+          imeAfterClick.selection.baseOffset,
+          8,
+          reason: 'IME cursor should be at 8 after mid-word click',
+        );
+
+        // Platform replaces "World" [6, 11) with suggestion "Worldwide".
+        final replacementDelta = TextEditingDeltaReplacement(
+          oldText: imeAfterClick.text, // "Hello World"
+          replacedRange: const TextRange(start: 6, end: 11), // "World"
+          replacementText: 'Worldwide',
+          selection: const TextSelection.collapsed(offset: 15),
+          composing: TextRange.empty,
+        );
+
+        env.inputService.handleTextDeltas(doc.id, [replacementDelta]);
+
+        // Text must be correct.
+        expect(
+          blockText(doc, blockId),
+          'Hello Worldwide',
+          reason:
+              'Suggestion "Worldwide" should replace "World" in the document',
+        );
+
+        // Document cursor must be at flat offset 15.
+        final cursor = (doc.selection.value as SingleCursorSelectionState)
+            .cursorPos as CursorPositionInTextBlock;
+        final block = doc.getBlockById(blockId) as TextBlock;
+        final flat =
+            block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+        expect(
+          flat,
+          15,
+          reason:
+              'Document cursor must sit at end of replaced word (offset 15)',
+        );
+
+        // IME state must be in sync.
+        final imeAfterSuggestion =
+            env.inputService.getImeState(doc.id).value;
+        expect(imeAfterSuggestion.text, 'Hello Worldwide');
+        expect(imeAfterSuggestion.selection.baseOffset, 15);
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // Scenario B — Inline suggestion (word completion).
+    //
+    // Sequence:
+    //   1. Document has "Hello Wor" (user typed the beginning of a word).
+    //   2. User clicks mid-word at flat offset 7 (inside "W|or", segment 0).
+    //   3. IME suggests completing "Wor" → "World".
+    //   4. User accepts: platform sends TextEditingDeltaReplacement replacing
+    //      "Wor" [6, 9) with "World".
+    //   5. Expected text: "Hello World", cursor at flat offset 11.
+    // -------------------------------------------------------------------------
+    test(
+      'inline suggestion: word completed from mid-word click position',
+      () {
+        final (doc, blockId) = createSingleSegmentDocument(
+          text: 'Hello Wor',
+        );
+        env.documentsManager.openDocument(doc);
+
+        // Click at flat offset 7 ("W|or").
+        env.inputService.handleTextClick(doc.id, blockId, 0, 7);
+
+        final imeAfterClick = env.inputService.getImeState(doc.id).value;
+        expect(imeAfterClick.selection.baseOffset, 7);
+
+        // Platform completes "Wor" [6, 9) → "World".
+        final replacementDelta = TextEditingDeltaReplacement(
+          oldText: imeAfterClick.text, // "Hello Wor"
+          replacedRange: const TextRange(start: 6, end: 9), // "Wor"
+          replacementText: 'World',
+          selection: const TextSelection.collapsed(offset: 11),
+          composing: TextRange.empty,
+        );
+
+        env.inputService.handleTextDeltas(doc.id, [replacementDelta]);
+
+        expect(
+          blockText(doc, blockId),
+          'Hello World',
+          reason: 'Inline suggestion "World" should complete "Wor"',
+        );
+
+        // Cursor must be at end of completed word.
+        final cursor = (doc.selection.value as SingleCursorSelectionState)
+            .cursorPos as CursorPositionInTextBlock;
+        final block = doc.getBlockById(blockId) as TextBlock;
+        final flat =
+            block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+        expect(flat, 11,
+            reason: 'Cursor must be at offset 11 (end of "World")');
+
+        final imeAfterSuggestion =
+            env.inputService.getImeState(doc.id).value;
+        expect(imeAfterSuggestion.text, 'Hello World');
+        expect(imeAfterSuggestion.selection.baseOffset, 11);
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // Cursor placement: replacement must move cursor to end of the new text,
+    // not leave it at the original click offset.
+    // -------------------------------------------------------------------------
+    test(
+      'cursor is placed at end of replacement text, not at original click offset',
+      () {
+        // "abcdef" — click at offset 2 (mid-word "ab|cdef").
+        // IME replaces the whole word "abcdef" [0, 6) with "abcdefgh".
+        final (doc, blockId) = createSingleSegmentDocument(text: 'abcdef');
+        env.documentsManager.openDocument(doc);
+
+        env.inputService.handleTextClick(doc.id, blockId, 0, 2);
+
+        final imeAfterClick = env.inputService.getImeState(doc.id).value;
+        expect(imeAfterClick.selection.baseOffset, 2);
+
+        final replacementDelta = TextEditingDeltaReplacement(
+          oldText: imeAfterClick.text, // "abcdef"
+          replacedRange: const TextRange(start: 0, end: 6), // whole word
+          replacementText: 'abcdefgh',
+          selection: const TextSelection.collapsed(offset: 8),
+          composing: TextRange.empty,
+        );
+
+        env.inputService.handleTextDeltas(doc.id, [replacementDelta]);
+
+        expect(blockText(doc, blockId), 'abcdefgh');
+
+        final cursor = (doc.selection.value as SingleCursorSelectionState)
+            .cursorPos as CursorPositionInTextBlock;
+        final block = doc.getBlockById(blockId) as TextBlock;
+        final flat =
+            block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+        expect(
+          flat,
+          8,
+          reason:
+              'Cursor must be at 8 (end of replacement), '
+              'not at original click offset 2',
+        );
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // Multi-segment: suggestion applied inside a bold segment preserves
+    // the segment type (FormattedSegment) and adjacent segments are untouched.
+    // -------------------------------------------------------------------------
+    test(
+      'multi-segment: suggestion in bold segment preserves formatting '
+      'and does not affect adjacent segments',
+      () {
+        // Segments: "Hello " (plain, 6) | "bold" (bold, 4) | " world" (plain, 6)
+        // Total: "Hello bold world" (16 chars)
+        //
+        // Click at segment 1, offset 2 ("bo|ld" → flat offset 8).
+        // IME replaces "bold" [6, 10) with "boldface".
+        final (doc, blockId) = createMultiSegmentDocument();
+        env.documentsManager.openDocument(doc);
+
+        env.inputService.handleTextClick(doc.id, blockId, 1, 2);
+
+        final imeAfterClick = env.inputService.getImeState(doc.id).value;
+        expect(
+          imeAfterClick.text,
+          'Hello bold world',
+          reason: 'IME text must equal the full block text',
+        );
+        expect(imeAfterClick.selection.baseOffset, 8);
+
+        // IME replaces "bold" [6, 10) with "boldface".
+        final replacementDelta = TextEditingDeltaReplacement(
+          oldText: imeAfterClick.text, // "Hello bold world"
+          replacedRange: const TextRange(start: 6, end: 10), // "bold"
+          replacementText: 'boldface',
+          selection: const TextSelection.collapsed(offset: 14),
+          composing: TextRange.empty,
+        );
+
+        env.inputService.handleTextDeltas(doc.id, [replacementDelta]);
+
+        // Full text correct.
+        expect(
+          blockText(doc, blockId),
+          'Hello boldface world',
+          reason: 'Suggestion "boldface" should replace "bold" in segment 1',
+        );
+
+        // Adjacent segments unchanged.
+        final segTexts = blockSegmentTexts(doc, blockId);
+        expect(segTexts[0], 'Hello ', reason: 'First plain segment unchanged');
+        expect(segTexts[1], 'boldface',
+            reason: 'Bold segment has replacement text');
+        expect(segTexts[2], ' world', reason: 'Last plain segment unchanged');
+
+        // Bold format preserved.
+        final block = doc.getBlockById(blockId) as TextBlock;
+        final seg = block.segments.value[1];
+        expect(seg, isA<FormattedSegment>());
+        expect(
+          (seg as FormattedSegment).format,
+          TextFormat.bold,
+          reason: 'Bold format must be preserved after suggestion',
+        );
+
+        // Cursor at flat offset 14 (end of "boldface" = 6 + 8).
+        final cursor = (doc.selection.value as SingleCursorSelectionState)
+            .cursorPos as CursorPositionInTextBlock;
+        final flat =
+            block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+        expect(flat, 14,
+            reason: 'Cursor must be at 14 (end of "boldface")');
+
+        // IME state in sync.
+        final imeAfter = env.inputService.getImeState(doc.id).value;
+        expect(imeAfter.text, 'Hello boldface world');
+        expect(imeAfter.selection.baseOffset, 14);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // IME state consistency
   // ---------------------------------------------------------------------------
   group('IME state consistency', () {
@@ -387,6 +641,206 @@ void main() {
               reason:
                   'Document cursor flat offset should be $clickOffset after click');
         }
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // IME NonTextUpdate — platform moves cursor without changing text
+  // ---------------------------------------------------------------------------
+  group('IME NonTextUpdate / platform cursor move', () {
+    test(
+      'collapsed NonTextUpdate moves document cursor to new position',
+      () {
+        // "Hello World" — click at offset 3 ("Hel|lo World"), then
+        // platform sends NonTextUpdate moving cursor to offset 8.
+        final (doc, blockId) = createSingleSegmentDocument(
+          text: 'Hello World',
+        );
+        env.documentsManager.openDocument(doc);
+
+        env.inputService.handleTextClick(doc.id, blockId, 0, 3);
+
+        // Verify click worked
+        final imeAfterClick = env.inputService.getImeState(doc.id).value;
+        expect(imeAfterClick.selection.baseOffset, 3);
+
+        // Platform sends NonTextUpdate: cursor moves to 8
+        env.inputService.handleTextDeltas(doc.id, [
+          TextEditingDeltaNonTextUpdate(
+            oldText: imeAfterClick.text,
+            selection: const TextSelection.collapsed(offset: 8),
+            composing: TextRange.empty,
+          ),
+        ]);
+
+        // Document cursor must be at 8
+        final cursor = (doc.selection.value as SingleCursorSelectionState)
+            .cursorPos as CursorPositionInTextBlock;
+        final block = doc.getBlockById(blockId) as TextBlock;
+        final flat =
+            block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+        expect(flat, 8,
+            reason: 'Document cursor must move to 8 after NonTextUpdate');
+
+        // IME state in sync
+        final imeAfter = env.inputService.getImeState(doc.id).value;
+        expect(imeAfter.text, 'Hello World');
+        expect(imeAfter.selection.baseOffset, 8);
+      },
+    );
+
+    test(
+      'range NonTextUpdate is ignored — cursor stays at click position',
+      () {
+        final (doc, blockId) = createSingleSegmentDocument(
+          text: 'Hello World',
+        );
+        env.documentsManager.openDocument(doc);
+
+        env.inputService.handleTextClick(doc.id, blockId, 0, 3);
+
+        final imeAfterClick = env.inputService.getImeState(doc.id).value;
+
+        // Platform sends NonTextUpdate with range selection (not collapsed)
+        env.inputService.handleTextDeltas(doc.id, [
+          TextEditingDeltaNonTextUpdate(
+            oldText: imeAfterClick.text,
+            selection: const TextSelection(baseOffset: 6, extentOffset: 11),
+            composing: TextRange.empty,
+          ),
+        ]);
+
+        // Document cursor must stay at 3 — we ignore range selections
+        final cursor = (doc.selection.value as SingleCursorSelectionState)
+            .cursorPos as CursorPositionInTextBlock;
+        final block = doc.getBlockById(blockId) as TextBlock;
+        final flat =
+            block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+        expect(flat, 3,
+            reason: 'Range NonTextUpdate must be ignored — cursor stays at 3');
+      },
+    );
+
+    test(
+      'real Android IME autocomplete sequence: click mid-word, then batch of '
+      'NonTextUpdate deltas moves cursor to end of word',
+      () {
+        // Reproduces the exact delta sequence observed on a real Android device:
+        //   Packet 1 (after tap): [NonTextUpdate(collapsed 22), NonTextUpdate(collapsed 22, composing [20,25))]
+        //   Packet 2 (accept suggestion): [NonTextUpdate(range 25→22), NonTextUpdate(collapsed 25), NonTextUpdate(collapsed 25)]
+        //
+        // We use "Hello World" for simplicity:
+        //   "World" occupies flat offsets [6, 11).
+        //   Click at offset 8 ("Wor|ld").
+        //   Autocomplete sends batch moving cursor to 11 (end of "World").
+        final (doc, blockId) = createSingleSegmentDocument(
+          text: 'Hello World',
+        );
+        env.documentsManager.openDocument(doc);
+
+        env.inputService.handleTextClick(doc.id, blockId, 0, 8);
+        expect(
+          env.inputService.getImeState(doc.id).value.selection.baseOffset,
+          8,
+        );
+
+        // Packet 1: tap registers in IME — composing region set around "World"
+        final imeState = env.inputService.getImeState(doc.id).value;
+        env.inputService.handleTextDeltas(doc.id, [
+          TextEditingDeltaNonTextUpdate(
+            oldText: imeState.text,
+            selection: const TextSelection.collapsed(offset: 8),
+            composing: TextRange.empty,
+          ),
+          TextEditingDeltaNonTextUpdate(
+            oldText: imeState.text,
+            selection: const TextSelection.collapsed(offset: 8),
+            composing: const TextRange(start: 6, end: 11),
+          ),
+        ]);
+
+        // Cursor should still be at 8 after packet 1
+        var cursor = (doc.selection.value as SingleCursorSelectionState)
+            .cursorPos as CursorPositionInTextBlock;
+        var block = doc.getBlockById(blockId) as TextBlock;
+        expect(block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset),
+            8);
+
+        // Packet 2: user accepts suggestion "World" → cursor to end of word
+        final imeState2 = env.inputService.getImeState(doc.id).value;
+        env.inputService.handleTextDeltas(doc.id, [
+          // Range selection (reversed) — should be ignored
+          TextEditingDeltaNonTextUpdate(
+            oldText: imeState2.text,
+            selection: const TextSelection(baseOffset: 11, extentOffset: 8),
+            composing: TextRange.empty,
+          ),
+          // Collapsed at end of word
+          TextEditingDeltaNonTextUpdate(
+            oldText: imeState2.text,
+            selection: const TextSelection.collapsed(offset: 11),
+            composing: TextRange.empty,
+          ),
+          // Duplicate collapsed (Android sends this)
+          TextEditingDeltaNonTextUpdate(
+            oldText: imeState2.text,
+            selection: const TextSelection.collapsed(offset: 11),
+            composing: TextRange.empty,
+          ),
+        ]);
+
+        // Document cursor must be at 11 (end of "World")
+        cursor = (doc.selection.value as SingleCursorSelectionState)
+            .cursorPos as CursorPositionInTextBlock;
+        block = doc.getBlockById(blockId) as TextBlock;
+        final flat =
+            block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+        expect(flat, 11,
+            reason:
+                'After Android IME autocomplete batch, cursor must be at 11');
+
+        // Text unchanged
+        expect(blockText(doc, blockId), 'Hello World');
+
+        // IME state in sync
+        final imeAfter = env.inputService.getImeState(doc.id).value;
+        expect(imeAfter.text, 'Hello World');
+        expect(imeAfter.selection.baseOffset, 11);
+      },
+    );
+
+    test(
+      'typing after NonTextUpdate cursor move inserts text at new position',
+      () {
+        final (doc, blockId) = createSingleSegmentDocument(
+          text: 'Hello World',
+        );
+        env.documentsManager.openDocument(doc);
+
+        env.inputService.handleTextClick(doc.id, blockId, 0, 3);
+
+        // Platform moves cursor to 11 (end of "World")
+        final imeState = env.inputService.getImeState(doc.id).value;
+        env.inputService.handleTextDeltas(doc.id, [
+          TextEditingDeltaNonTextUpdate(
+            oldText: imeState.text,
+            selection: const TextSelection.collapsed(offset: 11),
+            composing: TextRange.empty,
+          ),
+        ]);
+
+        // Now type "!" — should go after "World", not after "Hel"
+        final imeAfterMove = env.inputService.getImeState(doc.id).value;
+        env.inputService.handleTextDeltas(doc.id, [
+          _makeInsertionDelta(
+            platformImeState: imeAfterMove,
+            textInserted: '!',
+          ),
+        ]);
+
+        expect(blockText(doc, blockId), 'Hello World!',
+            reason: 'Text typed after NonTextUpdate must appear at offset 11');
       },
     );
   });
