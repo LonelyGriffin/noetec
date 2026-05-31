@@ -1,3 +1,8 @@
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
@@ -39,28 +44,32 @@ class TextBlockWidget extends LeafRenderObjectWidget {
 }
 
 class RenderTextBlockContent extends RenderBox {
-  // Custom fields
   TextBlock _block;
   TextBlock get block => _block;
-  set block(TextBlock value) {
-    if (_block == value) return;
-    _block.segments.removeListener(_onSegmentsChanged);
-    _block = value;
-    _block.segments.addListener(_onSegmentsChanged);
-    _textLayoutDirty = true;
-    markNeedsLayout();
-  }
-
-  void Function(String blockId, int segmentIndex, int offset)? onTextClick;
-
   BlockSelectionInfo _selectionInfo;
   BlockSelectionInfo get selectionInfo => _selectionInfo;
+
   set selectionInfo(BlockSelectionInfo value) {
     if (_selectionInfo == value) return;
     _selectionInfo = value;
     _updateCursorBlink();
     markNeedsPaint();
   }
+
+  set block(TextBlock value) {
+    final sameRef = identical(_block, value);
+    if (sameRef) {
+      _textLayoutDirty = true;
+      markNeedsLayout();
+      return;
+    }
+    _block.segments.removeListener(_onSegmentsChanged);
+    _block = value;
+    _block.segments.addListener(_onSegmentsChanged);
+    _textLayoutDirty = true;
+    markNeedsLayout();
+  }
+  void Function(String blockId, int segmentIndex, int offset)? onTextClick;
 
   // Cursor blink state
   Timer? _blinkTimer;
@@ -81,8 +90,7 @@ class RenderTextBlockContent extends RenderBox {
     required TextBlock block,
     required BlockSelectionInfo selectionInfo,
     this.onTextClick,
-  }) : _block = block,
-       _selectionInfo = selectionInfo {
+  }) : _selectionInfo = selectionInfo, _block = block {
     _block.segments.addListener(_onSegmentsChanged);
     _updateCursorBlink();
   }
@@ -259,29 +267,45 @@ class RenderTextBlockContent extends RenderBox {
     _textPainter!.paint(context.canvas, paintOffset);
 
     // Draw selection/cursor overlay
-    switch (selectionInfo) {
+    switch (_selectionInfo) {
       case BlockNotSelected():
         // No selection, nothing to draw
         break;
       case BlockFullySelected():
         _paintFullSelection(context.canvas, paintOffset);
-      case BlockWithCursor(:final segmentIndex, :final offset):
+      case BlockWithCursor(:final cursorPos):
         if (_cursorVisible) {
-          _paintCursor(context.canvas, paintOffset, segmentIndex, offset);
+          _paintCursor(context.canvas, paintOffset, cursorPos.segmentIndex, cursorPos.offset);
         }
       case BlockWithRange(
-          :final fromSegmentIndex,
-          :final fromOffset,
-          :final toSegmentIndex,
-          :final toOffset,
+          :final fromCursorPos,
+          :final toCursorPos
         ):
         _paintRangeSelection(
           context.canvas,
           paintOffset,
-          fromSegmentIndex,
-          fromOffset,
-          toSegmentIndex,
-          toOffset,
+          fromCursorPos.segmentIndex,
+          fromCursorPos.offset,
+          toCursorPos.segmentIndex,
+          toCursorPos.offset,
+        );
+      case BlockWithToCursor(:final cursorPos):
+        _paintRangeSelection(
+          context.canvas,
+          paintOffset,
+          0,
+          0,
+          cursorPos.segmentIndex,
+          cursorPos.offset,
+        );
+      case BlockWithFromCursor(:final cursorPos):
+        _paintRangeSelection(
+          context.canvas,
+          paintOffset,
+          cursorPos.segmentIndex,
+          cursorPos.offset,
+          _block.segments.length - 1,
+          _block.segments[_block.segments.length - 1].text.length - 1,
         );
     }
   }
@@ -300,8 +324,7 @@ class RenderTextBlockContent extends RenderBox {
     final caretRect = Rect.fromLTWH(0, 0, size.width, size.height);
     final caretOffset = _textPainter!.getOffsetForCaret(textPosition, caretRect);
     final lineHeight =
-        _textPainter!.getFullHeightForCaret(textPosition, caretRect) ??
-        _textPainter!.preferredLineHeight;
+        _textPainter!.getFullHeightForCaret(textPosition, caretRect);
 
     final cursorRect = Rect.fromLTWH(
       blockOffset.dx + caretOffset.dx - _cursorWidth / 2,

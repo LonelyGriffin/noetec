@@ -1,13 +1,16 @@
 
-import 'package:flutter/foundation.dart';
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
 import 'package:flutter/widgets.dart';
 import 'package:listen_it/listen_it.dart';
 import 'package:noetec/DocumentSystem/document_block.dart';
 import 'package:noetec/DocumentSystem/document_model.dart';
 import 'package:noetec/DocumentSystem/opened_documents_manager.dart';
-import 'package:noetec/LayoutSystem/opened_document_layouts_system.dart';
 import 'package:noetec/UserActionSystem/user_action_service.dart';
-import 'package:noetec/UserInputSystem/user_raw_text_input_service.dart';
+import 'package:noetec/UserInputSystem/user_input_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -18,11 +21,10 @@ void configureDI() {
 
   final openedDocumentsManager = OpenedDocumentsManager();
   final userActionService = UserActionService(openedDocumentsManager);
-  final userRawTextInputService = UserRawTextInputService(
+  final userInputService = UserInputService(
     documentsManager: openedDocumentsManager,
     actionService: userActionService,
   );
-  final openedDocumentLayoutsSystem = OpenedDocumentLayoutsSystem();
 
   final doc1 = DocumentModel(id: 'doc1');
   for (var i = 0; i < 10000; i++) {
@@ -47,9 +49,6 @@ void configureDI() {
   openedDocumentsManager.openDocument(doc1);
 
   di.registerSingleton<UserActionService>(userActionService);
-  di.registerSingleton<UserRawTextInputService>(userRawTextInputService);
+  di.registerSingleton<UserInputService>(userInputService);
   di.registerSingleton<OpenedDocumentsManager>(openedDocumentsManager);
-  di.registerSingleton<OpenedDocumentLayoutsSystem>(
-    openedDocumentLayoutsSystem,
-  );
 }

@@ -5,9 +5,7 @@
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:noetec/DocumentSystem/document_model.dart';
-import 'package:noetec/DocumentSystem/opened_documents_manager.dart';
-import 'package:noetec/UserInputSystem/user_raw_text_input_service.dart';
+import 'package:noetec/UserInputSystem/user_input_service.dart';
 import 'package:watch_it/watch_it.dart';
 
 class UserRawTextInputWidget extends WatchingStatefulWidget {
@@ -22,8 +20,6 @@ class UserRawTextInputWidget extends WatchingStatefulWidget {
   final String id;
 
   /// The child widget.
-  ///
-  /// {@macro flutter.widgets.ProxyWidget.child}
   final Widget child;
 
   /// Optional external focus node.
@@ -35,131 +31,61 @@ class UserRawTextInputWidget extends WatchingStatefulWidget {
   State<UserRawTextInputWidget> createState() => _UserRawTextInputWidgetState();
 }
 
-class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget>
-    implements TextInputClient {
+class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget> with DeltaTextInputClient {
   late final FocusNode _focusNode;
   TextInputConnection? _textInputConnection;
 
-  UserRawTextInputService get _inputService => di<UserRawTextInputService>();
-
-  ValueNotifier<TextEditingValue> get _currentValue =>
-      di<UserRawTextInputService>().getInputValue(widget.id)!;
-
-  DocumentModel? get _document =>
-      di<OpenedDocumentsManager>().getDocument(widget.id);
+  UserInputService get _inputService => di<UserInputService>();
 
   @override
   void initState() {
     super.initState();
-    // Ensure the buffer exists — DocumentEditorWidget registers it first, but
-    // guard here in case the widget is used standalone.
-    _inputService.registerInputIfNotExist(widget.id);
-
     _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChange);
-    _currentValue.addListener(_onCurrentValueChanged);
-
-    // Subscribe to selection changes so the IME buffer stays in sync when the
-    // user clicks a different block (or the caret moves programmatically).
-    _document?.selection.addListener(_onDocumentSelectionChanged);
+    _inputService.onPlatformImeUpdateNeeded = _syncPlatformIme;
   }
 
   @override
   void dispose() {
+    // Clear the callback only if we are still the registered owner.
+    if (_inputService.onPlatformImeUpdateNeeded == _syncPlatformIme) {
+      _inputService.onPlatformImeUpdateNeeded = null;
+    }
     _closeInputConnectionIfNeeded();
     _focusNode.removeListener(_onFocusChange);
-    _currentValue.removeListener(_onCurrentValueChanged);
-    _document?.selection.removeListener(_onDocumentSelectionChanged);
     if (widget.focusNode == null) _focusNode.dispose();
     super.dispose();
   }
 
-  // ---------------------------------------------------------------------------
-  // Focus
-  // ---------------------------------------------------------------------------
-
-  void _onFocusChange() {
-    if (_focusNode.hasFocus) {
-      // Sync buffer from the document before opening the IME connection so the
-      // IME starts with the correct text / cursor for the active block.
-      _inputService.syncBufferFromDocument(widget.id);
-      _openInputConnection();
-    } else {
-      _closeInputConnectionIfNeeded();
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Selection changes (e.g. user clicked a different block)
-  // ---------------------------------------------------------------------------
-
-  void _onDocumentSelectionChanged() {
-    // Re-sync the buffer whenever the active block changes so the IME always
-    // reflects the text of the currently focused block.
-    _inputService.syncBufferFromDocument(widget.id);
-  }
-
-  // ---------------------------------------------------------------------------
-  // IME buffer → IME connection
-  // ---------------------------------------------------------------------------
-
-  void _onCurrentValueChanged() {
-    // Do not echo back to the IME when the value change originated from the
-    // IME itself — that would reset autocomplete suggestions.
-    if (_inputService.isApplyingIMEUpdate) return;
-    if (_textInputConnection != null && _textInputConnection!.attached) {
-      _textInputConnection!.setEditingState(_currentValue.value);
-    }
-  }
-
-  void _openInputConnection() {
-    if (_textInputConnection == null || !_textInputConnection!.attached) {
-      final view = View.of(context);
-      _textInputConnection = TextInput.attach(
-        this,
-        TextInputConfiguration(
-          inputType: TextInputType.multiline,
-          enableSuggestions: true,
-          autocorrect: true,
-          inputAction: TextInputAction.newline,
-          viewId: view.viewId,
-        ),
-      );
-      _textInputConnection!.setEditingState(_currentValue.value);
-      _textInputConnection!.show();
-    }
-  }
-
-  void _closeInputConnectionIfNeeded() {
-    if (_textInputConnection != null && _textInputConnection!.attached) {
-      _textInputConnection!.close();
-      _textInputConnection = null;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // TextInputClient
-  // ---------------------------------------------------------------------------
-
   @override
-  TextEditingValue get currentTextEditingValue => _currentValue.value;
+  TextEditingValue get currentTextEditingValue =>
+      _inputService.getImeState(widget.id).value;
 
   @override
   AutofillScope? get currentAutofillScope => null;
 
   @override
   void updateEditingValue(TextEditingValue value) {
-    _inputService.handleRawTextInputValueUpdate(widget.id, value);
+    assert(false, 'updateEditingValue should not be called when enableDeltaModel is true');
+  }
+
+  @override
+  bool onFocusReceived() {
+    return false;
+  }
+
+  @override
+  void updateEditingValueWithDeltas(List<TextEditingDelta> textEditingDeltas) {
+    _inputService.handleTextDeltas(widget.id, textEditingDeltas);
   }
 
   @override
   void performAction(TextInputAction action) {
-    // TextInputAction.newline is mapped to Enter — handled by hardware key
-    // event. On mobile the IME may fire this instead.
+    // TextInputAction.newline is mapped to Enter -- on mobile the IME may
+    // fire this instead of a hardware key event.
     if (action == TextInputAction.newline) {
-      _inputService.handleRawTextInputKeyEvent(
+      _inputService.handleKeyEvent(
         widget.id,
-        // Synthesise a logical Enter key-down event.
         KeyDownEvent(
           logicalKey: LogicalKeyboardKey.enter,
           physicalKey: PhysicalKeyboardKey.enter,
@@ -204,18 +130,6 @@ class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget>
     TextInputControl? newControl,
   ) {}
 
-  // ---------------------------------------------------------------------------
-  // Hardware keyboard
-  // ---------------------------------------------------------------------------
-
-  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    return _inputService.handleRawTextInputKeyEvent(widget.id, event);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Build
-  // ---------------------------------------------------------------------------
-
   @override
   Widget build(BuildContext context) {
     return Focus(
@@ -223,5 +137,63 @@ class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget>
       onKeyEvent: _handleKeyEvent,
       child: widget.child,
     );
+  }
+
+  /// Pushes the current in-memory IME state to the platform text input
+  /// connection. Called by [UserInputService] after non-IME events (clicks,
+  /// keyboard navigation) that change the cursor position.
+  void _syncPlatformIme() {
+    if (_textInputConnection != null && _textInputConnection!.attached) {
+      _textInputConnection!.setEditingState(
+        _inputService.getImeState(widget.id).value,
+      );
+    }
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus) {
+      _openInputConnection();
+    } else {
+      _closeInputConnectionIfNeeded();
+    }
+  }
+
+  void _openInputConnection() {
+    if (_textInputConnection == null || !_textInputConnection!.attached) {
+      final view = View.of(context);
+      _textInputConnection = TextInput.attach(
+        this,
+        TextInputConfiguration(
+          inputType: TextInputType.multiline,
+          enableSuggestions: true,
+          autocorrect: true,
+          inputAction: TextInputAction.newline,
+          enableDeltaModel: true,
+          viewId: view.viewId,
+        ),
+      );
+      final value = _inputService.getImeState(widget.id).value;
+      _textInputConnection!.setEditingState(value);
+      _textInputConnection!.show();
+    }
+  }
+
+  void _closeInputConnectionIfNeeded() {
+    if (_textInputConnection != null && _textInputConnection!.attached) {
+      _textInputConnection!.close();
+      _textInputConnection = null;
+    }
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      _inputService.handleKeyEvent(widget.id, event);
+      return KeyEventResult.handled;
+    }
+    if (event is KeyUpEvent) {
+      _inputService.handleKeyUp(event);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 }

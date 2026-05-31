@@ -1,3 +1,8 @@
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
 import 'package:flutter/material.dart';
 import 'package:noetec/DocumentSystem/document_block.dart';
 import 'package:noetec/DocumentSystem/document_model.dart';
@@ -5,8 +10,7 @@ import 'package:noetec/DocumentSystem/opened_documents_manager.dart';
 import 'package:noetec/DocumentSystem/selection_state.dart';
 import 'package:noetec/DocumentView/block_selection_info.dart';
 import 'package:noetec/DocumentView/text_block_widget.dart';
-import 'package:noetec/UserActionSystem/user_action.dart';
-import 'package:noetec/UserActionSystem/user_action_service.dart';
+import 'package:noetec/UserInputSystem/user_input_service.dart';
 import 'package:watch_it/watch_it.dart';
 
 class DocumentEditorBlockWidget extends StatefulWidget {
@@ -25,43 +29,26 @@ class DocumentEditorBlockWidget extends StatefulWidget {
 }
 
 class _DocumentEditorBlockWidgetState extends State<DocumentEditorBlockWidget> {
-  late DocumentModel _model;
-  bool _isSelected = false;
+  DocumentModel get _model => di<OpenedDocumentsManager>().getDocument(widget.documentId)!;
+  late BlockSelectionInfo _blockSelectionInfo;
 
   @override
   void initState() {
     super.initState();
-    _model = di<OpenedDocumentsManager>().getDocument(widget.documentId)!;
-    _isSelected = _model.selectedBlockIds.value.contains(widget.block.id);
-    _model.selectedBlockIds.addListener(_onSelectedBlockIdsChanged);
+    _blockSelectionInfo = _computeBlockSelectionInfo(widget.block.id, _model.selection.value);
     _model.selection.addListener(_onSelectionChanged);
   }
 
-  /// Handles changes to the set of selected block IDs.
-  /// Triggers a rebuild only when this block's participation in the selection changes.
-  void _onSelectedBlockIdsChanged() {
-    final nowSelected =
-        _model.selectedBlockIds.value.contains(widget.block.id);
-    if (nowSelected != _isSelected) {
-      setState(() => _isSelected = nowSelected);
-    }
-  }
-
-  /// Handles changes to the raw selection state.
-  /// Triggers a rebuild only when this block is currently selected, so that the
-  /// cursor or range position within the block is updated (e.g. clicking a new
-  /// position inside the same block does not change selectedBlockIds at all).
   void _onSelectionChanged() {
-    final stillSelected =
-        _model.selectedBlockIds.value.contains(widget.block.id);
-    if (_isSelected && stillSelected) {
+    final newBlockSelectionInfo = _computeBlockSelectionInfo(widget.block.id, _model.selection.value);
+    if (newBlockSelectionInfo != _blockSelectionInfo) {
+      _blockSelectionInfo = newBlockSelectionInfo;
       setState(() {});
     }
   }
 
   @override
   void dispose() {
-    _model.selectedBlockIds.removeListener(_onSelectedBlockIdsChanged);
     _model.selection.removeListener(_onSelectionChanged);
     super.dispose();
   }
@@ -71,87 +58,69 @@ class _DocumentEditorBlockWidgetState extends State<DocumentEditorBlockWidget> {
     if (widget.block is! TextBlock) return const SizedBox.shrink();
 
     final textBlock = widget.block as TextBlock;
-    final selectionInfo =
-        _computeBlockSelectionInfo(textBlock.id, _model.selection.value);
-    debugPrint(
-      'Building block ${textBlock.id} with selectionInfo $selectionInfo',
-    );
+
     return TextBlockWidget(
       key: Key(textBlock.id),
       block: textBlock,
-      selectionInfo: selectionInfo,
+      selectionInfo: _blockSelectionInfo,
       onTextClick: (blockId, segmentIndex, offset) {
-        di<UserActionService>().handleAction(
-          ClickOnTextBlock(
-            documentId: widget.documentId,
-            blockId: blockId,
-            segmentIndex: segmentIndex,
-            offset: offset,
-          ),
+        di<UserInputService>().handleTextClick(
+          widget.documentId,
+          blockId,
+          segmentIndex,
+          offset,
         );
       },
     );
   }
 
   /// Computes what role this specific block plays in the current selection.
-  /// Returns:
-  /// - BlockNotSelected if not in selection
-  /// - BlockFullySelected if between two cursors (but doesn't contain either cursor)
-  /// - BlockWithCursor if contains exactly one cursor (collapsed or range edge)
-  /// - BlockWithRange if contains both cursors (range within single block)
   BlockSelectionInfo _computeBlockSelectionInfo(
     String blockId,
     SelectionState state,
   ) {
-    if (state is! TextSelectionState) {
+    if (state is NoSelectionState) {
       return BlockNotSelected();
     }
 
-    final fromId = state.from.blockId;
-    final toId = state.to.blockId;
-    final isCollapsed = state.isCollapsed;
+    if (state is SingleCursorSelectionState) {
+      final cursorPos = state.cursorPos;
 
-    // Collapsed selection (cursor only) in this block
-    if (isCollapsed && fromId == blockId) {
-      return BlockWithCursor(
-        segmentIndex: state.from.segmentIndex,
-        offset: state.from.offset,
-      );
+      if (cursorPos is! CursorPositionInTextBlock) {
+        return BlockNotSelected();
+      }
+
+      return cursorPos.blockId == blockId ? BlockWithCursor(cursorPos: cursorPos) : BlockNotSelected();
     }
 
-    // Range with both cursors in the same block
-    if (!isCollapsed && fromId == blockId && toId == blockId) {
-      return BlockWithRange(
-        fromSegmentIndex: state.from.segmentIndex,
-        fromOffset: state.from.offset,
-        toSegmentIndex: state.to.segmentIndex,
-        toOffset: state.to.offset,
-      );
+    if (state is RangeSelectionState) {
+      final fromCursorPos = state.from;
+      final toCursorPos = state.to;
+
+      if (
+        fromCursorPos is CursorPositionInTextBlock &&
+        toCursorPos is CursorPositionInTextBlock &&
+        fromCursorPos.blockId == toCursorPos.blockId &&
+        fromCursorPos.blockId == blockId
+      ) {
+        return BlockWithRange(fromCursorPos: fromCursorPos, toCursorPos: toCursorPos);
+      }
+
+      if (fromCursorPos is CursorPositionInTextBlock && fromCursorPos.blockId == blockId) {
+        return BlockWithFromCursor(cursorPos: fromCursorPos);
+      }
+
+      if (toCursorPos is CursorPositionInTextBlock && toCursorPos.blockId == blockId) {
+        return BlockWithToCursor(cursorPos: toCursorPos);
+      }
+
+      return BlockNotSelected();
     }
 
-    // Range with 'from' cursor in this block (and 'to' elsewhere)
-    if (!isCollapsed && fromId == blockId) {
-      return BlockWithCursor(
-        segmentIndex: state.from.segmentIndex,
-        offset: state.from.offset,
-      );
-    }
-
-    // Range with 'to' cursor in this block (and 'from' elsewhere)
-    if (!isCollapsed && toId == blockId) {
-      return BlockWithCursor(
-        segmentIndex: state.to.segmentIndex,
-        offset: state.to.offset,
-      );
-    }
-
-    // Block is in the range but doesn't contain either cursor
-    // (This is handled implicitly by DocumentModel.selectedBlockIds, but we return BlockFullySelected for rendering)
     if (_model.selectedBlockIds.value.contains(blockId)) {
       return BlockFullySelected();
     }
 
-    // Not in selection
     return BlockNotSelected();
   }
 }

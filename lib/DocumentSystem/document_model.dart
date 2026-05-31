@@ -1,4 +1,10 @@
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:listen_it/listen_it.dart';
 import 'package:noetec/DocumentSystem/document_block.dart';
 import 'package:noetec/DocumentSystem/selection_state.dart';
@@ -7,36 +13,23 @@ class DocumentModel {
   final String id;
   final Map<String, Block> _blocks = {};
   final ListNotifier<Block> rootBlocks = ListNotifier(data: []);
+  final ValueNotifier<SelectionState> selection = ValueNotifier(NoSelectionState());
 
-  final ValueNotifier<SelectionState> selection =
-      ValueNotifier(NoSelectionState());
+  DocumentModel({required this.id});
+
+  Block? getBlockById(String id) => _blocks[id];
 
   /// Derived notifier: set of block IDs that are currently selected.
   /// Recomputed whenever selection or rootBlocks structure changes.
   /// Triggers only when the set of selected IDs actually changes.
   late final ValueListenable<Set<String>> selectedBlockIds =
-      selection.combineLatest<List<Block>, Set<String>>(
-        rootBlocks,
-        (selState, _) => _computeSelectedIds(selState),
-      );
-
-  Block? getBlockById(String id) => _blocks[id];
-
-  /// Returns the index of [blockId] within [rootBlocks], or -1 if not found.
-  /// Only searches top-level blocks (not nested containers).
-  int getBlockIndex(String blockId) {
-    final blocks = rootBlocks.value;
-    for (var i = 0; i < blocks.length; i++) {
-      if (blocks[i].id == blockId) return i;
-    }
-    return -1;
-  }
-
-  DocumentModel({required this.id});
-
-  void addBlock(Block block, int siblingsIndex) {
+    selection.combineLatest<List<Block>, Set<String>>(
+      rootBlocks,
+      (selState, _) => _computeSelectedIds(selState),
+    );
+  
+  void addBlock(Block block, int siblingsIndex) { 
     if (block.parent.value == null) {
-      // its a root block
       rootBlocks.insert(siblingsIndex, block);
     } else {
       final parentBlock = _blocks[block.parent.value!.id];
@@ -55,8 +48,57 @@ class DocumentModel {
     _blocks[block.id] = block;
   }
 
+  /// Computes a [TextEditingValue] from the current selection and block content.
+  /// Used by the input layer to synchronize IME state after non-IME actions
+  /// (clicks, keyboard navigation, etc.) where no delta.apply() is available.
+  TextEditingValue computeTextEditingValue() {
+    final sel = selection.value;
+    if (sel is SingleCursorSelectionState) {
+      final cursor = sel.cursorPos;
+      if (cursor is CursorPositionInTextBlock) {
+        final block = getBlockById(cursor.blockId);
+        if (block is TextBlock) {
+          return TextEditingValue(
+            text: block.computeAllSegmentsText(),
+            selection: TextSelection.collapsed(
+              offset: block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset),
+            ),
+          );
+        }
+      }
+    }
+    return TextEditingValue.empty;
+  }
+
+  /// Computes which block IDs are currently selected based on SelectionState.
+  Set<String> _computeSelectedIds(SelectionState state) {
+    if (state is NoSelectionState) {
+      return const {};
+    }
+
+    if (state is SingleCursorSelectionState) {
+      return {state.cursorPos.blockId};
+    }
+
+    if (state is RangeSelectionState) {
+      final flat = _flatBlockIds();
+      final fromIdx = flat.indexOf(state.from.blockId);
+      final toIdx = flat.indexOf(state.to.blockId);
+
+      if (fromIdx == -1 || toIdx == -1) {
+        return const {};
+      }
+
+      final start = fromIdx < toIdx ? fromIdx : toIdx;
+      final end = fromIdx < toIdx ? toIdx : fromIdx;
+
+      return flat.sublist(start, end + 1).toSet();
+    }
+
+    return {};
+  }
+
   /// Returns a flat, depth-first list of all block IDs in the document tree.
-  /// Used to compute range selections between blocks.
   List<String> _flatBlockIds() {
     final result = <String>[];
     void visit(Block b) {
@@ -71,38 +113,5 @@ class DocumentModel {
       visit(b);
     }
     return result;
-  }
-
-  /// Computes which block IDs are currently selected based on SelectionState.
-  /// Returns:
-  /// - Empty set if no selection (NoSelectionState)
-  /// - Set of all IDs from first selected block to last selected block (inclusive)
-  /// For collapsed selections, returns just the block ID containing the cursor.
-  Set<String> _computeSelectedIds(SelectionState state) {
-    if (state is! TextSelectionState) {
-      return const {};
-    }
-
-    final fromId = state.from.blockId;
-    final toId = state.to.blockId;
-
-    // Single block selection
-    if (fromId == toId) {
-      return {fromId};
-    }
-
-    // Range across multiple blocks
-    final flat = _flatBlockIds();
-    final fromIdx = flat.indexOf(fromId);
-    final toIdx = flat.indexOf(toId);
-
-    if (fromIdx == -1 || toIdx == -1) {
-      return const {};
-    }
-
-    final start = fromIdx < toIdx ? fromIdx : toIdx;
-    final end = fromIdx < toIdx ? toIdx : fromIdx;
-
-    return flat.sublist(start, end + 1).toSet();
   }
 }

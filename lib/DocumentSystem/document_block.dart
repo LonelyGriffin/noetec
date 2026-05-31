@@ -1,5 +1,11 @@
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
 import 'package:flutter/widgets.dart';
 import 'package:listen_it/listen_it.dart';
+import 'package:noetec/DocumentSystem/selection_state.dart';
 
 abstract class Block {
   final String id;
@@ -8,9 +14,7 @@ abstract class Block {
 
   Block({required this.documentId, required this.id, required this.parent});
 
-  void dispose() {
-    parent.dispose();
-  }
+  void dispose() {}
 }
 
 abstract class ContainerBlock extends Block {
@@ -40,8 +44,18 @@ class TextBlock extends Block {
     required this.segments,
   });
 
-  /// Concatenation of all segment texts.
-  String get flatText => segments.value.map((s) => s.text).join();
+  String computeAllSegmentsText() => segments.value.map((s) => s.text).join();
+
+  int computeAllSegmentsOffset(int segmentIndex, int offset) {
+    var result = 0;
+
+    for (int i = 0; i < segmentIndex; i++)
+    {
+      result += segments[i].text.length;
+    }
+
+    return result + offset;
+  }
 
   /// Converts a (segmentIndex, offset) cursor position to a flat character
   /// offset within [flatText].
@@ -54,14 +68,14 @@ class TextBlock extends Block {
     return flat + offset;
   }
 
-  /// Converts a flat character offset within [flatText] to a
+  /// Converts a flat character offset within all segments text to a
   /// (segmentIndex, offset) cursor position.
   ///
   /// If [flatOffset] is beyond the total text length it is clamped to the end
   /// of the last segment.
-  ({int segmentIndex, int offset}) cursorFromFlatOffset(int flatOffset) {
+  CursorPositionInTextBlock cursorPosFromFlatOffset(int flatOffset) {
     final segs = segments.value;
-    if (segs.isEmpty) return (segmentIndex: 0, offset: 0);
+    if (segs.isEmpty) return CursorPositionInTextBlock(blockId: id, offset: 0, segmentIndex: 0);
 
     int remaining = flatOffset;
     for (var i = 0; i < segs.length; i++) {
@@ -70,12 +84,12 @@ class TextBlock extends Block {
       // but only at position 0 of the NEXT segment when remaining == len
       // and there IS a next segment — so we let the loop continue.
       if (remaining <= len) {
-        return (segmentIndex: i, offset: remaining);
+        return CursorPositionInTextBlock(blockId: id, offset: remaining, segmentIndex: i);
       }
       remaining -= len;
     }
     // Beyond end: clamp to last segment's end.
-    return (segmentIndex: segs.length - 1, offset: segs.last.text.length);
+    return CursorPositionInTextBlock(blockId: id, offset: segs.last.text.length, segmentIndex: segs.length - 1);
   }
 
   @override
@@ -90,6 +104,10 @@ class TextSegment {
   final String text;
 
   const TextSegment({required this.text});
+
+  TextSegment cloneWithText(String text) {
+    return TextSegment(text: text);
+  }
 }
 
 @immutable
@@ -97,6 +115,11 @@ class FormattedSegment extends TextSegment {
   final TextFormat format;
 
   const FormattedSegment({required super.text, required this.format});
+
+  @override
+  FormattedSegment cloneWithText(String text) {
+    return FormattedSegment(text: text, format: format);
+  }
 }
 
 @immutable
@@ -104,6 +127,11 @@ class LinkSegment extends TextSegment {
   final String url;
 
   const LinkSegment({required super.text, required this.url});
+
+  @override
+  LinkSegment cloneWithText(String text) {
+    return LinkSegment(text: text, url: url);
+  }
 }
 
 enum TextFormat {

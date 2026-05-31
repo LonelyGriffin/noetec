@@ -1,3 +1,8 @@
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -5,20 +10,30 @@ sealed class SelectionState {
   const SelectionState();
 }
 
-class NoSelectionState extends SelectionState {}
-
-class TextSelectionState extends SelectionState {
-  final TextSelectionCursorState from;
-  final TextSelectionCursorState to;
-
-  const TextSelectionState({required this.from, required this.to});
-
-  bool get isCollapsed => from == to;
+@immutable
+class NoSelectionState extends SelectionState {
+  const NoSelectionState();
 }
 
 @immutable
-sealed class SelectionCursorState {
-  const SelectionCursorState();
+class RangeSelectionState extends SelectionState {
+  final CursorPositionInDocument from;
+  final CursorPositionInDocument to;
+
+  const RangeSelectionState({required this.from, required this.to});
+}
+
+@immutable
+class SingleCursorSelectionState extends SelectionState {
+  final CursorPositionInDocument cursorPos;
+
+  const SingleCursorSelectionState({required this.cursorPos});
+}
+
+@immutable
+sealed class CursorPositionInDocument {
+  final String blockId;
+  const CursorPositionInDocument({required this.blockId,});
 
   @override
   bool operator ==(Object other);
@@ -27,13 +42,13 @@ sealed class SelectionCursorState {
   int get hashCode;
 }
 
-class TextSelectionCursorState extends SelectionCursorState {
-  final String blockId;
+@immutable
+class CursorPositionInTextBlock extends CursorPositionInDocument {
   final int segmentIndex;
   final int offset;
 
-  const TextSelectionCursorState({
-    required this.blockId,
+  const CursorPositionInTextBlock({
+    required super.blockId,
     required this.segmentIndex,
     required this.offset,
   });
@@ -42,7 +57,7 @@ class TextSelectionCursorState extends SelectionCursorState {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
 
-    return other is TextSelectionCursorState &&
+    return other is CursorPositionInTextBlock &&
         other.blockId == blockId &&
         other.segmentIndex == segmentIndex &&
         other.offset == offset;

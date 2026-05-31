@@ -1,7 +1,11 @@
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
 import 'package:flutter/material.dart';
 import 'package:noetec/DocumentSystem/opened_documents_manager.dart';
 import 'package:noetec/DocumentView/document_editor_block_widget.dart';
-import 'package:noetec/UserInputSystem/user_raw_text_input_service.dart';
 import 'package:noetec/UserInputSystem/user_raw_text_input_widget.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -21,14 +25,10 @@ class _DocumentEditorWidgetState extends State<DocumentEditorWidget> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    // Register the IME buffer for this document so UserRawTextInputWidget
-    // can access it safely via getInputValue(id)!.
-    di<UserRawTextInputService>().registerInputIfNotExist(widget.documentId);
   }
 
   @override
   void dispose() {
-    di<UserRawTextInputService>().unregisterInput(widget.documentId);
     _focusNode.dispose();
     super.dispose();
   }

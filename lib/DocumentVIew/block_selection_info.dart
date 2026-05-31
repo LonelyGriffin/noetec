@@ -1,5 +1,11 @@
-/// View-layer data classes describing how a text block participates in the current selection.
-/// This is not part of the domain model; it's a presentational concern.
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
+// View-layer data classes describing how a text block participates in the current selection.
+
+import 'package:noetec/DocumentSystem/selection_state.dart';
 
 /// Describes the role of a text block in the current text selection.
 sealed class BlockSelectionInfo {
@@ -29,49 +35,69 @@ class BlockFullySelected extends BlockSelectionInfo {
 }
 
 /// Block contains exactly one cursor.
-/// This occurs when:
-/// - Selection is collapsed (from == to) in this block, OR
-/// - One edge of a range starts/ends in this block (the other edge is in a different block)
 class BlockWithCursor extends BlockSelectionInfo {
-  final int segmentIndex;
-  final int offset;
+  final CursorPositionInTextBlock cursorPos;
 
-  const BlockWithCursor({required this.segmentIndex, required this.offset});
+  const BlockWithCursor({required this.cursorPos});
 
   @override
   bool operator ==(Object other) =>
       other is BlockWithCursor &&
-      other.segmentIndex == segmentIndex &&
-      other.offset == offset;
+      other.cursorPos == cursorPos;
 
   @override
-  int get hashCode => Object.hash(segmentIndex, offset);
+  int get hashCode => cursorPos.hashCode;
+}
+
+/// Block selected from start to cursor
+/// So block contains last (to) cursor of selection range
+class BlockWithToCursor extends BlockSelectionInfo {
+  final CursorPositionInTextBlock cursorPos;
+
+  const BlockWithToCursor({required this.cursorPos});
+
+  @override
+  bool operator ==(Object other) =>
+      other is BlockWithToCursor &&
+      other.cursorPos == cursorPos;
+
+  @override
+  int get hashCode => cursorPos.hashCode;
+}
+
+/// Block selected from cursor to end
+/// So block contains first (from) cursor of selection range
+class BlockWithFromCursor extends BlockSelectionInfo {
+  final CursorPositionInTextBlock cursorPos;
+
+  const BlockWithFromCursor({required this.cursorPos});
+
+  @override
+  bool operator ==(Object other) =>
+      other is BlockWithFromCursor &&
+      other.cursorPos == cursorPos;
+
+  @override
+  int get hashCode => cursorPos.hashCode;
 }
 
 /// Block contains both cursors of a range (from and to are in the same block).
-/// Both cursor positions are needed to render the selection range within the block.
 class BlockWithRange extends BlockSelectionInfo {
-  final int fromSegmentIndex;
-  final int fromOffset;
-  final int toSegmentIndex;
-  final int toOffset;
+  final CursorPositionInTextBlock fromCursorPos;
+  final CursorPositionInTextBlock toCursorPos;
 
   const BlockWithRange({
-    required this.fromSegmentIndex,
-    required this.fromOffset,
-    required this.toSegmentIndex,
-    required this.toOffset,
+    required this.fromCursorPos,
+    required this.toCursorPos,
   });
 
   @override
   bool operator ==(Object other) =>
       other is BlockWithRange &&
-      other.fromSegmentIndex == fromSegmentIndex &&
-      other.fromOffset == fromOffset &&
-      other.toSegmentIndex == toSegmentIndex &&
-      other.toOffset == toOffset;
+      other.fromCursorPos == fromCursorPos &&
+      other.toCursorPos == toCursorPos;
 
   @override
   int get hashCode =>
-      Object.hash(fromSegmentIndex, fromOffset, toSegmentIndex, toOffset);
+      Object.hash(fromCursorPos, toCursorPos);
 }
