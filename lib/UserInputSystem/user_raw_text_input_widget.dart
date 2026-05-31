@@ -190,6 +190,10 @@ class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget> with De
       _inputService.handleKeyEvent(widget.id, event);
       return KeyEventResult.handled;
     }
+    if (event is KeyRepeatEvent) {
+      _inputService.handleKeyRepeat(widget.id, event);
+      return KeyEventResult.handled;
+    }
     if (event is KeyUpEvent) {
       _inputService.handleKeyUp(event);
       return KeyEventResult.handled;

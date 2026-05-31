@@ -181,11 +181,26 @@ class UserInputService {
 
   void handleKeyEvent(String documentId, KeyDownEvent event) {
     _updateModifierKeys(event);
+    _handleKey(documentId, event);
+  }
 
+  void handleKeyRepeat(String documentId, KeyRepeatEvent event) {
+    _handleKey(documentId, event);
+  }
+
+  void _handleKey(String documentId, KeyEvent event) {
     // Printable characters — only when no Ctrl/Meta modifier (to avoid
     // intercepting hotkeys like Ctrl+C, Ctrl+V, etc.).
+    // character field is only present on KeyDownEvent and KeyRepeatEvent.
     if (!_ctrlPressed && !_metaPressed) {
-      final character = event.character;
+      final String? character;
+      if (event is KeyDownEvent) {
+        character = event.character;
+      } else if (event is KeyRepeatEvent) {
+        character = event.character;
+      } else {
+        character = null;
+      }
       if (character != null &&
           character.isNotEmpty &&
           !_isControlCharacter(character)) {
