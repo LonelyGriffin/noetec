@@ -28,6 +28,19 @@ class DocumentModel {
       (selState, _) => _computeSelectedIds(selState),
     );
   
+  void removeBlock(String blockId) {
+    final block = _blocks[blockId];
+    if (block == null) return;
+
+    if (block.parent.value == null) {
+      rootBlocks.remove(block);
+    } else {
+      final parent = block.parent.value as ContainerBlock;
+      parent.children.remove(block);
+    }
+    _blocks.remove(blockId);
+  }
+
   void addBlock(Block block, int siblingsIndex) { 
     if (block.parent.value == null) {
       rootBlocks.insert(siblingsIndex, block);

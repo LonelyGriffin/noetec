@@ -100,7 +100,25 @@ class UserActionService {
     final block = document.getBlockById(action.blockId);
     if (block is! TextBlock) return;
 
-    if (action.flatOffset <= 0) return;
+    if (action.flatOffset <= 0) {
+      // Cursor is at the start of the block — merge with the previous block.
+      final ids = document.flatBlockIds();
+      final idx = ids.indexOf(action.blockId);
+      if (idx <= 0) return; // No previous block — no-op.
+
+      final prevBlock = document.getBlockById(ids[idx - 1]);
+      if (prevBlock is! TextBlock) return;
+
+      // rightBlock = current (cursor block, keeps its ID on non-empty merge)
+      // leftBlock  = previous
+      _mergeAdjacentBlocks(
+        document: document,
+        leftBlock: prevBlock,
+        rightBlock: block,
+        cursorBlock: block,
+      );
+      return;
+    }
 
     // The character to delete is at flatOffset - 1.
     final deletePos = block.charPosFromFlatOffset(action.flatOffset - 1);
@@ -132,7 +150,25 @@ class UserActionService {
     if (block is! TextBlock) return;
 
     final totalLength = block.computeAllSegmentsText().length;
-    if (action.flatOffset >= totalLength) return;
+    if (action.flatOffset >= totalLength) {
+      // Cursor is at the end of the block — merge with the next block.
+      final ids = document.flatBlockIds();
+      final idx = ids.indexOf(action.blockId);
+      if (idx == -1 || idx >= ids.length - 1) return; // No next block — no-op.
+
+      final nextBlock = document.getBlockById(ids[idx + 1]);
+      if (nextBlock is! TextBlock) return;
+
+      // leftBlock  = current (cursor block, keeps its ID on non-empty merge)
+      // rightBlock = next
+      _mergeAdjacentBlocks(
+        document: document,
+        leftBlock: block,
+        rightBlock: nextBlock,
+        cursorBlock: block,
+      );
+      return;
+    }
 
     // The character to delete is at flatOffset (the one right after the cursor).
     final deletePos = block.charPosFromFlatOffset(action.flatOffset);
@@ -153,6 +189,65 @@ class UserActionService {
 
     document.selection.value = SingleCursorSelectionState(
       cursorPos: newCursorPos,
+    );
+  }
+
+  /// Merges [leftBlock] and [rightBlock] into a single block.
+  ///
+  /// [cursorBlock] is the block where the cursor currently resides — it keeps
+  /// its ID when both blocks are non-empty (the other block is removed).
+  ///
+  /// Rules:
+  ///   • If [leftBlock] is empty: remove it, cursor stays in [rightBlock] at
+  ///     offset 0.
+  ///   • If [rightBlock] is empty: remove it, cursor stays in [leftBlock] at
+  ///     the end.
+  ///   • If both non-empty: append all segments from the removed block onto
+  ///     [cursorBlock]; remove the other block; place cursor at the join point
+  ///     (offset = length of left block text before merge).
+  void _mergeAdjacentBlocks({
+    required DocumentModel document,
+    required TextBlock leftBlock,
+    required TextBlock rightBlock,
+    required TextBlock cursorBlock,
+  }) {
+    final leftText = leftBlock.computeAllSegmentsText();
+    final leftEmpty = leftText.isEmpty;
+    final rightEmpty = rightBlock.computeAllSegmentsText().isEmpty;
+
+    if (leftEmpty) {
+      // Remove the empty left block; cursor stays in rightBlock at offset 0.
+      document.removeBlock(leftBlock.id);
+      document.selection.value = SingleCursorSelectionState(
+        cursorPos: rightBlock.cursorPosFromFlatOffset(0),
+      );
+      return;
+    }
+
+    if (rightEmpty) {
+      // Remove the empty right block; cursor stays in leftBlock at its end.
+      document.removeBlock(rightBlock.id);
+      document.selection.value = SingleCursorSelectionState(
+        cursorPos: leftBlock.cursorPosFromFlatOffset(leftText.length),
+      );
+      return;
+    }
+
+    // Both non-empty: merge into cursorBlock and remove the other.
+    final joinOffset = leftText.length;
+    final otherBlock = cursorBlock == leftBlock ? rightBlock : leftBlock;
+    final mergedSegments = [
+      ...leftBlock.segments.value,
+      ...rightBlock.segments.value,
+    ];
+
+    cursorBlock.segments.replaceRange(
+      0, cursorBlock.segments.length, mergedSegments,
+    );
+    document.removeBlock(otherBlock.id);
+
+    document.selection.value = SingleCursorSelectionState(
+      cursorPos: cursorBlock.cursorPosFromFlatOffset(joinOffset),
     );
   }
 

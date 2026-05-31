@@ -263,8 +263,6 @@ class UserInputService {
     final flatOffset =
         block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
 
-    if (flatOffset <= 0) return;
-
     _actionService.handleAction(DeleteTextBack(
       documentId: documentId,
       blockId: cursor.blockId,
@@ -290,9 +288,6 @@ class UserInputService {
 
     final flatOffset =
         block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
-
-    final totalLength = block.computeAllSegmentsText().length;
-    if (flatOffset >= totalLength) return;
 
     _actionService.handleAction(DeleteTextForward(
       documentId: documentId,
