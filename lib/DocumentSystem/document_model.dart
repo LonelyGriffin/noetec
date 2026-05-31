@@ -81,7 +81,7 @@ class DocumentModel {
     }
 
     if (state is RangeSelectionState) {
-      final flat = _flatBlockIds();
+      final flat = flatBlockIds();
       final fromIdx = flat.indexOf(state.from.blockId);
       final toIdx = flat.indexOf(state.to.blockId);
 
@@ -99,7 +99,7 @@ class DocumentModel {
   }
 
   /// Returns a flat, depth-first list of all block IDs in the document tree.
-  List<String> _flatBlockIds() {
+  List<String> flatBlockIds() {
     final result = <String>[];
     void visit(Block b) {
       result.add(b.id);

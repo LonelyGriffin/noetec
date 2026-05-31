@@ -6,6 +6,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:listen_it/listen_it.dart';
 import 'package:noetec/DocumentSystem/document_block.dart';
+import 'package:noetec/DocumentSystem/document_model.dart';
 import 'package:noetec/DocumentSystem/opened_documents_manager.dart';
 import 'package:noetec/DocumentSystem/selection_state.dart';
 import 'package:noetec/IdService/id_service.dart';
@@ -172,19 +173,51 @@ class UserActionService {
         block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
     final totalLength = block.computeAllSegmentsText().length;
 
-    final int newFlatOffset;
     switch (action.direction) {
       case CursorMoveDirection.left:
-        newFlatOffset = flatOffset > 0 ? flatOffset - 1 : 0;
-      case CursorMoveDirection.right:
-        newFlatOffset =
-            flatOffset < totalLength ? flatOffset + 1 : totalLength;
-    }
+        if (flatOffset > 0) {
+          document.selection.value = SingleCursorSelectionState(
+            cursorPos: block.cursorPosFromFlatOffset(flatOffset - 1),
+          );
+        } else {
+          _moveToPreviousBlock(document, cursor.blockId);
+        }
 
-    if (newFlatOffset == flatOffset) return;
+      case CursorMoveDirection.right:
+        if (flatOffset < totalLength) {
+          document.selection.value = SingleCursorSelectionState(
+            cursorPos: block.cursorPosFromFlatOffset(flatOffset + 1),
+          );
+        } else {
+          _moveToNextBlock(document, cursor.blockId);
+        }
+    }
+  }
+
+  void _moveToPreviousBlock(DocumentModel document, String currentBlockId) {
+    final ids = document.flatBlockIds();
+    final idx = ids.indexOf(currentBlockId);
+    if (idx <= 0) return;
+
+    final prevBlock = document.getBlockById(ids[idx - 1]);
+    if (prevBlock is! TextBlock) return;
+
+    final endOffset = prevBlock.computeAllSegmentsText().length;
+    document.selection.value = SingleCursorSelectionState(
+      cursorPos: prevBlock.cursorPosFromFlatOffset(endOffset),
+    );
+  }
+
+  void _moveToNextBlock(DocumentModel document, String currentBlockId) {
+    final ids = document.flatBlockIds();
+    final idx = ids.indexOf(currentBlockId);
+    if (idx == -1 || idx >= ids.length - 1) return;
+
+    final nextBlock = document.getBlockById(ids[idx + 1]);
+    if (nextBlock is! TextBlock) return;
 
     document.selection.value = SingleCursorSelectionState(
-      cursorPos: block.cursorPosFromFlatOffset(newFlatOffset),
+      cursorPos: nextBlock.cursorPosFromFlatOffset(0),
     );
   }
 
