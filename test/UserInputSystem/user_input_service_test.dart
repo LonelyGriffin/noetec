@@ -9,6 +9,7 @@ import 'package:noetec/DocumentSystem/document_block.dart';
 import 'package:noetec/DocumentSystem/selection_state.dart';
 
 import '../helpers/test_document_factory.dart';
+import '../helpers/test_environment.dart';
 
 void main() {
   late TestEnvironment env;

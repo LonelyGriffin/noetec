@@ -1,4 +1,3 @@
-
 // Noetec.
 // Copyright (c) 2026 The Noetec Authors.
 // See the AUTHORS file for the full list of contributors.
