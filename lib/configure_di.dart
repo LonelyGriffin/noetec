@@ -28,7 +28,7 @@ void configureDI() {
   );
 
   final doc1 = DocumentModel(id: 'doc1');
-  for (var i = 0; i < 10000; i++) {
+  for (var i = 0; i < 5; i++) {
     final paragraph = TextBlock(
       id: uuid.v4(),
       documentId: doc1.id,

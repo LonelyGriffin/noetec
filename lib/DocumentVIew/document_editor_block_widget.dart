@@ -30,21 +30,15 @@ class DocumentEditorBlockWidget extends StatefulWidget {
 
 class _DocumentEditorBlockWidgetState extends State<DocumentEditorBlockWidget> {
   DocumentModel get _model => di<OpenedDocumentsManager>().getDocument(widget.documentId)!;
-  late BlockSelectionInfo _blockSelectionInfo;
 
   @override
   void initState() {
     super.initState();
-    _blockSelectionInfo = _computeBlockSelectionInfo(widget.block.id, _model.selection.value);
     _model.selection.addListener(_onSelectionChanged);
   }
 
   void _onSelectionChanged() {
-    final newBlockSelectionInfo = _computeBlockSelectionInfo(widget.block.id, _model.selection.value);
-    if (newBlockSelectionInfo != _blockSelectionInfo) {
-      _blockSelectionInfo = newBlockSelectionInfo;
-      setState(() {});
-    }
+    setState(() {});
   }
 
   @override
@@ -58,11 +52,15 @@ class _DocumentEditorBlockWidgetState extends State<DocumentEditorBlockWidget> {
     if (widget.block is! TextBlock) return const SizedBox.shrink();
 
     final textBlock = widget.block as TextBlock;
+    final selectionInfo = _computeBlockSelectionInfo(
+      textBlock.id,
+      _model.selection.value,
+    );
 
     return TextBlockWidget(
       key: Key(textBlock.id),
       block: textBlock,
-      selectionInfo: _blockSelectionInfo,
+      selectionInfo: selectionInfo,
       onTextClick: (blockId, segmentIndex, offset) {
         di<UserInputService>().handleTextClick(
           widget.documentId,
