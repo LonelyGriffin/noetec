@@ -92,6 +92,29 @@ class TextBlock extends Block {
     return CursorPositionInTextBlock(blockId: id, offset: segs.last.text.length, segmentIndex: segs.length - 1);
   }
 
+  /// Resolves the segment and local offset of the **character** at
+  /// [flatOffset]. Unlike [cursorPosFromFlatOffset], this never returns an
+  /// offset equal to a segment's length — when the flat offset falls at a
+  /// segment boundary it advances to offset 0 of the next segment.
+  ///
+  /// Returns `null` if [flatOffset] is out of range (negative or >= total
+  /// length).
+  CursorPositionInTextBlock? charPosFromFlatOffset(int flatOffset) {
+    final segs = segments.value;
+    if (segs.isEmpty || flatOffset < 0) return null;
+
+    int remaining = flatOffset;
+    for (var i = 0; i < segs.length; i++) {
+      final len = segs[i].text.length;
+      if (remaining < len) {
+        return CursorPositionInTextBlock(blockId: id, offset: remaining, segmentIndex: i);
+      }
+      remaining -= len;
+    }
+    // flatOffset >= totalLength — out of range.
+    return null;
+  }
+
   @override
   void dispose() {
     segments.dispose();

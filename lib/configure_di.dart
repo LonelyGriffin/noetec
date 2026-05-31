@@ -9,6 +9,7 @@ import 'package:listen_it/listen_it.dart';
 import 'package:noetec/DocumentSystem/document_block.dart';
 import 'package:noetec/DocumentSystem/document_model.dart';
 import 'package:noetec/DocumentSystem/opened_documents_manager.dart';
+import 'package:noetec/IdService/id_service.dart';
 import 'package:noetec/UserActionSystem/user_action_service.dart';
 import 'package:noetec/UserInputSystem/user_input_service.dart';
 import 'package:uuid/uuid.dart';
@@ -19,8 +20,9 @@ final uuid = Uuid();
 void configureDI() {
   GetIt.instance.debugEventsEnabled = true;
 
+  final idService = IdService(() => uuid.v4());
   final openedDocumentsManager = OpenedDocumentsManager();
-  final userActionService = UserActionService(openedDocumentsManager);
+  final userActionService = UserActionService(openedDocumentsManager, idService);
   final userInputService = UserInputService(
     documentsManager: openedDocumentsManager,
     actionService: userActionService,

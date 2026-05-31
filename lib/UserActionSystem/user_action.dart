@@ -61,3 +61,51 @@ class SplitTextBlock extends UserAction {
     required this.splitFlatOffset,
   });
 }
+
+/// Delete one character before the cursor (Backspace).
+///
+/// [flatOffset] is the current cursor position. The character at
+/// `flatOffset - 1` is removed. Does nothing if `flatOffset <= 0`.
+@immutable
+class DeleteTextBack extends UserAction {
+  final String documentId;
+  final String blockId;
+  final int flatOffset;
+
+  const DeleteTextBack({
+    required this.documentId,
+    required this.blockId,
+    required this.flatOffset,
+  });
+}
+
+/// Delete one character after the cursor (Delete key).
+///
+/// [flatOffset] is the current cursor position. The character at
+/// `flatOffset` is removed. Does nothing if `flatOffset >= totalLength`.
+@immutable
+class DeleteTextForward extends UserAction {
+  final String documentId;
+  final String blockId;
+  final int flatOffset;
+
+  const DeleteTextForward({
+    required this.documentId,
+    required this.blockId,
+    required this.flatOffset,
+  });
+}
+
+/// Move cursor within a text block.
+@immutable
+class MoveCursor extends UserAction {
+  final String documentId;
+  final CursorMoveDirection direction;
+
+  const MoveCursor({
+    required this.documentId,
+    required this.direction,
+  });
+}
+
+enum CursorMoveDirection { left, right }

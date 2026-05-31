@@ -5,6 +5,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:noetec/DocumentSystem/document_block.dart';
 import 'package:noetec/DocumentSystem/document_model.dart';
 import 'package:noetec/DocumentSystem/opened_documents_manager.dart';
 import 'package:noetec/DocumentSystem/selection_state.dart';
@@ -130,7 +131,175 @@ class UserInputService {
 
   void handleKeyEvent(String documentId, KeyDownEvent event) {
     _updateModifierKeys(event);
-    // TODO: translate key events into actions (Enter, Backspace, Delete, hotkeys)
+
+    // Printable characters — only when no Ctrl/Meta modifier (to avoid
+    // intercepting hotkeys like Ctrl+C, Ctrl+V, etc.).
+    if (!_ctrlPressed && !_metaPressed) {
+      final character = event.character;
+      if (character != null &&
+          character.isNotEmpty &&
+          !_isControlCharacter(character)) {
+        _handleHardwareCharacterInput(documentId, character);
+        return;
+      }
+    }
+
+    // Special keys.
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.backspace) {
+      _handleBackspace(documentId);
+      return;
+    }
+    if (key == LogicalKeyboardKey.delete) {
+      _handleDelete(documentId);
+      return;
+    }
+    if (key == LogicalKeyboardKey.enter) {
+      _handleEnter(documentId);
+      return;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      _handleMoveCursor(documentId, CursorMoveDirection.left);
+      return;
+    }
+    if (key == LogicalKeyboardKey.arrowRight) {
+      _handleMoveCursor(documentId, CursorMoveDirection.right);
+      return;
+    }
+  }
+
+  void _handleHardwareCharacterInput(String documentId, String character) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    final selection = document.selection.value;
+    if (selection is! SingleCursorSelectionState) return;
+
+    final cursor = selection.cursorPos;
+    if (cursor is! CursorPositionInTextBlock) return;
+
+    final block = document.getBlockById(cursor.blockId);
+    if (block is! TextBlock) return;
+
+    final flatOffset =
+        block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+
+    _actionService.handleAction(InsertText(
+      documentId: documentId,
+      blockId: cursor.blockId,
+      flatOffset: flatOffset,
+      text: character,
+    ));
+
+    // Sync IME state from the (now-mutated) document model.
+    getImeState(documentId).value = document.computeTextEditingValue();
+    onPlatformImeUpdateNeeded?.call();
+  }
+
+  void _handleBackspace(String documentId) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    final selection = document.selection.value;
+    if (selection is! SingleCursorSelectionState) return;
+
+    final cursor = selection.cursorPos;
+    if (cursor is! CursorPositionInTextBlock) return;
+
+    final block = document.getBlockById(cursor.blockId);
+    if (block is! TextBlock) return;
+
+    final flatOffset =
+        block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+
+    if (flatOffset <= 0) return;
+
+    _actionService.handleAction(DeleteTextBack(
+      documentId: documentId,
+      blockId: cursor.blockId,
+      flatOffset: flatOffset,
+    ));
+
+    getImeState(documentId).value = document.computeTextEditingValue();
+    onPlatformImeUpdateNeeded?.call();
+  }
+
+  void _handleDelete(String documentId) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    final selection = document.selection.value;
+    if (selection is! SingleCursorSelectionState) return;
+
+    final cursor = selection.cursorPos;
+    if (cursor is! CursorPositionInTextBlock) return;
+
+    final block = document.getBlockById(cursor.blockId);
+    if (block is! TextBlock) return;
+
+    final flatOffset =
+        block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+
+    final totalLength = block.computeAllSegmentsText().length;
+    if (flatOffset >= totalLength) return;
+
+    _actionService.handleAction(DeleteTextForward(
+      documentId: documentId,
+      blockId: cursor.blockId,
+      flatOffset: flatOffset,
+    ));
+
+    getImeState(documentId).value = document.computeTextEditingValue();
+    onPlatformImeUpdateNeeded?.call();
+  }
+
+  void _handleEnter(String documentId) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    final selection = document.selection.value;
+    if (selection is! SingleCursorSelectionState) return;
+
+    final cursor = selection.cursorPos;
+    if (cursor is! CursorPositionInTextBlock) return;
+
+    final block = document.getBlockById(cursor.blockId);
+    if (block is! TextBlock) return;
+
+    final flatOffset =
+        block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+
+    _actionService.handleAction(SplitTextBlock(
+      documentId: documentId,
+      blockId: cursor.blockId,
+      splitFlatOffset: flatOffset,
+    ));
+
+    // After split, cursor is on the new block — recompute IME state.
+    getImeState(documentId).value = document.computeTextEditingValue();
+    onPlatformImeUpdateNeeded?.call();
+  }
+
+  void _handleMoveCursor(String documentId, CursorMoveDirection direction) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    _actionService.handleAction(MoveCursor(
+      documentId: documentId,
+      direction: direction,
+    ));
+
+    getImeState(documentId).value = document.computeTextEditingValue();
+    onPlatformImeUpdateNeeded?.call();
+  }
+
+  /// Returns `true` for ASCII control characters (0x00-0x1F, 0x7F)
+  /// that should NOT be treated as printable text input.
+  static bool _isControlCharacter(String char) {
+    if (char.isEmpty) return true;
+    final code = char.codeUnitAt(0);
+    return code < 0x20 || code == 0x7F;
   }
 
   void _updateModifierKeys(KeyDownEvent event) {
