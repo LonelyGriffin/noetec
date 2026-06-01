@@ -17,10 +17,10 @@ class NoSelectionState extends SelectionState {
 
 @immutable
 class RangeSelectionState extends SelectionState {
-  final CursorPositionInDocument from;
-  final CursorPositionInDocument to;
+  final CursorPositionInDocument anchor;
+  final CursorPositionInDocument extent;
 
-  const RangeSelectionState({required this.from, required this.to});
+  const RangeSelectionState({required this.anchor, required this.extent});
 }
 
 @immutable
@@ -33,7 +33,7 @@ class SingleCursorSelectionState extends SelectionState {
 @immutable
 sealed class CursorPositionInDocument {
   final String blockId;
-  const CursorPositionInDocument({required this.blockId,});
+  const CursorPositionInDocument({required this.blockId});
 
   @override
   bool operator ==(Object other);
@@ -64,5 +64,6 @@ class CursorPositionInTextBlock extends CursorPositionInDocument {
   }
 
   @override
-  int get hashCode => blockId.hashCode ^ segmentIndex.hashCode ^ offset.hashCode;
+  int get hashCode =>
+      blockId.hashCode ^ segmentIndex.hashCode ^ offset.hashCode;
 }

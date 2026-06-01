@@ -13,7 +13,9 @@ class DocumentModel {
   final String id;
   final Map<String, Block> _blocks = {};
   final ListNotifier<Block> rootBlocks = ListNotifier(data: []);
-  final ValueNotifier<SelectionState> selection = ValueNotifier(NoSelectionState());
+  final ValueNotifier<SelectionState> selection = ValueNotifier(
+    NoSelectionState(),
+  );
 
   DocumentModel({required this.id});
 
@@ -22,12 +24,12 @@ class DocumentModel {
   /// Derived notifier: set of block IDs that are currently selected.
   /// Recomputed whenever selection or rootBlocks structure changes.
   /// Triggers only when the set of selected IDs actually changes.
-  late final ValueListenable<Set<String>> selectedBlockIds =
-    selection.combineLatest<List<Block>, Set<String>>(
-      rootBlocks,
-      (selState, _) => _computeSelectedIds(selState),
-    );
-  
+  late final ValueListenable<Set<String>> selectedBlockIds = selection
+      .combineLatest<List<Block>, Set<String>>(
+        rootBlocks,
+        (selState, _) => _computeSelectedIds(selState),
+      );
+
   void removeBlock(String blockId) {
     final block = _blocks[blockId];
     if (block == null) return;
@@ -41,7 +43,7 @@ class DocumentModel {
     _blocks.remove(blockId);
   }
 
-  void addBlock(Block block, int siblingsIndex) { 
+  void addBlock(Block block, int siblingsIndex) {
     if (block.parent.value == null) {
       rootBlocks.insert(siblingsIndex, block);
     } else {
@@ -74,7 +76,10 @@ class DocumentModel {
           return TextEditingValue(
             text: block.computeAllSegmentsText(),
             selection: TextSelection.collapsed(
-              offset: block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset),
+              offset: block.flatOffsetFromCursor(
+                cursor.segmentIndex,
+                cursor.offset,
+              ),
             ),
           );
         }
@@ -95,8 +100,8 @@ class DocumentModel {
 
     if (state is RangeSelectionState) {
       final flat = flatBlockIds();
-      final fromIdx = flat.indexOf(state.from.blockId);
-      final toIdx = flat.indexOf(state.to.blockId);
+      final fromIdx = flat.indexOf(state.anchor.blockId);
+      final toIdx = flat.indexOf(state.extent.blockId);
 
       if (fromIdx == -1 || toIdx == -1) {
         return const {};
@@ -122,6 +127,7 @@ class DocumentModel {
         }
       }
     }
+
     for (final b in rootBlocks.value) {
       visit(b);
     }

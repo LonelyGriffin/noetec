@@ -5,7 +5,6 @@
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:noetec/DocumentSystem/document_block.dart';
 import 'package:noetec/DocumentSystem/selection_state.dart';
 
 import '../helpers/test_document_factory.dart';
@@ -30,8 +29,9 @@ void main() {
 
       final sel = doc.selection.value;
       expect(sel, isA<SingleCursorSelectionState>());
-      final cursor = (sel as SingleCursorSelectionState).cursorPos
-          as CursorPositionInTextBlock;
+      final cursor =
+          (sel as SingleCursorSelectionState).cursorPos
+              as CursorPositionInTextBlock;
       expect(cursor.blockId, blockId);
       expect(cursor.segmentIndex, 0);
       expect(cursor.offset, 5);
@@ -59,8 +59,9 @@ void main() {
       env.inputService.handleTextClick(doc.id, blockId, 0, 9);
 
       // Document selection should be at 9
-      final cursor = (doc.selection.value as SingleCursorSelectionState).cursorPos
-          as CursorPositionInTextBlock;
+      final cursor =
+          (doc.selection.value as SingleCursorSelectionState).cursorPos
+              as CursorPositionInTextBlock;
       expect(cursor.offset, 9);
 
       // IME state should also be at 9

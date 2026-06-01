@@ -48,8 +48,8 @@ class UserInputService {
   UserInputService({
     required OpenedDocumentsManager documentsManager,
     required UserActionService actionService,
-  })  : _documentsManager = documentsManager,
-        _actionService = actionService;
+  }) : _documentsManager = documentsManager,
+       _actionService = actionService;
 
   /// Returns the IME state notifier for [documentId].
   /// Creates one with empty value if it doesn't exist yet.
@@ -95,12 +95,14 @@ class UserInputService {
 
     final imeState = getImeState(documentId);
 
-    _actionService.handleAction(InsertText(
-      documentId: documentId,
-      blockId: cursor.blockId,
-      flatOffset: delta.insertionOffset,
-      text: delta.textInserted,
-    ));
+    _actionService.handleAction(
+      InsertText(
+        documentId: documentId,
+        blockId: cursor.blockId,
+        flatOffset: delta.insertionOffset,
+        text: delta.textInserted,
+      ),
+    );
 
     imeState.value = delta.apply(imeState.value);
   }
@@ -116,13 +118,15 @@ class UserInputService {
     final cursor = selection.cursorPos;
     if (cursor is! CursorPositionInTextBlock) return;
 
-    _actionService.handleAction(ReplaceText(
-      documentId: documentId,
-      blockId: cursor.blockId,
-      flatStart: delta.replacedRange.start,
-      flatEnd: delta.replacedRange.end,
-      replacementText: delta.replacementText,
-    ));
+    _actionService.handleAction(
+      ReplaceText(
+        documentId: documentId,
+        blockId: cursor.blockId,
+        flatStart: delta.replacedRange.start,
+        flatEnd: delta.replacedRange.end,
+        replacementText: delta.replacementText,
+      ),
+    );
 
     getImeState(documentId).value = document.computeTextEditingValue();
   }
@@ -142,11 +146,13 @@ class UserInputService {
     final cursor = selection.cursorPos;
     if (cursor is! CursorPositionInTextBlock) return;
 
-    _actionService.handleAction(SetCursorPosition(
-      documentId: documentId,
-      blockId: cursor.blockId,
-      flatOffset: delta.selection.baseOffset,
-    ));
+    _actionService.handleAction(
+      SetCursorPosition(
+        documentId: documentId,
+        blockId: cursor.blockId,
+        flatOffset: delta.selection.baseOffset,
+      ),
+    );
 
     getImeState(documentId).value = document.computeTextEditingValue();
   }
@@ -161,13 +167,127 @@ class UserInputService {
     int segmentIndex,
     int offset,
   ) {
-    _actionService.handleAction(ClickOnTextBlock(
-      documentId: documentId,
-      blockId: blockId,
-      segmentIndex: segmentIndex,
-      offset: offset,
-    ));
+    if (_shiftPressed) {
+      // Shift+Click: extend selection from current anchor to click position.
+      _handleShiftClick(documentId, blockId, segmentIndex, offset);
+    } else {
+      _actionService.handleAction(
+        ClickOnTextBlock(
+          documentId: documentId,
+          blockId: blockId,
+          segmentIndex: segmentIndex,
+          offset: offset,
+        ),
+      );
+    }
 
+    final document = _documentsManager.getDocument(documentId);
+    if (document != null) {
+      getImeState(documentId).value = document.computeTextEditingValue();
+      onPlatformImeUpdateNeeded?.call();
+    }
+  }
+
+  void _handleShiftClick(
+    String documentId,
+    String blockId,
+    int segmentIndex,
+    int offset,
+  ) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    final selection = document.selection.value;
+
+    // Determine the anchor: current cursor or current anchor if range.
+    CursorPositionInTextBlock anchor;
+    if (selection is SingleCursorSelectionState) {
+      final cursor = selection.cursorPos;
+      if (cursor is! CursorPositionInTextBlock) return;
+      anchor = cursor;
+    } else if (selection is RangeSelectionState) {
+      final a = selection.anchor;
+      if (a is! CursorPositionInTextBlock) return;
+      anchor = a;
+    } else {
+      return;
+    }
+
+    _actionService.handleAction(
+      SetRangeSelection(
+        documentId: documentId,
+        anchorBlockId: anchor.blockId,
+        anchorSegmentIndex: anchor.segmentIndex,
+        anchorOffset: anchor.offset,
+        extentBlockId: blockId,
+        extentSegmentIndex: segmentIndex,
+        extentOffset: offset,
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Drag selection
+  // ---------------------------------------------------------------------------
+
+  /// Called when a pointer-down begins a potential drag selection.
+  void handleDragStart(
+    String documentId,
+    String blockId,
+    int segmentIndex,
+    int offset,
+  ) {
+    // Set the anchor at the drag start position (collapsed cursor).
+    _actionService.handleAction(
+      ClickOnTextBlock(
+        documentId: documentId,
+        blockId: blockId,
+        segmentIndex: segmentIndex,
+        offset: offset,
+      ),
+    );
+  }
+
+  /// Called during pointer-move to update the drag selection extent.
+  void handleDragUpdate(
+    String documentId,
+    String blockId,
+    int segmentIndex,
+    int offset,
+  ) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    final selection = document.selection.value;
+
+    CursorPositionInTextBlock anchor;
+    if (selection is SingleCursorSelectionState) {
+      final cursor = selection.cursorPos;
+      if (cursor is! CursorPositionInTextBlock) return;
+      anchor = cursor;
+    } else if (selection is RangeSelectionState) {
+      final a = selection.anchor;
+      if (a is! CursorPositionInTextBlock) return;
+      anchor = a;
+    } else {
+      return;
+    }
+
+    _actionService.handleAction(
+      SetRangeSelection(
+        documentId: documentId,
+        anchorBlockId: anchor.blockId,
+        anchorSegmentIndex: anchor.segmentIndex,
+        anchorOffset: anchor.offset,
+        extentBlockId: blockId,
+        extentSegmentIndex: segmentIndex,
+        extentOffset: offset,
+      ),
+    );
+  }
+
+  /// Called when the drag ends to finalize the selection and sync IME state.
+  void handleDragEnd(String documentId) {
     final document = _documentsManager.getDocument(documentId);
     if (document != null) {
       getImeState(documentId).value = document.computeTextEditingValue();
@@ -189,6 +309,28 @@ class UserInputService {
   }
 
   void _handleKey(String documentId, KeyEvent event) {
+    final key = event.logicalKey;
+
+    // Hotkeys: Ctrl/Cmd + key
+    if (_ctrlPressed || _metaPressed) {
+      if (key == LogicalKeyboardKey.keyA) {
+        _handleSelectAll(documentId);
+        return;
+      }
+      if (key == LogicalKeyboardKey.keyC) {
+        _handleCopy(documentId);
+        return;
+      }
+      if (key == LogicalKeyboardKey.keyX) {
+        _handleCut(documentId);
+        return;
+      }
+      if (key == LogicalKeyboardKey.keyV) {
+        _handlePaste(documentId);
+        return;
+      }
+    }
+
     // Printable characters — only when no Ctrl/Meta modifier (to avoid
     // intercepting hotkeys like Ctrl+C, Ctrl+V, etc.).
     // character field is only present on KeyDownEvent and KeyRepeatEvent.
@@ -210,8 +352,6 @@ class UserInputService {
     }
 
     // Special keys.
-    final key = event.logicalKey;
-
     if (key == LogicalKeyboardKey.backspace) {
       _handleBackspace(documentId);
       return;
@@ -225,11 +365,19 @@ class UserInputService {
       return;
     }
     if (key == LogicalKeyboardKey.arrowLeft) {
-      _handleMoveCursor(documentId, CursorMoveDirection.left);
+      if (_shiftPressed) {
+        _handleExtendSelection(documentId, CursorMoveDirection.left);
+      } else {
+        _handleMoveCursor(documentId, CursorMoveDirection.left);
+      }
       return;
     }
     if (key == LogicalKeyboardKey.arrowRight) {
-      _handleMoveCursor(documentId, CursorMoveDirection.right);
+      if (_shiftPressed) {
+        _handleExtendSelection(documentId, CursorMoveDirection.right);
+      } else {
+        _handleMoveCursor(documentId, CursorMoveDirection.right);
+      }
       return;
     }
   }
@@ -239,23 +387,35 @@ class UserInputService {
     if (document == null) return;
 
     final selection = document.selection.value;
-    if (selection is! SingleCursorSelectionState) return;
 
-    final cursor = selection.cursorPos;
+    // If range selection is active, delete it first, then insert at the new cursor.
+    if (selection is RangeSelectionState) {
+      _actionService.handleAction(DeleteSelection(documentId: documentId));
+    }
+
+    // After potential deletion, re-read selection (now should be collapsed).
+    final currentSelection = document.selection.value;
+    if (currentSelection is! SingleCursorSelectionState) return;
+
+    final cursor = currentSelection.cursorPos;
     if (cursor is! CursorPositionInTextBlock) return;
 
     final block = document.getBlockById(cursor.blockId);
     if (block is! TextBlock) return;
 
-    final flatOffset =
-        block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+    final flatOffset = block.flatOffsetFromCursor(
+      cursor.segmentIndex,
+      cursor.offset,
+    );
 
-    _actionService.handleAction(InsertText(
-      documentId: documentId,
-      blockId: cursor.blockId,
-      flatOffset: flatOffset,
-      text: character,
-    ));
+    _actionService.handleAction(
+      InsertText(
+        documentId: documentId,
+        blockId: cursor.blockId,
+        flatOffset: flatOffset,
+        text: character,
+      ),
+    );
 
     // Sync IME state from the (now-mutated) document model.
     getImeState(documentId).value = document.computeTextEditingValue();
@@ -267,6 +427,15 @@ class UserInputService {
     if (document == null) return;
 
     final selection = document.selection.value;
+
+    // If range selection is active, just delete the selection (no extra char deletion).
+    if (selection is RangeSelectionState) {
+      _actionService.handleAction(DeleteSelection(documentId: documentId));
+      getImeState(documentId).value = document.computeTextEditingValue();
+      onPlatformImeUpdateNeeded?.call();
+      return;
+    }
+
     if (selection is! SingleCursorSelectionState) return;
 
     final cursor = selection.cursorPos;
@@ -275,14 +444,18 @@ class UserInputService {
     final block = document.getBlockById(cursor.blockId);
     if (block is! TextBlock) return;
 
-    final flatOffset =
-        block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+    final flatOffset = block.flatOffsetFromCursor(
+      cursor.segmentIndex,
+      cursor.offset,
+    );
 
-    _actionService.handleAction(DeleteTextBack(
-      documentId: documentId,
-      blockId: cursor.blockId,
-      flatOffset: flatOffset,
-    ));
+    _actionService.handleAction(
+      DeleteTextBack(
+        documentId: documentId,
+        blockId: cursor.blockId,
+        flatOffset: flatOffset,
+      ),
+    );
 
     getImeState(documentId).value = document.computeTextEditingValue();
     onPlatformImeUpdateNeeded?.call();
@@ -293,6 +466,15 @@ class UserInputService {
     if (document == null) return;
 
     final selection = document.selection.value;
+
+    // If range selection is active, just delete the selection.
+    if (selection is RangeSelectionState) {
+      _actionService.handleAction(DeleteSelection(documentId: documentId));
+      getImeState(documentId).value = document.computeTextEditingValue();
+      onPlatformImeUpdateNeeded?.call();
+      return;
+    }
+
     if (selection is! SingleCursorSelectionState) return;
 
     final cursor = selection.cursorPos;
@@ -301,14 +483,18 @@ class UserInputService {
     final block = document.getBlockById(cursor.blockId);
     if (block is! TextBlock) return;
 
-    final flatOffset =
-        block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+    final flatOffset = block.flatOffsetFromCursor(
+      cursor.segmentIndex,
+      cursor.offset,
+    );
 
-    _actionService.handleAction(DeleteTextForward(
-      documentId: documentId,
-      blockId: cursor.blockId,
-      flatOffset: flatOffset,
-    ));
+    _actionService.handleAction(
+      DeleteTextForward(
+        documentId: documentId,
+        blockId: cursor.blockId,
+        flatOffset: flatOffset,
+      ),
+    );
 
     getImeState(documentId).value = document.computeTextEditingValue();
     onPlatformImeUpdateNeeded?.call();
@@ -319,36 +505,108 @@ class UserInputService {
     if (document == null) return;
 
     final selection = document.selection.value;
-    if (selection is! SingleCursorSelectionState) return;
 
-    final cursor = selection.cursorPos;
+    // If range selection is active, delete it first, then split.
+    if (selection is RangeSelectionState) {
+      _actionService.handleAction(DeleteSelection(documentId: documentId));
+    }
+
+    final currentSelection = document.selection.value;
+    if (currentSelection is! SingleCursorSelectionState) return;
+
+    final cursor = currentSelection.cursorPos;
     if (cursor is! CursorPositionInTextBlock) return;
 
     final block = document.getBlockById(cursor.blockId);
     if (block is! TextBlock) return;
 
-    final flatOffset =
-        block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
+    final flatOffset = block.flatOffsetFromCursor(
+      cursor.segmentIndex,
+      cursor.offset,
+    );
 
-    _actionService.handleAction(SplitTextBlock(
-      documentId: documentId,
-      blockId: cursor.blockId,
-      splitFlatOffset: flatOffset,
-    ));
+    _actionService.handleAction(
+      SplitTextBlock(
+        documentId: documentId,
+        blockId: cursor.blockId,
+        splitFlatOffset: flatOffset,
+      ),
+    );
 
     // After split, cursor is on the new block — recompute IME state.
     getImeState(documentId).value = document.computeTextEditingValue();
     onPlatformImeUpdateNeeded?.call();
   }
 
+  void _handleExtendSelection(
+    String documentId,
+    CursorMoveDirection direction,
+  ) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    _actionService.handleAction(
+      ExtendSelection(documentId: documentId, direction: direction),
+    );
+
+    getImeState(documentId).value = document.computeTextEditingValue();
+    onPlatformImeUpdateNeeded?.call();
+  }
+
+  void _handleSelectAll(String documentId) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    _actionService.handleAction(SelectAll(documentId: documentId));
+
+    getImeState(documentId).value = document.computeTextEditingValue();
+    onPlatformImeUpdateNeeded?.call();
+  }
+
+  void _handleCopy(String documentId) {
+    final markdown = _actionService.extractSelectedMarkdown(documentId);
+    if (markdown == null) return;
+
+    Clipboard.setData(ClipboardData(text: markdown));
+  }
+
+  void _handleCut(String documentId) {
+    final markdown = _actionService.extractSelectedMarkdown(documentId);
+    if (markdown == null) return;
+
+    Clipboard.setData(ClipboardData(text: markdown));
+
+    _actionService.handleAction(DeleteSelection(documentId: documentId));
+
+    final document = _documentsManager.getDocument(documentId);
+    if (document != null) {
+      getImeState(documentId).value = document.computeTextEditingValue();
+      onPlatformImeUpdateNeeded?.call();
+    }
+  }
+
+  void _handlePaste(String documentId) async {
+    final data = await Clipboard.getData('text/plain');
+    if (data == null || data.text == null || data.text!.isEmpty) return;
+
+    _actionService.handleAction(
+      Paste(documentId: documentId, clipboardContent: data.text!),
+    );
+
+    final document = _documentsManager.getDocument(documentId);
+    if (document != null) {
+      getImeState(documentId).value = document.computeTextEditingValue();
+      onPlatformImeUpdateNeeded?.call();
+    }
+  }
+
   void _handleMoveCursor(String documentId, CursorMoveDirection direction) {
     final document = _documentsManager.getDocument(documentId);
     if (document == null) return;
 
-    _actionService.handleAction(MoveCursor(
-      documentId: documentId,
-      direction: direction,
-    ));
+    _actionService.handleAction(
+      MoveCursor(documentId: documentId, direction: direction),
+    );
 
     getImeState(documentId).value = document.computeTextEditingValue();
     onPlatformImeUpdateNeeded?.call();
@@ -364,13 +622,17 @@ class UserInputService {
 
   void _updateModifierKeys(KeyDownEvent event) {
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.controlLeft || key == LogicalKeyboardKey.controlRight) {
+    if (key == LogicalKeyboardKey.controlLeft ||
+        key == LogicalKeyboardKey.controlRight) {
       _ctrlPressed = true;
-    } else if (key == LogicalKeyboardKey.shiftLeft || key == LogicalKeyboardKey.shiftRight) {
+    } else if (key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight) {
       _shiftPressed = true;
-    } else if (key == LogicalKeyboardKey.altLeft || key == LogicalKeyboardKey.altRight) {
+    } else if (key == LogicalKeyboardKey.altLeft ||
+        key == LogicalKeyboardKey.altRight) {
       _altPressed = true;
-    } else if (key == LogicalKeyboardKey.metaLeft || key == LogicalKeyboardKey.metaRight) {
+    } else if (key == LogicalKeyboardKey.metaLeft ||
+        key == LogicalKeyboardKey.metaRight) {
       _metaPressed = true;
     }
   }
@@ -378,13 +640,17 @@ class UserInputService {
   /// Should be called on KeyUpEvent to release modifier keys.
   void handleKeyUp(KeyUpEvent event) {
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.controlLeft || key == LogicalKeyboardKey.controlRight) {
+    if (key == LogicalKeyboardKey.controlLeft ||
+        key == LogicalKeyboardKey.controlRight) {
       _ctrlPressed = false;
-    } else if (key == LogicalKeyboardKey.shiftLeft || key == LogicalKeyboardKey.shiftRight) {
+    } else if (key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight) {
       _shiftPressed = false;
-    } else if (key == LogicalKeyboardKey.altLeft || key == LogicalKeyboardKey.altRight) {
+    } else if (key == LogicalKeyboardKey.altLeft ||
+        key == LogicalKeyboardKey.altRight) {
       _altPressed = false;
-    } else if (key == LogicalKeyboardKey.metaLeft || key == LogicalKeyboardKey.metaRight) {
+    } else if (key == LogicalKeyboardKey.metaLeft ||
+        key == LogicalKeyboardKey.metaRight) {
       _metaPressed = false;
     }
   }

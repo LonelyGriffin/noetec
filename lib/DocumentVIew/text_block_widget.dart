@@ -5,7 +5,6 @@
 
 import 'dart:async';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:noetec/DocumentSystem/document_block.dart';
@@ -16,20 +15,14 @@ class TextBlockWidget extends LeafRenderObjectWidget {
     super.key,
     required this.block,
     required this.selectionInfo,
-    this.onTextClick,
   });
 
   final TextBlock block;
   final BlockSelectionInfo selectionInfo;
-  final void Function(String blockId, int segmentIndex, int offset)? onTextClick;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return RenderTextBlockContent(
-      block: block,
-      selectionInfo: selectionInfo,
-      onTextClick: onTextClick,
-    );
+    return RenderTextBlockContent(block: block, selectionInfo: selectionInfo);
   }
 
   @override
@@ -39,7 +32,6 @@ class TextBlockWidget extends LeafRenderObjectWidget {
   ) {
     renderObject.block = block;
     renderObject.selectionInfo = selectionInfo;
-    renderObject.onTextClick = onTextClick;
   }
 }
 
@@ -69,7 +61,6 @@ class RenderTextBlockContent extends RenderBox {
     _textLayoutDirty = true;
     markNeedsLayout();
   }
-  void Function(String blockId, int segmentIndex, int offset)? onTextClick;
 
   // Cursor blink state
   Timer? _blinkTimer;
@@ -84,13 +75,13 @@ class RenderTextBlockContent extends RenderBox {
   final _baseTextStyle = TextStyle(color: Color.fromARGB(255, 14, 14, 14));
   final _cursorColor = const Color(0xFF0066CC);
   final _cursorWidth = 2.0;
-  final _selectionColor = const Color(0xFFB3D9FF);
+  final _selectionColor = const Color(0x660A84FF);
 
   RenderTextBlockContent({
     required TextBlock block,
     required BlockSelectionInfo selectionInfo,
-    this.onTextClick,
-  }) : _selectionInfo = selectionInfo, _block = block {
+  }) : _selectionInfo = selectionInfo,
+       _block = block {
     _block.segments.addListener(_onSegmentsChanged);
     _updateCursorBlink();
   }
@@ -177,10 +168,10 @@ class RenderTextBlockContent extends RenderBox {
 
   TextStyle _buildFormattedStyle(TextFormat format) {
     var result = _baseTextStyle.copyWith();
-    if (format.value & TextFormat.bold.value != 0) {
+    if (format.has(TextFormat.bold)) {
       result = result.copyWith(fontWeight: FontWeight.bold);
     }
-    if (format.value & TextFormat.italic.value != 0) {
+    if (format.has(TextFormat.italic)) {
       result = result.copyWith(fontStyle: FontStyle.italic);
     }
     return result;
@@ -229,19 +220,6 @@ class RenderTextBlockContent extends RenderBox {
     return null;
   }
 
-  void _handleTextClick(PointerEvent event) {
-    final localPosition = event.localPosition;
-    final textPosition = _textPainter!.getPositionForOffset(localPosition);
-    final characterIndex = textPosition.offset;
-    final interactionPoint = _resolveTextInteractionPoint(characterIndex);
-
-    if (interactionPoint == null) {
-      return;
-    }
-
-    onTextClick?.call(_block.id, interactionPoint.segmentIndex, interactionPoint.offset);
-  }
-
   @override
   void dispose() {
     _blinkTimer?.cancel();
@@ -260,53 +238,90 @@ class RenderTextBlockContent extends RenderBox {
   }
 
   @override
+  // ignore: avoid_renaming_method_parameters
   void paint(PaintingContext context, Offset paintOffset) {
     if (_textPainter == null) return;
 
-    // Draw text first
-    _textPainter!.paint(context.canvas, paintOffset);
-
-    // Draw selection/cursor overlay
+    // 1. Draw selection highlight BEFORE text so text is visible on top
     switch (_selectionInfo) {
       case BlockNotSelected():
-        // No selection, nothing to draw
         break;
       case BlockFullySelected():
         _paintFullSelection(context.canvas, paintOffset);
+      case BlockWithCursor():
+        // No highlight for collapsed cursor
+        break;
+      case BlockWithRange(:final anchorCursorPos, :final extentCursorPos):
+        _paintRangeSelection(
+          context.canvas,
+          paintOffset,
+          anchorCursorPos.segmentIndex,
+          anchorCursorPos.offset,
+          extentCursorPos.segmentIndex,
+          extentCursorPos.offset,
+        );
+      case BlockSelectedFromStart(:final cursorPos):
+        _paintRangeSelection(
+          context.canvas,
+          paintOffset,
+          0,
+          0,
+          cursorPos.segmentIndex,
+          cursorPos.offset,
+        );
+      case BlockSelectedToEnd(:final cursorPos):
+        final lastSegmentIndex = _segmentMaps.length - 1;
+        final lastSegmentEnd = lastSegmentIndex >= 0
+            ? _segmentMaps[lastSegmentIndex].endOffset -
+                  _segmentMaps[lastSegmentIndex].startOffset
+            : 0;
+        _paintRangeSelection(
+          context.canvas,
+          paintOffset,
+          cursorPos.segmentIndex,
+          cursorPos.offset,
+          lastSegmentIndex >= 0 ? lastSegmentIndex : 0,
+          lastSegmentEnd,
+        );
+    }
+
+    // 2. Draw text on top of selection highlight
+    _textPainter!.paint(context.canvas, paintOffset);
+
+    // 3. Draw cursor on top of text so it's always visible
+    switch (_selectionInfo) {
       case BlockWithCursor(:final cursorPos):
         if (_cursorVisible) {
-          _paintCursor(context.canvas, paintOffset, cursorPos.segmentIndex, cursorPos.offset);
+          _paintCursor(
+            context.canvas,
+            paintOffset,
+            cursorPos.segmentIndex,
+            cursorPos.offset,
+          );
         }
-      case BlockWithRange(
-          :final fromCursorPos,
-          :final toCursorPos
-        ):
-        _paintRangeSelection(
+      case BlockWithRange(:final extentCursorPos):
+        _paintCursor(
           context.canvas,
           paintOffset,
-          fromCursorPos.segmentIndex,
-          fromCursorPos.offset,
-          toCursorPos.segmentIndex,
-          toCursorPos.offset,
+          extentCursorPos.segmentIndex,
+          extentCursorPos.offset,
         );
-      case BlockWithToCursor(:final cursorPos):
-        _paintRangeSelection(
-          context.canvas,
-          paintOffset,
-          0,
-          0,
-          cursorPos.segmentIndex,
-          cursorPos.offset,
-        );
-      case BlockWithFromCursor(:final cursorPos):
-        _paintRangeSelection(
+      case BlockSelectedFromStart(:final cursorPos):
+        _paintCursor(
           context.canvas,
           paintOffset,
           cursorPos.segmentIndex,
           cursorPos.offset,
-          _block.segments.length - 1,
-          _block.segments[_block.segments.length - 1].text.length - 1,
         );
+      case BlockSelectedToEnd(:final cursorPos):
+        _paintCursor(
+          context.canvas,
+          paintOffset,
+          cursorPos.segmentIndex,
+          cursorPos.offset,
+        );
+      default:
+        break;
     }
   }
 
@@ -322,9 +337,14 @@ class RenderTextBlockContent extends RenderBox {
 
     final textPosition = TextPosition(offset: flatOffset);
     final caretRect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final caretOffset = _textPainter!.getOffsetForCaret(textPosition, caretRect);
-    final lineHeight =
-        _textPainter!.getFullHeightForCaret(textPosition, caretRect);
+    final caretOffset = _textPainter!.getOffsetForCaret(
+      textPosition,
+      caretRect,
+    );
+    final lineHeight = _textPainter!.getFullHeightForCaret(
+      textPosition,
+      caretRect,
+    );
 
     final cursorRect = Rect.fromLTWH(
       blockOffset.dx + caretOffset.dx - _cursorWidth / 2,
@@ -345,8 +365,10 @@ class RenderTextBlockContent extends RenderBox {
     int toSegmentIndex,
     int toOffsetInSegment,
   ) {
-    final fromFlatOffset =
-        _computeFlatOffset(fromSegmentIndex, fromOffsetInSegment);
+    final fromFlatOffset = _computeFlatOffset(
+      fromSegmentIndex,
+      fromOffsetInSegment,
+    );
     final toFlatOffset = _computeFlatOffset(toSegmentIndex, toOffsetInSegment);
 
     if (fromFlatOffset == -1 || toFlatOffset == -1) return;
@@ -370,21 +392,13 @@ class RenderTextBlockContent extends RenderBox {
         paint,
       );
     }
-
-    // Draw cursor at the end position
-    _paintCursor(canvas, blockOffset, toSegmentIndex, toOffsetInSegment);
   }
 
   /// Paints a highlight over the entire block (for blocks fully selected but without cursors).
   void _paintFullSelection(Canvas canvas, Offset blockOffset) {
     final paint = Paint()..color = _selectionColor;
     canvas.drawRect(
-      Rect.fromLTWH(
-        blockOffset.dx,
-        blockOffset.dy,
-        size.width,
-        size.height,
-      ),
+      Rect.fromLTWH(blockOffset.dx, blockOffset.dy, size.width, size.height),
       paint,
     );
   }
@@ -410,17 +424,28 @@ class RenderTextBlockContent extends RenderBox {
 
   @override
   void handleEvent(PointerEvent event, BoxHitTestEntry entry) {
-    if ((event.buttons & kPrimaryButton) != 0 && _textPainter != null) {
-      _handleTextClick(event);
-    }
+    // Click handling is now managed at the DocumentEditorWidget level
+    // via Listener for drag selection support.
+  }
+
+  /// Converts a local offset (relative to this render object) to a
+  /// [TextInteractionPoint] (segmentIndex, offset within segment).
+  ///
+  /// Used by the parent widget to resolve hit-test positions for
+  /// drag selection and click handling.
+  /// Returns `null` if the text painter is not yet laid out.
+  TextInteractionPoint? getPositionForLocalOffset(Offset localOffset) {
+    if (_textPainter == null) return null;
+    final textPosition = _textPainter!.getPositionForOffset(localOffset);
+    return _resolveTextInteractionPoint(textPosition.offset);
   }
 }
 
 /// Maps segment indices to their character positions in the final rendered text.
-/// 
+///
 /// This class is used to track the character range for each text segment,
 /// allowing quick lookup of which segment a tapped character belongs to.
-/// 
+///
 /// Example: If segments are ["Hello", " ", "world"], this map stores:
 /// - Segment 0: startOffset=0, endOffset=5
 /// - Segment 1: startOffset=5, endOffset=6
@@ -428,10 +453,10 @@ class RenderTextBlockContent extends RenderBox {
 class _SegmentIndexMap {
   /// Index of the segment in the block's segments list
   final int segmentIndex;
-  
+
   /// Character offset where this segment starts in the rendered text
   final int startOffset;
-  
+
   /// Character offset where this segment ends in the rendered text
   final int endOffset;
 
@@ -442,12 +467,11 @@ class _SegmentIndexMap {
   });
 }
 
-
 class TextInteractionPoint {
   int segmentIndex;
-  // Character offset within the segment 
-  // if segment is last offset may be equal to segment text length 
+  // Character offset within the segment
+  // if segment is last offset may be equal to segment text length
   // indicating interaction at the end of the paragraph
-  int offset; 
+  int offset;
   TextInteractionPoint({required this.segmentIndex, required this.offset});
 }

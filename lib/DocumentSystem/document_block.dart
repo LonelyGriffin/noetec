@@ -49,8 +49,7 @@ class TextBlock extends Block {
   int computeAllSegmentsOffset(int segmentIndex, int offset) {
     var result = 0;
 
-    for (int i = 0; i < segmentIndex; i++)
-    {
+    for (int i = 0; i < segmentIndex; i++) {
       result += segments[i].text.length;
     }
 
@@ -75,7 +74,9 @@ class TextBlock extends Block {
   /// of the last segment.
   CursorPositionInTextBlock cursorPosFromFlatOffset(int flatOffset) {
     final segs = segments.value;
-    if (segs.isEmpty) return CursorPositionInTextBlock(blockId: id, offset: 0, segmentIndex: 0);
+    if (segs.isEmpty) {
+      return CursorPositionInTextBlock(blockId: id, offset: 0, segmentIndex: 0);
+    }
 
     int remaining = flatOffset;
     for (var i = 0; i < segs.length; i++) {
@@ -84,12 +85,20 @@ class TextBlock extends Block {
       // but only at position 0 of the NEXT segment when remaining == len
       // and there IS a next segment — so we let the loop continue.
       if (remaining <= len) {
-        return CursorPositionInTextBlock(blockId: id, offset: remaining, segmentIndex: i);
+        return CursorPositionInTextBlock(
+          blockId: id,
+          offset: remaining,
+          segmentIndex: i,
+        );
       }
       remaining -= len;
     }
     // Beyond end: clamp to last segment's end.
-    return CursorPositionInTextBlock(blockId: id, offset: segs.last.text.length, segmentIndex: segs.length - 1);
+    return CursorPositionInTextBlock(
+      blockId: id,
+      offset: segs.last.text.length,
+      segmentIndex: segs.length - 1,
+    );
   }
 
   /// Resolves the segment and local offset of the **character** at
@@ -107,7 +116,11 @@ class TextBlock extends Block {
     for (var i = 0; i < segs.length; i++) {
       final len = segs[i].text.length;
       if (remaining < len) {
-        return CursorPositionInTextBlock(blockId: id, offset: remaining, segmentIndex: i);
+        return CursorPositionInTextBlock(
+          blockId: id,
+          offset: remaining,
+          segmentIndex: i,
+        );
       }
       remaining -= len;
     }
@@ -160,9 +173,24 @@ class LinkSegment extends TextSegment {
 enum TextFormat {
   none(0),
   bold(1 << 0),
-  italic(1 << 1);
+  italic(1 << 1),
+  boldItalic(1 << 0 | 1 << 1);
 
   const TextFormat(this.value);
 
   final int value;
+
+  /// Combines this format with [other] using bitwise OR.
+  TextFormat operator |(TextFormat other) => fromFlags(value | other.value);
+
+  /// Returns `true` if this format includes [flag].
+  bool has(TextFormat flag) => value & flag.value != 0;
+
+  /// Looks up the [TextFormat] enum value for the given bitmask.
+  static TextFormat fromFlags(int flags) {
+    for (final fmt in TextFormat.values) {
+      if (fmt.value == flags) return fmt;
+    }
+    return TextFormat.none;
+  }
 }

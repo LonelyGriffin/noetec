@@ -42,62 +42,58 @@ class BlockWithCursor extends BlockSelectionInfo {
 
   @override
   bool operator ==(Object other) =>
-      other is BlockWithCursor &&
-      other.cursorPos == cursorPos;
+      other is BlockWithCursor && other.cursorPos == cursorPos;
 
   @override
   int get hashCode => cursorPos.hashCode;
 }
 
-/// Block selected from start to cursor
-/// So block contains last (to) cursor of selection range
-class BlockWithToCursor extends BlockSelectionInfo {
+/// Block is selected from the beginning of the block to the cursor position.
+/// Used for the block that comes last in document order during a cross-block selection.
+class BlockSelectedFromStart extends BlockSelectionInfo {
   final CursorPositionInTextBlock cursorPos;
 
-  const BlockWithToCursor({required this.cursorPos});
+  const BlockSelectedFromStart({required this.cursorPos});
 
   @override
   bool operator ==(Object other) =>
-      other is BlockWithToCursor &&
-      other.cursorPos == cursorPos;
+      other is BlockSelectedFromStart && other.cursorPos == cursorPos;
 
   @override
   int get hashCode => cursorPos.hashCode;
 }
 
-/// Block selected from cursor to end
-/// So block contains first (from) cursor of selection range
-class BlockWithFromCursor extends BlockSelectionInfo {
+/// Block is selected from the cursor position to the end of the block.
+/// Used for the block that comes first in document order during a cross-block selection.
+class BlockSelectedToEnd extends BlockSelectionInfo {
   final CursorPositionInTextBlock cursorPos;
 
-  const BlockWithFromCursor({required this.cursorPos});
+  const BlockSelectedToEnd({required this.cursorPos});
 
   @override
   bool operator ==(Object other) =>
-      other is BlockWithFromCursor &&
-      other.cursorPos == cursorPos;
+      other is BlockSelectedToEnd && other.cursorPos == cursorPos;
 
   @override
   int get hashCode => cursorPos.hashCode;
 }
 
-/// Block contains both cursors of a range (from and to are in the same block).
+/// Block contains both cursors of a range (anchor and extent are in the same block).
 class BlockWithRange extends BlockSelectionInfo {
-  final CursorPositionInTextBlock fromCursorPos;
-  final CursorPositionInTextBlock toCursorPos;
+  final CursorPositionInTextBlock anchorCursorPos;
+  final CursorPositionInTextBlock extentCursorPos;
 
   const BlockWithRange({
-    required this.fromCursorPos,
-    required this.toCursorPos,
+    required this.anchorCursorPos,
+    required this.extentCursorPos,
   });
 
   @override
   bool operator ==(Object other) =>
       other is BlockWithRange &&
-      other.fromCursorPos == fromCursorPos &&
-      other.toCursorPos == toCursorPos;
+      other.anchorCursorPos == anchorCursorPos &&
+      other.extentCursorPos == extentCursorPos;
 
   @override
-  int get hashCode =>
-      Object.hash(fromCursorPos, toCursorPos);
+  int get hashCode => Object.hash(anchorCursorPos, extentCursorPos);
 }
