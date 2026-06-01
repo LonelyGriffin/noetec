@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:noetec/DocumentView/document_editor_widget.dart';
+import 'package:noetec/DocumentView/mobile_action_toolbar.dart';
 
 import 'configure_di.dart';
 
@@ -13,8 +14,27 @@ void main() {
   runApp(const MainApp());
 }
 
-class MainApp extends StatelessWidget {
+class MainApp extends StatefulWidget {
   const MainApp({super.key});
+
+  @override
+  State<MainApp> createState() => _MainAppState();
+}
+
+class _MainAppState extends State<MainApp> {
+  late final FocusNode _editorFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _editorFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _editorFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +49,20 @@ class MainApp extends StatelessWidget {
             ),
           ),
         ),
-        body: DocumentEditorWidget(documentId: 'doc1'),
+        body: Column(
+          children: [
+            Expanded(
+              child: DocumentEditorWidget(
+                documentId: 'doc1',
+                focusNode: _editorFocusNode,
+              ),
+            ),
+            MobileActionToolbar(
+              documentId: 'doc1',
+              focusNode: _editorFocusNode,
+            ),
+          ],
+        ),
       ),
     );
   }

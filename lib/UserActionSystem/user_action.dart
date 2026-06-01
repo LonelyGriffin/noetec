@@ -139,9 +139,102 @@ class MoveCursor extends UserAction {
   final String documentId;
   final CursorMoveDirection direction;
 
-  const MoveCursor({
+  const MoveCursor({required this.documentId, required this.direction});
+}
+
+/// Extend the current selection by one character in [direction].
+///
+/// If the current state is [SingleCursorSelectionState], the cursor becomes
+/// the anchor and the extent moves one character in [direction].
+/// If the current state is [RangeSelectionState], the anchor stays and the
+/// extent moves one character in [direction].
+/// If anchor == extent after the move, collapses to [SingleCursorSelectionState].
+@immutable
+class ExtendSelection extends UserAction {
+  final String documentId;
+  final CursorMoveDirection direction;
+
+  const ExtendSelection({required this.documentId, required this.direction});
+}
+
+/// Set a range selection with explicit anchor and extent positions.
+///
+/// Used for Shift+Click and mouse drag selection.
+/// If [anchor] == [extent], collapses to [SingleCursorSelectionState].
+@immutable
+class SetRangeSelection extends UserAction {
+  final String documentId;
+  final String anchorBlockId;
+  final int anchorSegmentIndex;
+  final int anchorOffset;
+  final String extentBlockId;
+  final int extentSegmentIndex;
+  final int extentOffset;
+
+  const SetRangeSelection({
     required this.documentId,
-    required this.direction,
+    required this.anchorBlockId,
+    required this.anchorSegmentIndex,
+    required this.anchorOffset,
+    required this.extentBlockId,
+    required this.extentSegmentIndex,
+    required this.extentOffset,
+  });
+}
+
+/// Select the entire document (Ctrl+A / Cmd+A).
+///
+/// Sets a [RangeSelectionState] from the start of the first block to the
+/// end of the last block.
+@immutable
+class SelectAll extends UserAction {
+  final String documentId;
+
+  const SelectAll({required this.documentId});
+}
+
+/// Delete all content within the current [RangeSelectionState].
+///
+/// Works on the current selection — no explicit coordinates needed.
+/// After deletion the cursor collapses to the start of the deleted range.
+/// Does nothing if the current selection is not a range.
+@immutable
+class DeleteSelection extends UserAction {
+  final String documentId;
+
+  const DeleteSelection({required this.documentId});
+}
+
+/// Paste content from clipboard into the document.
+///
+/// [clipboardContent] is the markdown string read from the clipboard.
+/// If there is an active range selection, it is deleted first.
+/// The parsed blocks/segments are inserted at the cursor position.
+@immutable
+class Paste extends UserAction {
+  final String documentId;
+  final String clipboardContent;
+
+  const Paste({required this.documentId, required this.clipboardContent});
+}
+
+/// Select the word at the given position in a text block (long press on mobile).
+///
+/// The word boundary is determined by [TextBlock.wordBoundaryAt].
+/// If the position lands on a non-word character, only that character is
+/// selected.
+@immutable
+class SelectWord extends UserAction {
+  final String documentId;
+  final String blockId;
+  final int segmentIndex;
+  final int offset;
+
+  const SelectWord({
+    required this.documentId,
+    required this.blockId,
+    required this.segmentIndex,
+    required this.offset,
   });
 }
 
