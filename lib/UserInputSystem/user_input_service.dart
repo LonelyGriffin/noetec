@@ -295,6 +295,26 @@ class UserInputService {
     }
   }
 
+  /// Swaps anchor and extent of the current [RangeSelectionState].
+  ///
+  /// Used on mobile when the user long-presses on the anchor cursor: we swap
+  /// so the "grabbed" end becomes the extent (the one that moves during drag),
+  /// and the former extent becomes the stationary anchor.
+  ///
+  /// Does nothing if the current selection is not a range.
+  void swapSelectionAnchors(String documentId) {
+    final document = _documentsManager.getDocument(documentId);
+    if (document == null) return;
+
+    final selection = document.selection.value;
+    if (selection is! RangeSelectionState) return;
+
+    document.selection.value = RangeSelectionState(
+      anchor: selection.extent,
+      extent: selection.anchor,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Hardware key events
   // ---------------------------------------------------------------------------
@@ -314,19 +334,19 @@ class UserInputService {
     // Hotkeys: Ctrl/Cmd + key
     if (_ctrlPressed || _metaPressed) {
       if (key == LogicalKeyboardKey.keyA) {
-        _handleSelectAll(documentId);
+        handleSelectAll(documentId);
         return;
       }
       if (key == LogicalKeyboardKey.keyC) {
-        _handleCopy(documentId);
+        handleCopy(documentId);
         return;
       }
       if (key == LogicalKeyboardKey.keyX) {
-        _handleCut(documentId);
+        handleCut(documentId);
         return;
       }
       if (key == LogicalKeyboardKey.keyV) {
-        _handlePaste(documentId);
+        handlePaste(documentId);
         return;
       }
     }
@@ -553,7 +573,7 @@ class UserInputService {
     onPlatformImeUpdateNeeded?.call();
   }
 
-  void _handleSelectAll(String documentId) {
+  void handleSelectAll(String documentId) {
     final document = _documentsManager.getDocument(documentId);
     if (document == null) return;
 
@@ -563,14 +583,14 @@ class UserInputService {
     onPlatformImeUpdateNeeded?.call();
   }
 
-  void _handleCopy(String documentId) {
+  void handleCopy(String documentId) {
     final markdown = _actionService.extractSelectedMarkdown(documentId);
     if (markdown == null) return;
 
     Clipboard.setData(ClipboardData(text: markdown));
   }
 
-  void _handleCut(String documentId) {
+  void handleCut(String documentId) {
     final markdown = _actionService.extractSelectedMarkdown(documentId);
     if (markdown == null) return;
 
@@ -585,7 +605,7 @@ class UserInputService {
     }
   }
 
-  void _handlePaste(String documentId) async {
+  void handlePaste(String documentId) async {
     final data = await Clipboard.getData('text/plain');
     if (data == null || data.text == null || data.text!.isEmpty) return;
 

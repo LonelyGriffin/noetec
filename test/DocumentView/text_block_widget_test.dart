@@ -46,6 +46,7 @@ Future<RenderTextBlockContent> _pumpTextBlock(
   WidgetTester tester, {
   required TextBlock block,
   BlockSelectionInfo selectionInfo = const BlockNotSelected(),
+  bool isTouchMode = false,
 }) async {
   await tester.pumpWidget(
     Directionality(
@@ -53,7 +54,11 @@ Future<RenderTextBlockContent> _pumpTextBlock(
       child: Center(
         child: SizedBox(
           width: 400,
-          child: TextBlockWidget(block: block, selectionInfo: selectionInfo),
+          child: TextBlockWidget(
+            block: block,
+            selectionInfo: selectionInfo,
+            isTouchMode: isTouchMode,
+          ),
         ),
       ),
     ),
@@ -312,6 +317,102 @@ void main() {
             offset: 3,
           ),
         ),
+      );
+
+      expect(find.byType(TextBlockWidget), findsOneWidget);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Touch mode (trapezoid cursors) — smoke tests
+  // ---------------------------------------------------------------------------
+  group('touch mode renders without crashing', () {
+    testWidgets('with BlockWithCursor in touch mode', (tester) async {
+      final block = _createTextBlock(text: 'Hello');
+      await _pumpTextBlock(
+        tester,
+        block: block,
+        isTouchMode: true,
+        selectionInfo: const BlockWithCursor(
+          cursorPos: CursorPositionInTextBlock(
+            blockId: 'block-1',
+            segmentIndex: 0,
+            offset: 2,
+          ),
+        ),
+      );
+
+      expect(find.byType(TextBlockWidget), findsOneWidget);
+    });
+
+    testWidgets('with BlockWithRange in touch mode (anchor + extent)', (
+      tester,
+    ) async {
+      final block = _createTextBlock(text: 'Hello');
+      await _pumpTextBlock(
+        tester,
+        block: block,
+        isTouchMode: true,
+        selectionInfo: const BlockWithRange(
+          anchorCursorPos: CursorPositionInTextBlock(
+            blockId: 'block-1',
+            segmentIndex: 0,
+            offset: 1,
+          ),
+          extentCursorPos: CursorPositionInTextBlock(
+            blockId: 'block-1',
+            segmentIndex: 0,
+            offset: 4,
+          ),
+        ),
+      );
+
+      expect(find.byType(TextBlockWidget), findsOneWidget);
+    });
+
+    testWidgets('with BlockSelectedFromStart in touch mode', (tester) async {
+      final block = _createTextBlock(text: 'Hello');
+      await _pumpTextBlock(
+        tester,
+        block: block,
+        isTouchMode: true,
+        selectionInfo: const BlockSelectedFromStart(
+          cursorPos: CursorPositionInTextBlock(
+            blockId: 'block-1',
+            segmentIndex: 0,
+            offset: 3,
+          ),
+        ),
+      );
+
+      expect(find.byType(TextBlockWidget), findsOneWidget);
+    });
+
+    testWidgets('with BlockSelectedToEnd in touch mode', (tester) async {
+      final block = _createTextBlock(text: 'Hello');
+      await _pumpTextBlock(
+        tester,
+        block: block,
+        isTouchMode: true,
+        selectionInfo: const BlockSelectedToEnd(
+          cursorPos: CursorPositionInTextBlock(
+            blockId: 'block-1',
+            segmentIndex: 0,
+            offset: 2,
+          ),
+        ),
+      );
+
+      expect(find.byType(TextBlockWidget), findsOneWidget);
+    });
+
+    testWidgets('with BlockFullySelected in touch mode', (tester) async {
+      final block = _createTextBlock();
+      await _pumpTextBlock(
+        tester,
+        block: block,
+        isTouchMode: true,
+        selectionInfo: const BlockFullySelected(),
       );
 
       expect(find.byType(TextBlockWidget), findsOneWidget);

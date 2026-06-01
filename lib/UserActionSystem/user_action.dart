@@ -218,4 +218,24 @@ class Paste extends UserAction {
   const Paste({required this.documentId, required this.clipboardContent});
 }
 
+/// Select the word at the given position in a text block (long press on mobile).
+///
+/// The word boundary is determined by [TextBlock.wordBoundaryAt].
+/// If the position lands on a non-word character, only that character is
+/// selected.
+@immutable
+class SelectWord extends UserAction {
+  final String documentId;
+  final String blockId;
+  final int segmentIndex;
+  final int offset;
+
+  const SelectWord({
+    required this.documentId,
+    required this.blockId,
+    required this.segmentIndex,
+    required this.offset,
+  });
+}
+
 enum CursorMoveDirection { left, right }

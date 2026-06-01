@@ -48,6 +48,8 @@ class UserActionService {
         _handleDeleteSelection(action);
       case Paste():
         _handlePaste(action);
+      case SelectWord():
+        _handleSelectWord(action);
     }
   }
 
@@ -575,6 +577,41 @@ class UserActionService {
     // 5. Cursor at the join point.
     document.selection.value = SingleCursorSelectionState(
       cursorPos: firstBlock.cursorPosFromFlatOffset(firstFlat),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Word selection
+  // ---------------------------------------------------------------------------
+
+  void _handleSelectWord(SelectWord action) {
+    final document = _documentsManager.getDocument(action.documentId);
+    if (document == null) return;
+
+    final block = document.getBlockById(action.blockId);
+    if (block is! TextBlock) return;
+
+    final flatOffset = block.flatOffsetFromCursor(
+      action.segmentIndex,
+      action.offset,
+    );
+
+    final (start, end) = block.wordBoundaryAt(flatOffset);
+
+    if (start == end) {
+      // Empty block or degenerate case — just place cursor.
+      document.selection.value = SingleCursorSelectionState(
+        cursorPos: block.cursorPosFromFlatOffset(start),
+      );
+      return;
+    }
+
+    final anchor = block.cursorPosFromFlatOffset(start);
+    final extent = block.cursorPosFromFlatOffset(end);
+
+    document.selection.value = RangeSelectionState(
+      anchor: anchor,
+      extent: extent,
     );
   }
 

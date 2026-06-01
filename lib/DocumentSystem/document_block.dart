@@ -128,6 +128,57 @@ class TextBlock extends Block {
     return null;
   }
 
+  /// Returns the flat-offset range `(start, end)` of the word at
+  /// [flatOffset].
+  ///
+  /// A "word" is a contiguous run of alphanumeric / underscore characters.
+  /// If [flatOffset] lands on a non-word character (space, punctuation) the
+  /// returned range covers that single character.
+  ///
+  /// [flatOffset] is clamped to `[0, totalLength]`.  When the block is empty
+  /// `(0, 0)` is returned.
+  (int, int) wordBoundaryAt(int flatOffset) {
+    final text = computeAllSegmentsText();
+    if (text.isEmpty) return (0, 0);
+
+    final length = text.length;
+    final clamped = flatOffset.clamp(0, length);
+
+    // When sitting exactly at the end, treat the last character as the target.
+    final charIndex = clamped >= length ? length - 1 : clamped;
+
+    if (_isWordChar(text.codeUnitAt(charIndex))) {
+      // Expand to the left while word characters.
+      int start = charIndex;
+      while (start > 0 && _isWordChar(text.codeUnitAt(start - 1))) {
+        start--;
+      }
+      // Expand to the right while word characters.
+      int end = charIndex + 1;
+      while (end < length && _isWordChar(text.codeUnitAt(end))) {
+        end++;
+      }
+      return (start, end);
+    } else {
+      // Non-word character: select only that character.
+      return (charIndex, charIndex + 1);
+    }
+  }
+
+  /// Returns `true` for characters that are considered part of a "word":
+  /// letters, digits, and underscore.
+  static bool _isWordChar(int codeUnit) {
+    // 0-9
+    if (codeUnit >= 0x30 && codeUnit <= 0x39) return true;
+    // A-Z
+    if (codeUnit >= 0x41 && codeUnit <= 0x5A) return true;
+    // a-z
+    if (codeUnit >= 0x61 && codeUnit <= 0x7A) return true;
+    // underscore
+    if (codeUnit == 0x5F) return true;
+    return false;
+  }
+
   @override
   void dispose() {
     segments.dispose();

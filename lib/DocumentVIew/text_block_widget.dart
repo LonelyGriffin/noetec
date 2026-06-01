@@ -15,14 +15,24 @@ class TextBlockWidget extends LeafRenderObjectWidget {
     super.key,
     required this.block,
     required this.selectionInfo,
+    this.isTouchMode = false,
   });
 
   final TextBlock block;
   final BlockSelectionInfo selectionInfo;
 
+  /// When `true`, cursors are drawn as trapezoids (wider at one end) to
+  /// provide a visible touch-friendly handle.  Anchor cursors widen at the
+  /// top, extent cursors widen at the bottom.
+  final bool isTouchMode;
+
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return RenderTextBlockContent(block: block, selectionInfo: selectionInfo);
+    return RenderTextBlockContent(
+      block: block,
+      selectionInfo: selectionInfo,
+      isTouchMode: isTouchMode,
+    );
   }
 
   @override
@@ -32,6 +42,7 @@ class TextBlockWidget extends LeafRenderObjectWidget {
   ) {
     renderObject.block = block;
     renderObject.selectionInfo = selectionInfo;
+    renderObject.isTouchMode = isTouchMode;
   }
 }
 
@@ -40,6 +51,13 @@ class RenderTextBlockContent extends RenderBox {
   TextBlock get block => _block;
   BlockSelectionInfo _selectionInfo;
   BlockSelectionInfo get selectionInfo => _selectionInfo;
+  bool _isTouchMode;
+
+  set isTouchMode(bool value) {
+    if (_isTouchMode == value) return;
+    _isTouchMode = value;
+    markNeedsPaint();
+  }
 
   set selectionInfo(BlockSelectionInfo value) {
     if (_selectionInfo == value) return;
@@ -80,8 +98,10 @@ class RenderTextBlockContent extends RenderBox {
   RenderTextBlockContent({
     required TextBlock block,
     required BlockSelectionInfo selectionInfo,
+    bool isTouchMode = false,
   }) : _selectionInfo = selectionInfo,
-       _block = block {
+       _block = block,
+       _isTouchMode = isTouchMode {
     _block.segments.addListener(_onSegmentsChanged);
     _updateCursorBlink();
   }
@@ -297,14 +317,25 @@ class RenderTextBlockContent extends RenderBox {
             paintOffset,
             cursorPos.segmentIndex,
             cursorPos.offset,
+            isAnchor: false,
           );
         }
-      case BlockWithRange(:final extentCursorPos):
+      case BlockWithRange(:final anchorCursorPos, :final extentCursorPos):
+        // Draw anchor cursor (stationary end of selection).
+        _paintCursor(
+          context.canvas,
+          paintOffset,
+          anchorCursorPos.segmentIndex,
+          anchorCursorPos.offset,
+          isAnchor: true,
+        );
+        // Draw extent cursor (movable end of selection).
         _paintCursor(
           context.canvas,
           paintOffset,
           extentCursorPos.segmentIndex,
           extentCursorPos.offset,
+          isAnchor: false,
         );
       case BlockSelectedFromStart(:final cursorPos):
         _paintCursor(
@@ -312,6 +343,7 @@ class RenderTextBlockContent extends RenderBox {
           paintOffset,
           cursorPos.segmentIndex,
           cursorPos.offset,
+          isAnchor: false,
         );
       case BlockSelectedToEnd(:final cursorPos):
         _paintCursor(
@@ -319,6 +351,7 @@ class RenderTextBlockContent extends RenderBox {
           paintOffset,
           cursorPos.segmentIndex,
           cursorPos.offset,
+          isAnchor: false,
         );
       default:
         break;
@@ -326,12 +359,19 @@ class RenderTextBlockContent extends RenderBox {
   }
 
   /// Paints a cursor at the given segment and offset within the segment.
+  ///
+  /// In touch mode, the cursor is drawn as a trapezoid:
+  ///   - [isAnchor] `true`  -> wider at the top (anchor handle)
+  ///   - [isAnchor] `false` -> wider at the bottom (extent / caret handle)
+  ///
+  /// In mouse mode, a plain rectangle is drawn regardless of [isAnchor].
   void _paintCursor(
     Canvas canvas,
     Offset blockOffset,
     int segmentIndex,
-    int charOffsetInSegment,
-  ) {
+    int charOffsetInSegment, {
+    bool isAnchor = false,
+  }) {
     final flatOffset = _computeFlatOffset(segmentIndex, charOffsetInSegment);
     if (flatOffset == -1) return;
 
@@ -353,7 +393,47 @@ class RenderTextBlockContent extends RenderBox {
       lineHeight,
     );
 
-    canvas.drawRect(cursorRect, Paint()..color = _cursorColor);
+    final paint = Paint()..color = _cursorColor;
+
+    if (_isTouchMode) {
+      _paintTrapezoidCursor(canvas, cursorRect, isAnchor, paint);
+    } else {
+      canvas.drawRect(cursorRect, paint);
+    }
+  }
+
+  /// Draws a trapezoid cursor.
+  ///
+  /// [isAnchor] `true`  -> wider at the top, narrow at the bottom.
+  /// [isAnchor] `false` -> narrow at the top, wider at the bottom.
+  void _paintTrapezoidCursor(
+    Canvas canvas,
+    Rect rect,
+    bool isAnchor,
+    Paint paint,
+  ) {
+    final wideWidth = _cursorWidth * 2;
+    final narrowWidth = _cursorWidth;
+    final centerX = rect.left + rect.width / 2;
+
+    final double topHalf;
+    final double bottomHalf;
+    if (isAnchor) {
+      topHalf = wideWidth / 2;
+      bottomHalf = narrowWidth / 2;
+    } else {
+      topHalf = narrowWidth / 2;
+      bottomHalf = wideWidth / 2;
+    }
+
+    final path = Path()
+      ..moveTo(centerX - topHalf, rect.top)
+      ..lineTo(centerX + topHalf, rect.top)
+      ..lineTo(centerX + bottomHalf, rect.bottom)
+      ..lineTo(centerX - bottomHalf, rect.bottom)
+      ..close();
+
+    canvas.drawPath(path, paint);
   }
 
   /// Paints a selection range between two positions in the same block.
