@@ -5,157 +5,70 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:noetec/DocumentSystem/document_block.dart';
-import 'package:noetec/DocumentSystem/document_model.dart';
 import 'package:noetec/DocumentSystem/opened_documents_manager.dart';
-import 'package:noetec/DocumentSystem/selection_state.dart';
-import 'package:noetec/UserActionSystem/user_action.dart';
 import 'package:noetec/UserActionSystem/user_action_service.dart';
+import 'package:noetec/UserInputSystem/handlers/clipboard_input_handler.dart';
+import 'package:noetec/UserInputSystem/handlers/ime_input_handler.dart';
+import 'package:noetec/UserInputSystem/handlers/keyboard_input_handler.dart';
+import 'package:noetec/UserInputSystem/handlers/pointer_input_handler.dart';
 
 /// Single gateway for all raw user input (IME deltas, pointer events, key events).
 ///
-/// Responsibilities:
-/// 1. Translate raw platform events into domain [UserAction]s
-/// 2. Dispatch actions to [UserActionService]
-/// 3. Maintain IME state ([TextEditingValue]) per document
-/// 4. Track modifier key state for hotkey detection
+/// Acts as a thin facade that delegates each concern to a dedicated handler:
+/// - [ImeInputHandler]       — IME text deltas and per-document [TextEditingValue]
+/// - [PointerInputHandler]   — click and drag selection
+/// - [KeyboardInputHandler]  — hardware key events and modifier key state
+/// - [ClipboardInputHandler] — copy, cut, paste, and select-all
 class UserInputService {
-  final OpenedDocumentsManager _documentsManager;
-  final UserActionService _actionService;
+  final ImeInputHandler _ime = ImeInputHandler();
+  final PointerInputHandler _pointer = PointerInputHandler();
+  final ClipboardInputHandler _clipboard = ClipboardInputHandler();
+  final KeyboardInputHandler _keyboard = KeyboardInputHandler();
 
-  // Modifier keys state
-  bool _ctrlPressed = false;
-  bool _shiftPressed = false;
-  bool _altPressed = false;
-  bool _metaPressed = false;
+  UserInputService({
+    required OpenedDocumentsManager documentsManager,
+    required UserActionService actionService,
+  }) {
+    _ime.init(documentsManager, actionService);
+    _clipboard.init(documentsManager, actionService, _ime);
+    _pointer.init(documentsManager, actionService, _ime);
+    _keyboard.init(documentsManager, actionService, _ime, _clipboard);
+  }
 
-  bool get ctrlPressed => _ctrlPressed;
-  bool get shiftPressed => _shiftPressed;
-  bool get altPressed => _altPressed;
-  bool get metaPressed => _metaPressed;
-
-  // IME state per document
-  final Map<String, ValueNotifier<TextEditingValue>> _imeStates = {};
+  // ---------------------------------------------------------------------------
+  // IME state
+  // ---------------------------------------------------------------------------
 
   /// Called when the platform IME must be told about a new [TextEditingValue]
   /// that originated from a non-IME event (click, keyboard navigation, etc.).
   ///
   /// The widget layer sets this to push the value via
   /// [TextInputConnection.setEditingState].
-  /// The argument is the document ID whose IME state changed.
-  VoidCallback? onPlatformImeUpdateNeeded;
+  VoidCallback? get onPlatformImeUpdateNeeded => _ime.onPlatformImeUpdateNeeded;
 
-  UserInputService({
-    required OpenedDocumentsManager documentsManager,
-    required UserActionService actionService,
-  }) : _documentsManager = documentsManager,
-       _actionService = actionService;
+  set onPlatformImeUpdateNeeded(VoidCallback? cb) =>
+      _ime.onPlatformImeUpdateNeeded = cb;
 
   /// Returns the IME state notifier for [documentId].
   /// Creates one with empty value if it doesn't exist yet.
-  ValueNotifier<TextEditingValue> getImeState(String documentId) {
-    return _imeStates.putIfAbsent(
-      documentId,
-      () => ValueNotifier(TextEditingValue.empty),
-    );
-  }
+  ValueNotifier<TextEditingValue> getImeState(String documentId) =>
+      _ime.getImeState(documentId);
+
+  // ---------------------------------------------------------------------------
+  // Modifier keys (read-only view into KeyboardInputHandler)
+  // ---------------------------------------------------------------------------
+
+  bool get ctrlPressed => _keyboard.ctrlPressed;
+  bool get shiftPressed => _keyboard.shiftPressed;
+  bool get altPressed => _keyboard.altPressed;
+  bool get metaPressed => _keyboard.metaPressed;
 
   // ---------------------------------------------------------------------------
   // IME text deltas
   // ---------------------------------------------------------------------------
 
-  void handleTextDeltas(String documentId, List<TextEditingDelta> deltas) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
-
-    for (final delta in deltas) {
-      switch (delta) {
-        case TextEditingDeltaInsertion():
-          _handleInsertion(documentId, document, delta);
-        case TextEditingDeltaReplacement():
-          _handleReplacement(documentId, document, delta);
-        case TextEditingDeltaNonTextUpdate():
-          _handleNonTextUpdate(documentId, document, delta);
-        default:
-          break;
-      }
-    }
-  }
-
-  void _handleInsertion(
-    String documentId,
-    DocumentModel document,
-    TextEditingDeltaInsertion delta,
-  ) {
-    final selection = document.selection.value;
-    if (selection is! SingleCursorSelectionState) return;
-
-    final cursor = selection.cursorPos;
-    if (cursor is! CursorPositionInTextBlock) return;
-
-    final imeState = getImeState(documentId);
-
-    _actionService.handleAction(
-      InsertText(
-        documentId: documentId,
-        blockId: cursor.blockId,
-        flatOffset: delta.insertionOffset,
-        text: delta.textInserted,
-      ),
-    );
-
-    imeState.value = delta.apply(imeState.value);
-  }
-
-  void _handleReplacement(
-    String documentId,
-    DocumentModel document,
-    TextEditingDeltaReplacement delta,
-  ) {
-    final selection = document.selection.value;
-    if (selection is! SingleCursorSelectionState) return;
-
-    final cursor = selection.cursorPos;
-    if (cursor is! CursorPositionInTextBlock) return;
-
-    _actionService.handleAction(
-      ReplaceText(
-        documentId: documentId,
-        blockId: cursor.blockId,
-        flatStart: delta.replacedRange.start,
-        flatEnd: delta.replacedRange.end,
-        replacementText: delta.replacementText,
-      ),
-    );
-
-    getImeState(documentId).value = document.computeTextEditingValue();
-  }
-
-  void _handleNonTextUpdate(
-    String documentId,
-    DocumentModel document,
-    TextEditingDeltaNonTextUpdate delta,
-  ) {
-    // Only handle collapsed selections (single cursor).
-    // Range selections from IME are ignored for now.
-    if (!delta.selection.isCollapsed) return;
-
-    final selection = document.selection.value;
-    if (selection is! SingleCursorSelectionState) return;
-
-    final cursor = selection.cursorPos;
-    if (cursor is! CursorPositionInTextBlock) return;
-
-    _actionService.handleAction(
-      SetCursorPosition(
-        documentId: documentId,
-        blockId: cursor.blockId,
-        flatOffset: delta.selection.baseOffset,
-      ),
-    );
-
-    getImeState(documentId).value = document.computeTextEditingValue();
-  }
+  void handleTextDeltas(String documentId, List<TextEditingDelta> deltas) =>
+      _ime.handleTextDeltas(documentId, deltas);
 
   // ---------------------------------------------------------------------------
   // Pointer events
@@ -167,511 +80,54 @@ class UserInputService {
     int segmentIndex,
     int offset,
   ) {
-    if (_shiftPressed) {
-      // Shift+Click: extend selection from current anchor to click position.
-      _handleShiftClick(documentId, blockId, segmentIndex, offset);
+    if (_keyboard.shiftPressed) {
+      _pointer.handleShiftClick(documentId, blockId, segmentIndex, offset);
     } else {
-      _actionService.handleAction(
-        ClickOnTextBlock(
-          documentId: documentId,
-          blockId: blockId,
-          segmentIndex: segmentIndex,
-          offset: offset,
-        ),
-      );
-    }
-
-    final document = _documentsManager.getDocument(documentId);
-    if (document != null) {
-      getImeState(documentId).value = document.computeTextEditingValue();
-      onPlatformImeUpdateNeeded?.call();
+      _pointer.handleTextClick(documentId, blockId, segmentIndex, offset);
     }
   }
 
-  void _handleShiftClick(
-    String documentId,
-    String blockId,
-    int segmentIndex,
-    int offset,
-  ) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
-
-    final selection = document.selection.value;
-
-    // Determine the anchor: current cursor or current anchor if range.
-    CursorPositionInTextBlock anchor;
-    if (selection is SingleCursorSelectionState) {
-      final cursor = selection.cursorPos;
-      if (cursor is! CursorPositionInTextBlock) return;
-      anchor = cursor;
-    } else if (selection is RangeSelectionState) {
-      final a = selection.anchor;
-      if (a is! CursorPositionInTextBlock) return;
-      anchor = a;
-    } else {
-      return;
-    }
-
-    _actionService.handleAction(
-      SetRangeSelection(
-        documentId: documentId,
-        anchorBlockId: anchor.blockId,
-        anchorSegmentIndex: anchor.segmentIndex,
-        anchorOffset: anchor.offset,
-        extentBlockId: blockId,
-        extentSegmentIndex: segmentIndex,
-        extentOffset: offset,
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Drag selection
-  // ---------------------------------------------------------------------------
-
-  /// Called when a pointer-down begins a potential drag selection.
   void handleDragStart(
     String documentId,
     String blockId,
     int segmentIndex,
     int offset,
-  ) {
-    // Set the anchor at the drag start position (collapsed cursor).
-    _actionService.handleAction(
-      ClickOnTextBlock(
-        documentId: documentId,
-        blockId: blockId,
-        segmentIndex: segmentIndex,
-        offset: offset,
-      ),
-    );
-  }
+  ) => _pointer.handleDragStart(documentId, blockId, segmentIndex, offset);
 
-  /// Called during pointer-move to update the drag selection extent.
   void handleDragUpdate(
     String documentId,
     String blockId,
     int segmentIndex,
     int offset,
-  ) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
+  ) => _pointer.handleDragUpdate(documentId, blockId, segmentIndex, offset);
 
-    final selection = document.selection.value;
+  void handleDragEnd(String documentId) => _pointer.handleDragEnd(documentId);
 
-    CursorPositionInTextBlock anchor;
-    if (selection is SingleCursorSelectionState) {
-      final cursor = selection.cursorPos;
-      if (cursor is! CursorPositionInTextBlock) return;
-      anchor = cursor;
-    } else if (selection is RangeSelectionState) {
-      final a = selection.anchor;
-      if (a is! CursorPositionInTextBlock) return;
-      anchor = a;
-    } else {
-      return;
-    }
-
-    _actionService.handleAction(
-      SetRangeSelection(
-        documentId: documentId,
-        anchorBlockId: anchor.blockId,
-        anchorSegmentIndex: anchor.segmentIndex,
-        anchorOffset: anchor.offset,
-        extentBlockId: blockId,
-        extentSegmentIndex: segmentIndex,
-        extentOffset: offset,
-      ),
-    );
-  }
-
-  /// Called when the drag ends to finalize the selection and sync IME state.
-  void handleDragEnd(String documentId) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document != null) {
-      getImeState(documentId).value = document.computeTextEditingValue();
-      onPlatformImeUpdateNeeded?.call();
-    }
-  }
-
-  /// Swaps anchor and extent of the current [RangeSelectionState].
-  ///
-  /// Used on mobile when the user long-presses on the anchor cursor: we swap
-  /// so the "grabbed" end becomes the extent (the one that moves during drag),
-  /// and the former extent becomes the stationary anchor.
-  ///
-  /// Does nothing if the current selection is not a range.
-  void swapSelectionAnchors(String documentId) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
-
-    final selection = document.selection.value;
-    if (selection is! RangeSelectionState) return;
-
-    document.selection.value = RangeSelectionState(
-      anchor: selection.extent,
-      extent: selection.anchor,
-    );
-  }
+  void swapSelectionAnchors(String documentId) =>
+      _pointer.swapSelectionAnchors(documentId);
 
   // ---------------------------------------------------------------------------
   // Hardware key events
   // ---------------------------------------------------------------------------
 
-  void handleKeyEvent(String documentId, KeyDownEvent event) {
-    _updateModifierKeys(event);
-    _handleKey(documentId, event);
-  }
+  void handleKeyEvent(String documentId, KeyDownEvent event) =>
+      _keyboard.handleKeyEvent(documentId, event);
 
-  void handleKeyRepeat(String documentId, KeyRepeatEvent event) {
-    _handleKey(documentId, event);
-  }
+  void handleKeyRepeat(String documentId, KeyRepeatEvent event) =>
+      _keyboard.handleKeyRepeat(documentId, event);
 
-  void _handleKey(String documentId, KeyEvent event) {
-    final key = event.logicalKey;
+  void handleKeyUp(KeyUpEvent event) => _keyboard.handleKeyUp(event);
 
-    // Hotkeys: Ctrl/Cmd + key
-    if (_ctrlPressed || _metaPressed) {
-      if (key == LogicalKeyboardKey.keyA) {
-        handleSelectAll(documentId);
-        return;
-      }
-      if (key == LogicalKeyboardKey.keyC) {
-        handleCopy(documentId);
-        return;
-      }
-      if (key == LogicalKeyboardKey.keyX) {
-        handleCut(documentId);
-        return;
-      }
-      if (key == LogicalKeyboardKey.keyV) {
-        handlePaste(documentId);
-        return;
-      }
-    }
+  // ---------------------------------------------------------------------------
+  // Clipboard
+  // ---------------------------------------------------------------------------
 
-    // Printable characters — only when no Ctrl/Meta modifier (to avoid
-    // intercepting hotkeys like Ctrl+C, Ctrl+V, etc.).
-    // character field is only present on KeyDownEvent and KeyRepeatEvent.
-    if (!_ctrlPressed && !_metaPressed) {
-      final String? character;
-      if (event is KeyDownEvent) {
-        character = event.character;
-      } else if (event is KeyRepeatEvent) {
-        character = event.character;
-      } else {
-        character = null;
-      }
-      if (character != null &&
-          character.isNotEmpty &&
-          !_isControlCharacter(character)) {
-        _handleHardwareCharacterInput(documentId, character);
-        return;
-      }
-    }
+  void handleSelectAll(String documentId) =>
+      _clipboard.handleSelectAll(documentId);
 
-    // Special keys.
-    if (key == LogicalKeyboardKey.backspace) {
-      _handleBackspace(documentId);
-      return;
-    }
-    if (key == LogicalKeyboardKey.delete) {
-      _handleDelete(documentId);
-      return;
-    }
-    if (key == LogicalKeyboardKey.enter) {
-      _handleEnter(documentId);
-      return;
-    }
-    if (key == LogicalKeyboardKey.arrowLeft) {
-      if (_shiftPressed) {
-        _handleExtendSelection(documentId, CursorMoveDirection.left);
-      } else {
-        _handleMoveCursor(documentId, CursorMoveDirection.left);
-      }
-      return;
-    }
-    if (key == LogicalKeyboardKey.arrowRight) {
-      if (_shiftPressed) {
-        _handleExtendSelection(documentId, CursorMoveDirection.right);
-      } else {
-        _handleMoveCursor(documentId, CursorMoveDirection.right);
-      }
-      return;
-    }
-  }
+  void handleCopy(String documentId) => _clipboard.handleCopy(documentId);
 
-  void _handleHardwareCharacterInput(String documentId, String character) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
+  void handleCut(String documentId) => _clipboard.handleCut(documentId);
 
-    final selection = document.selection.value;
-
-    // If range selection is active, delete it first, then insert at the new cursor.
-    if (selection is RangeSelectionState) {
-      _actionService.handleAction(DeleteSelection(documentId: documentId));
-    }
-
-    // After potential deletion, re-read selection (now should be collapsed).
-    final currentSelection = document.selection.value;
-    if (currentSelection is! SingleCursorSelectionState) return;
-
-    final cursor = currentSelection.cursorPos;
-    if (cursor is! CursorPositionInTextBlock) return;
-
-    final block = document.getBlockById(cursor.blockId);
-    if (block is! TextBlock) return;
-
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
-
-    _actionService.handleAction(
-      InsertText(
-        documentId: documentId,
-        blockId: cursor.blockId,
-        flatOffset: flatOffset,
-        text: character,
-      ),
-    );
-
-    // Sync IME state from the (now-mutated) document model.
-    getImeState(documentId).value = document.computeTextEditingValue();
-    onPlatformImeUpdateNeeded?.call();
-  }
-
-  void _handleBackspace(String documentId) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
-
-    final selection = document.selection.value;
-
-    // If range selection is active, just delete the selection (no extra char deletion).
-    if (selection is RangeSelectionState) {
-      _actionService.handleAction(DeleteSelection(documentId: documentId));
-      getImeState(documentId).value = document.computeTextEditingValue();
-      onPlatformImeUpdateNeeded?.call();
-      return;
-    }
-
-    if (selection is! SingleCursorSelectionState) return;
-
-    final cursor = selection.cursorPos;
-    if (cursor is! CursorPositionInTextBlock) return;
-
-    final block = document.getBlockById(cursor.blockId);
-    if (block is! TextBlock) return;
-
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
-
-    _actionService.handleAction(
-      DeleteTextBack(
-        documentId: documentId,
-        blockId: cursor.blockId,
-        flatOffset: flatOffset,
-      ),
-    );
-
-    getImeState(documentId).value = document.computeTextEditingValue();
-    onPlatformImeUpdateNeeded?.call();
-  }
-
-  void _handleDelete(String documentId) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
-
-    final selection = document.selection.value;
-
-    // If range selection is active, just delete the selection.
-    if (selection is RangeSelectionState) {
-      _actionService.handleAction(DeleteSelection(documentId: documentId));
-      getImeState(documentId).value = document.computeTextEditingValue();
-      onPlatformImeUpdateNeeded?.call();
-      return;
-    }
-
-    if (selection is! SingleCursorSelectionState) return;
-
-    final cursor = selection.cursorPos;
-    if (cursor is! CursorPositionInTextBlock) return;
-
-    final block = document.getBlockById(cursor.blockId);
-    if (block is! TextBlock) return;
-
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
-
-    _actionService.handleAction(
-      DeleteTextForward(
-        documentId: documentId,
-        blockId: cursor.blockId,
-        flatOffset: flatOffset,
-      ),
-    );
-
-    getImeState(documentId).value = document.computeTextEditingValue();
-    onPlatformImeUpdateNeeded?.call();
-  }
-
-  void _handleEnter(String documentId) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
-
-    final selection = document.selection.value;
-
-    // If range selection is active, delete it first, then split.
-    if (selection is RangeSelectionState) {
-      _actionService.handleAction(DeleteSelection(documentId: documentId));
-    }
-
-    final currentSelection = document.selection.value;
-    if (currentSelection is! SingleCursorSelectionState) return;
-
-    final cursor = currentSelection.cursorPos;
-    if (cursor is! CursorPositionInTextBlock) return;
-
-    final block = document.getBlockById(cursor.blockId);
-    if (block is! TextBlock) return;
-
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
-
-    _actionService.handleAction(
-      SplitTextBlock(
-        documentId: documentId,
-        blockId: cursor.blockId,
-        splitFlatOffset: flatOffset,
-      ),
-    );
-
-    // After split, cursor is on the new block — recompute IME state.
-    getImeState(documentId).value = document.computeTextEditingValue();
-    onPlatformImeUpdateNeeded?.call();
-  }
-
-  void _handleExtendSelection(
-    String documentId,
-    CursorMoveDirection direction,
-  ) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
-
-    _actionService.handleAction(
-      ExtendSelection(documentId: documentId, direction: direction),
-    );
-
-    getImeState(documentId).value = document.computeTextEditingValue();
-    onPlatformImeUpdateNeeded?.call();
-  }
-
-  void handleSelectAll(String documentId) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
-
-    _actionService.handleAction(SelectAll(documentId: documentId));
-
-    getImeState(documentId).value = document.computeTextEditingValue();
-    onPlatformImeUpdateNeeded?.call();
-  }
-
-  void handleCopy(String documentId) {
-    final markdown = _actionService.extractSelectedMarkdown(documentId);
-    if (markdown == null) return;
-
-    Clipboard.setData(ClipboardData(text: markdown));
-  }
-
-  void handleCut(String documentId) {
-    final markdown = _actionService.extractSelectedMarkdown(documentId);
-    if (markdown == null) return;
-
-    Clipboard.setData(ClipboardData(text: markdown));
-
-    _actionService.handleAction(DeleteSelection(documentId: documentId));
-
-    final document = _documentsManager.getDocument(documentId);
-    if (document != null) {
-      getImeState(documentId).value = document.computeTextEditingValue();
-      onPlatformImeUpdateNeeded?.call();
-    }
-  }
-
-  void handlePaste(String documentId) async {
-    final data = await Clipboard.getData('text/plain');
-    if (data == null || data.text == null || data.text!.isEmpty) return;
-
-    _actionService.handleAction(
-      Paste(documentId: documentId, clipboardContent: data.text!),
-    );
-
-    final document = _documentsManager.getDocument(documentId);
-    if (document != null) {
-      getImeState(documentId).value = document.computeTextEditingValue();
-      onPlatformImeUpdateNeeded?.call();
-    }
-  }
-
-  void _handleMoveCursor(String documentId, CursorMoveDirection direction) {
-    final document = _documentsManager.getDocument(documentId);
-    if (document == null) return;
-
-    _actionService.handleAction(
-      MoveCursor(documentId: documentId, direction: direction),
-    );
-
-    getImeState(documentId).value = document.computeTextEditingValue();
-    onPlatformImeUpdateNeeded?.call();
-  }
-
-  /// Returns `true` for ASCII control characters (0x00-0x1F, 0x7F)
-  /// that should NOT be treated as printable text input.
-  static bool _isControlCharacter(String char) {
-    if (char.isEmpty) return true;
-    final code = char.codeUnitAt(0);
-    return code < 0x20 || code == 0x7F;
-  }
-
-  void _updateModifierKeys(KeyDownEvent event) {
-    final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.controlLeft ||
-        key == LogicalKeyboardKey.controlRight) {
-      _ctrlPressed = true;
-    } else if (key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight) {
-      _shiftPressed = true;
-    } else if (key == LogicalKeyboardKey.altLeft ||
-        key == LogicalKeyboardKey.altRight) {
-      _altPressed = true;
-    } else if (key == LogicalKeyboardKey.metaLeft ||
-        key == LogicalKeyboardKey.metaRight) {
-      _metaPressed = true;
-    }
-  }
-
-  /// Should be called on KeyUpEvent to release modifier keys.
-  void handleKeyUp(KeyUpEvent event) {
-    final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.controlLeft ||
-        key == LogicalKeyboardKey.controlRight) {
-      _ctrlPressed = false;
-    } else if (key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight) {
-      _shiftPressed = false;
-    } else if (key == LogicalKeyboardKey.altLeft ||
-        key == LogicalKeyboardKey.altRight) {
-      _altPressed = false;
-    } else if (key == LogicalKeyboardKey.metaLeft ||
-        key == LogicalKeyboardKey.metaRight) {
-      _metaPressed = false;
-    }
-  }
+  void handlePaste(String documentId) => _clipboard.handlePaste(documentId);
 }

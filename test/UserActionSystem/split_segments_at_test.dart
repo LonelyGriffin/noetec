@@ -5,22 +5,9 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/DocumentSystem/document_block.dart';
-import 'package:noetec/DocumentSystem/opened_documents_manager.dart';
-import 'package:noetec/IdService/id_service.dart';
-import 'package:noetec/UserActionSystem/user_action_service.dart';
+import 'package:noetec/UserActionSystem/utils/segment_utils.dart';
 
 void main() {
-  late OpenedDocumentsManager manager;
-  late IdService idService;
-  late UserActionService actionService;
-
-  setUp(() {
-    var idCounter = 0;
-    idService = IdService(() => 'generated-id-${idCounter++}');
-    manager = OpenedDocumentsManager();
-    actionService = UserActionService(manager, idService);
-  });
-
   // ---------------------------------------------------------------------------
   // splitSegmentsAt
   // ---------------------------------------------------------------------------
@@ -31,7 +18,7 @@ void main() {
         const TextSegment(text: ' World'),
       ];
 
-      final (before, after) = actionService.splitSegmentsAt(segments, 0);
+      final (before, after) = splitSegmentsAt(segments, 0);
       expect(before, isEmpty);
       expect(after.length, 2);
       expect(after[0].text, 'Hello');
@@ -44,7 +31,7 @@ void main() {
         const TextSegment(text: ' World'),
       ];
 
-      final (before, after) = actionService.splitSegmentsAt(segments, 11);
+      final (before, after) = splitSegmentsAt(segments, 11);
       expect(before.length, 2);
       expect(after, isEmpty);
     });
@@ -55,7 +42,7 @@ void main() {
         const TextSegment(text: ' World'),
       ];
 
-      final (before, after) = actionService.splitSegmentsAt(segments, 5);
+      final (before, after) = splitSegmentsAt(segments, 5);
       expect(before.length, 1);
       expect(before[0].text, 'Hello');
       expect(after.length, 1);
@@ -63,11 +50,9 @@ void main() {
     });
 
     test('split in middle of segment', () {
-      final segments = [
-        const TextSegment(text: 'Hello World'),
-      ];
+      final segments = [const TextSegment(text: 'Hello World')];
 
-      final (before, after) = actionService.splitSegmentsAt(segments, 5);
+      final (before, after) = splitSegmentsAt(segments, 5);
       expect(before.length, 1);
       expect(before[0].text, 'Hello');
       expect(after.length, 1);
@@ -79,7 +64,7 @@ void main() {
         const FormattedSegment(text: 'BoldText', format: TextFormat.bold),
       ];
 
-      final (before, after) = actionService.splitSegmentsAt(segments, 4);
+      final (before, after) = splitSegmentsAt(segments, 4);
       expect(before[0], isA<FormattedSegment>());
       expect((before[0] as FormattedSegment).format, TextFormat.bold);
       expect(before[0].text, 'Bold');
