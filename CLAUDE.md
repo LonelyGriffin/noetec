@@ -18,7 +18,6 @@
 
 ### Ключевые технологии
 
-- **Dart SDK**: ^3.10.7
 - **Flutter**: кроссплатформенный UI (macOS primary)
 - **get_it**: DI-контейнер
 - **listen_it / watch_it**: реактивное управление состоянием
@@ -29,6 +28,7 @@
 
 ### Доступные команды
 
+- `dart run scripts/lint.dart` — полный lint (format + analyze + copyright)
 - `dart analyze` — статический анализ
 - `dart format .` — форматирование кода
 - `dart format --set-exit-if-changed .` — проверка форматирования (CI)
@@ -95,7 +95,7 @@ DI-контейнер `get_it` настраивается в `lib/app/configure_
 - Статический анализ: `dart analyze` (конфиг: `analysis_options.yaml`)
 - Форматирование: `dart format`
 - Типизация: строгий режим, `flutter_lints`
-- Длина строки: 120 символов
+- Длина строки: 180 символов
 
 ### Используемые паттерны
 

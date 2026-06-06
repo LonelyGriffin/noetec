@@ -50,6 +50,15 @@ List<String> findFilesWithoutCopyright(String folderPath) {
   return filesWithoutCopyright;
 }
 
+List<String> checkCopyrightForFiles(List<String> filePaths) {
+  return filePaths.where((filePath) {
+    final extension = filePath.split('.').last;
+    final expected = fileTypeToExpectCopyright[extension];
+    if (expected == null) return false;
+    return !hasCopyrightInFile(filePath, expected);
+  }).toList();
+}
+
 bool checkCopyrightInFile(String filePath) {
   final fileExtension = filePath.split('.').last;
   final expectCopyrightText = fileTypeToExpectCopyright[fileExtension];

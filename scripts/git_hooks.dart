@@ -35,7 +35,7 @@ Future<bool> _preCommit() async {
 }
 
 bool _checkSourceFilesHaveCopyright() {
-  print('🔄 Check staged files for copyright header...');
+  print('Check staged files for copyright header...');
 
   final diffResult = Process.runSync('git', [
     'diff',
@@ -45,41 +45,36 @@ bool _checkSourceFilesHaveCopyright() {
   ], runInShell: true);
 
   if (diffResult.exitCode != 0) {
-    print('❌ Failed to get git diff: ${diffResult.stderr}');
+    print('Failed to get git diff: ${diffResult.stderr}');
     return false;
   }
 
   final stagedFiles = (diffResult.stdout as String)
       .split('\n')
       .where((file) => file.isNotEmpty)
+      .where((file) => file.startsWith('lib/') || file.startsWith('scripts/'))
       .toList();
 
   if (stagedFiles.isEmpty) {
-    print('✅ No staged files to check.');
+    print('No staged files to check.');
     return true;
   }
 
-  final filesToCheck = stagedFiles.where((filePath) {
-    return filePath.startsWith('lib/') || filePath.startsWith('scripts/');
-  }).toList();
-
-  if (filesToCheck.isEmpty) {
-    print('✅ No staged files in lib or scripts directories.');
-    return true;
+  final failed = <String>[];
+  for (final filePath in stagedFiles) {
+    if (!checkCopyrightInStagedFile(filePath)) {
+      failed.add(filePath);
+    }
   }
 
-  final filesWithoutCopyright = filesToCheck.where(
-    (filePath) => !checkCopyrightInStagedFile(filePath),
-  );
-
-  if (filesWithoutCopyright.isNotEmpty) {
-    print('❌ The following files are missing copyright headers:');
-    for (var filePath in filesWithoutCopyright) {
-      print('- $filePath');
+  if (failed.isNotEmpty) {
+    print('Files missing copyright headers:');
+    for (final file in failed) {
+      print('- $file');
     }
     return false;
   }
 
-  print('✅ All source files have correct copyright header.');
+  print('All source files have correct copyright header.');
   return true;
 }
