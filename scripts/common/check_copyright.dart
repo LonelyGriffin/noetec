@@ -17,7 +17,7 @@ const _doubleSlashCopyrightText = '''
 const fileTypeToExpectCopyright = {'dart': _doubleSlashCopyrightText};
 
 List<String> findFilesWithoutCopyright(String folderPath) {
-  List<String> filesWithoutCopyright = [];
+  final filesWithoutCopyright = <String>[];
 
   final directory = Directory(folderPath);
   if (!directory.existsSync()) {
@@ -94,10 +94,7 @@ bool checkCopyrightInStagedFile(String filePath) {
 
 bool hasCopyrightInStagedFile(String filePath, String expectCopyrightText) {
   try {
-    final indexContentResult = Process.runSync('git', [
-      'show',
-      ':$filePath',
-    ], runInShell: true);
+    final indexContentResult = Process.runSync('git', ['show', ':$filePath'], runInShell: true);
 
     final fileContent = indexContentResult.stdout as String;
 

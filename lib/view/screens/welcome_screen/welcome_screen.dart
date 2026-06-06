@@ -5,6 +5,7 @@
 
 import 'package:command_it/command_it.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:noetec/entity/vault/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
@@ -15,23 +16,15 @@ class WelcomeScreen extends WatchingWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vaults = watchValue<VaultSystem, List<VaultEntity>>(
-      (s) => s.recentVaults,
-    );
-    final isCreating = watchValue<VaultSystem, bool>(
-      (s) => s.createVaultCommand.isRunning,
-    );
-    final isOpening = watchValue<VaultSystem, bool>(
-      (s) => s.openVaultCommand.isRunning,
-    );
+    final vaults = watchValue<VaultSystem, List<VaultEntity>>((s) => s.recentVaults);
+    final isCreating = watchValue<VaultSystem, bool>((s) => s.createVaultCommand.isRunning);
+    final isOpening = watchValue<VaultSystem, bool>((s) => s.openVaultCommand.isRunning);
 
     registerHandler<VaultSystem, CommandError?>(
       select: (s) => s.createVaultCommand.errors,
       handler: (context, error, cancel) {
         if (error != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(error.error.toString())));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.error.toString())));
         }
       },
     );
@@ -40,9 +33,16 @@ class WelcomeScreen extends WatchingWidget {
       select: (s) => s.openVaultCommand.errors,
       handler: (context, error, cancel) {
         if (error != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(error.error.toString())));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.error.toString())));
+        }
+      },
+    );
+
+    registerHandler<VaultSystem, VaultEntity?>(
+      select: (s) => s.currentVault,
+      handler: (context, vault, cancel) {
+        if (vault != null) {
+          context.go('/editor');
         }
       },
     );
@@ -61,11 +61,7 @@ class WelcomeScreen extends WatchingWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
-                'Your local-first note vault',
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
+              Text('Your local-first note vault', style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
               const SizedBox(height: 32),
               Expanded(
                 child: vaults.isEmpty
@@ -78,9 +74,7 @@ class WelcomeScreen extends WatchingWidget {
                             leading: const Icon(Icons.folder_outlined),
                             title: Text(vault.name),
                             subtitle: Text(vault.rootPath),
-                            onTap: () => di<VaultSystem>().openVaultCommand.run(
-                              vault.rootPath,
-                            ),
+                            onTap: () => di<VaultSystem>().openVaultCommand.run(vault.rootPath),
                           );
                         },
                       ),
@@ -89,19 +83,11 @@ class WelcomeScreen extends WatchingWidget {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: isOpening ? null : _pickAndOpen,
-                      icon: const Icon(Icons.folder_open),
-                      label: const Text('Open Vault'),
-                    ),
+                    child: OutlinedButton.icon(onPressed: isOpening ? null : _pickAndOpen, icon: const Icon(Icons.folder_open), label: const Text('Open Vault')),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: isCreating ? null : _pickAndCreate,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Create Vault'),
-                    ),
+                    child: FilledButton.icon(onPressed: isCreating ? null : _pickAndCreate, icon: const Icon(Icons.add), label: const Text('Create Vault')),
                   ),
                 ],
               ),

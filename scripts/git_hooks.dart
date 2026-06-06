@@ -14,7 +14,7 @@ import "common/check_copyright.dart";
 /// Script entry point for git hooks.
 /// See [git_hooks] package docs for more details.
 void main(List arguments) {
-  Map<Git, UserBackFun> params = {Git.preCommit: _preCommit};
+  final params = {Git.preCommit: _preCommit};
   GitHooks.call(arguments, params);
 }
 
@@ -22,8 +22,7 @@ Future<bool> _preCommit() async {
   print('🔄 Lint staged files...');
 
   final formattingCheckResult = await DartPreCommit.run();
-  final allChecksPassed =
-      _checkSourceFilesHaveCopyright() && formattingCheckResult.isSuccess;
+  final allChecksPassed = _checkSourceFilesHaveCopyright() && formattingCheckResult.isSuccess;
 
   if (!allChecksPassed) {
     print('⛔ Commit aborted due to failed checks.');
@@ -37,23 +36,14 @@ Future<bool> _preCommit() async {
 bool _checkSourceFilesHaveCopyright() {
   print('Check staged files for copyright header...');
 
-  final diffResult = Process.runSync('git', [
-    'diff',
-    '--cached',
-    '--name-only',
-    '--diff-filter=ACM',
-  ], runInShell: true);
+  final diffResult = Process.runSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], runInShell: true);
 
   if (diffResult.exitCode != 0) {
     print('Failed to get git diff: ${diffResult.stderr}');
     return false;
   }
 
-  final stagedFiles = (diffResult.stdout as String)
-      .split('\n')
-      .where((file) => file.isNotEmpty)
-      .where((file) => file.startsWith('lib/') || file.startsWith('scripts/'))
-      .toList();
+  final stagedFiles = (diffResult.stdout as String).split('\n').where((file) => file.isNotEmpty).where((file) => file.startsWith('lib/') || file.startsWith('scripts/')).toList();
 
   if (stagedFiles.isEmpty) {
     print('No staged files to check.');

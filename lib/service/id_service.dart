@@ -5,7 +5,7 @@
 
 import 'package:uuid/uuid.dart';
 
-final _uuid = const Uuid();
+const _uuid = Uuid();
 
 abstract interface class IIdService {
   String generateId();
