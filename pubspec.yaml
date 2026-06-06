@@ -40,8 +40,6 @@ dev_dependencies:
 dart_pre_commit:
   outdated: false
   pull-up-dependencies: false
-  format:
-    line-length: 180
 
 flutter:
   uses-material-design: true

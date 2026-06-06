@@ -22,10 +22,17 @@ Future<bool> runLint({required bool stagedOnly}) async {
 
   print('');
   print('🔄 Copyright check');
-  final files = stagedOnly ? fetchStagedSourceFiles() : fetchChangedSourceFiles();
+  final files = stagedOnly
+      ? fetchStagedSourceFiles()
+      : fetchChangedSourceFiles();
   if (!checkCopyrightInFiles(files)) failures.add('copyright');
 
   return failures.isEmpty;
 }
 
-Future<bool> _runAnalyze() => runProcess('dart', ['analyze'], failMessage: 'Static analysis found issues.', successMessage: 'No analysis issues.');
+Future<bool> _runAnalyze() => runProcess(
+  'dart',
+  ['analyze'],
+  failMessage: 'Static analysis found issues.',
+  successMessage: 'No analysis issues.',
+);

@@ -6,7 +6,12 @@
 // ignore_for_file: avoid_print
 import 'dart:io';
 
-Future<bool> runProcess(String executable, List<String> args, {String? failMessage, String? successMessage}) async {
+Future<bool> runProcess(
+  String executable,
+  List<String> args, {
+  String? failMessage,
+  String? successMessage,
+}) async {
   final result = await Process.run(executable, args);
   stdout.write(result.stdout);
   stderr.write(result.stderr);

@@ -23,7 +23,8 @@ Future<bool> _preCommit() async {
   final formattingCheckResult = await DartPreCommit.run();
   final stagedFiles = fetchStagedSourceFiles();
   final copyrightCheckResult = checkCopyrightInFiles(stagedFiles);
-  final allChecksPassed = formattingCheckResult.isSuccess && copyrightCheckResult;
+  final allChecksPassed =
+      formattingCheckResult.isSuccess && copyrightCheckResult;
 
   if (!allChecksPassed) {
     print('🛑 Commit aborted due to failed checks');

@@ -19,7 +19,8 @@ class VaultAlreadyExistsException implements Exception {
   final String path;
 
   @override
-  String toString() => 'VaultAlreadyExistsException: vault already exists at $path';
+  String toString() =>
+      'VaultAlreadyExistsException: vault already exists at $path';
 }
 
 class InvalidVaultException implements Exception {
@@ -41,11 +42,22 @@ class VaultSystem {
   final currentVault = CustomValueNotifier<VaultEntity?>(null);
   final recentVaults = ListNotifier<VaultEntity>();
 
-  late final createVaultCommand = Command.createAsync<String, VaultEntity?>(_createVault, initialValue: null, debugName: 'createVault');
+  late final createVaultCommand = Command.createAsync<String, VaultEntity?>(
+    _createVault,
+    initialValue: null,
+    debugName: 'createVault',
+  );
 
-  late final openVaultCommand = Command.createAsync<String, VaultEntity?>(_openVault, initialValue: null, debugName: 'openVault');
+  late final openVaultCommand = Command.createAsync<String, VaultEntity?>(
+    _openVault,
+    initialValue: null,
+    debugName: 'openVault',
+  );
 
-  late final closeVaultCommand = Command.createSyncNoParamNoResult(_closeVault, debugName: 'closeVault');
+  late final closeVaultCommand = Command.createSyncNoParamNoResult(
+    _closeVault,
+    debugName: 'closeVault',
+  );
 
   Future<void> init() async {
     final vaults = await _repository.loadRecentVaults();
@@ -64,7 +76,12 @@ class VaultSystem {
 
     await _fileSystem.createDirectory(noetecDir);
 
-    final vault = VaultEntity(id: _ids.generateId(), name: p.basename(directoryPath), rootPath: directoryPath, createdAt: DateTime.now());
+    final vault = VaultEntity(
+      id: _ids.generateId(),
+      name: p.basename(directoryPath),
+      rootPath: directoryPath,
+      createdAt: DateTime.now(),
+    );
 
     final content = json.encode(vault.toMap());
     await _fileSystem.writeFile(vaultFile, content);

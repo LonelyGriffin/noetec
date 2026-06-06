@@ -5,7 +5,16 @@
 
 import 'run_process.dart';
 
-Future<bool> applyFormatting() => runProcess('dart', ['format', '.'], failMessage: 'Formatting failed.', successMessage: 'Formatting complete.');
+Future<bool> applyFormatting() => runProcess(
+  'dart',
+  ['format', '.'],
+  failMessage: 'Formatting failed.',
+  successMessage: 'Formatting complete.',
+);
 
-Future<bool> checkFormatting() =>
-    runProcess('dart', ['format', '--set-exit-if-changed', '.'], failMessage: 'Formatting issues detected.', successMessage: 'All files formatted correctly.');
+Future<bool> checkFormatting() => runProcess(
+  'dart',
+  ['format', '--set-exit-if-changed', '.'],
+  failMessage: 'Formatting issues detected.',
+  successMessage: 'All files formatted correctly.',
+);
