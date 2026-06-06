@@ -29,6 +29,7 @@
 ### Доступные команды
 
 - `dart run scripts/lint.dart` — полный lint (format + analyze + copyright)
+- `dart run scripts/format.dart` — форматирование всего проекта (длина строки 180, из `.dart-format`)
 - `dart analyze` — статический анализ
 - `dart format .` — форматирование кода
 - `dart format --set-exit-if-changed .` — проверка форматирования (CI)

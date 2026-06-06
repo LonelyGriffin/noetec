@@ -4,11 +4,10 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 // ignore_for_file: avoid_print
-import "dart:io";
-
 import "package:dart_pre_commit/dart_pre_commit.dart";
 import "package:git_hooks/git_hooks.dart";
 
+import "common/changed_files.dart";
 import "common/check_copyright.dart";
 
 /// Script entry point for git hooks.
@@ -19,52 +18,18 @@ void main(List arguments) {
 }
 
 Future<bool> _preCommit() async {
-  print('🔄 Lint staged files...');
+  print('🔄 Linting staged files...');
 
   final formattingCheckResult = await DartPreCommit.run();
-  final allChecksPassed = _checkSourceFilesHaveCopyright() && formattingCheckResult.isSuccess;
+  final stagedFiles = fetchStagedSourceFiles();
+  final copyrightCheckResult = checkCopyrightInFiles(stagedFiles);
+  final allChecksPassed = formattingCheckResult.isSuccess && copyrightCheckResult;
 
   if (!allChecksPassed) {
-    print('⛔ Commit aborted due to failed checks.');
+    print('🛑 Commit aborted due to failed checks');
   } else {
-    print('🚀 All pre-commit checks passed.');
+    print('🚀 All pre-commit checks passed');
   }
 
   return allChecksPassed;
-}
-
-bool _checkSourceFilesHaveCopyright() {
-  print('Check staged files for copyright header...');
-
-  final diffResult = Process.runSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], runInShell: true);
-
-  if (diffResult.exitCode != 0) {
-    print('Failed to get git diff: ${diffResult.stderr}');
-    return false;
-  }
-
-  final stagedFiles = (diffResult.stdout as String).split('\n').where((file) => file.isNotEmpty).where((file) => file.startsWith('lib/') || file.startsWith('scripts/')).toList();
-
-  if (stagedFiles.isEmpty) {
-    print('No staged files to check.');
-    return true;
-  }
-
-  final failed = <String>[];
-  for (final filePath in stagedFiles) {
-    if (!checkCopyrightInStagedFile(filePath)) {
-      failed.add(filePath);
-    }
-  }
-
-  if (failed.isNotEmpty) {
-    print('Files missing copyright headers:');
-    for (final file in failed) {
-      print('- $file');
-    }
-    return false;
-  }
-
-  print('All source files have correct copyright header.');
-  return true;
 }
