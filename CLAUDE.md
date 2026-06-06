@@ -47,9 +47,14 @@ lib/
 │   ├── configure_di.dart          # Регистрация зависимостей в get_it
 │   ├── main_app_widget.dart       # Корневой виджет приложения
 │   └── bootstrap_widget.dart      # Бутстрап-виджет
-├── system/                        # Domain layer (чистая бизнес-логика) разбитый на фичи
-│   └── document/                  # Фича документ 
-├── infrastructure/                # Infrastructure (платформенные реализации)
+├── entity/                        # Domain entities (immutable, без Flutter зависимостей)
+├── systems/                       # Systems layer (фичи с reactive state и commands)
+│   └── vault/                     # Фича vault management
+├── service/                       # Infrastructure services (интерфейсы + реализации)
+│   ├── id_service.dart            # IIdService + IdService
+│   ├── file_system_service.dart   # IFileSystemService + FileSystemServiceImpl
+│   ├── settings_service.dart      # ISettingsService + SettingsServiceImpl
+│   └── vault_repository.dart      # IVaultRepository + VaultRepositoryImpl
 ├── view/                          # Presentation
 │   └── screens/
 └── main.dart                      # Точка входа
@@ -113,23 +118,8 @@ DI-контейнер `get_it` настраивается в `lib/app/configure_
 
 ## Типичные задачи разработки
 
-### Добавление нового блока документа
-
-1. Создать `lib/entity/document/block/<name>/<name>.dart` с immutable моделью
-2. Добавить factory-метод в `Block` (sealed class)
-3. Зарегистрировать сериализацию в `json_serializable`
-4. Запустить `dart run build_runner build`
-5. Написать тест в `test/lib/entity/document/block/<name>/`
-
 ### Добавление нового сервиса
 
-1. Определить интерфейс: `lib/service/<name>_service.dart` (`abstract interface class I{Name}Service`)
-2. Реализовать: `lib/infrastructure/<name>_service_impl.dart`
-3. Зарегистрировать в `lib/app/configure_di.dart`
-4. Написать тесты с fake-реализацией
-
-### Изменение бизнес-логики в domain-слое
-
-1. Обновить `lib/entity/<module>/<file>.dart`
-2. Обновить immutable-методы (`.copyWith()`, `.apply()`)
-3. Обновить тесты в `test/lib/entity/<module>/`
+1. Создать файл `lib/service/<name>_service.dart` с интерфейсом и реализацией в одном файле (`abstract interface class I{Name}Service` + `{Name}ServiceImpl`)
+2. Зарегистрировать в `lib/app/configure_di.dart`
+3. Написать тесты с fake-реализацией

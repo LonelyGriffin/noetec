@@ -14,7 +14,6 @@ class AppShell extends StatelessWidget {
   static const double _breakpoint = 720;
 
   static const _navItems = [
-    _NavItem(path: '/welcome', label: 'Home', icon: Icons.home_outlined),
     _NavItem(path: '/editor', label: 'Editor', icon: Icons.edit_outlined),
     _NavItem(
       path: '/settings',

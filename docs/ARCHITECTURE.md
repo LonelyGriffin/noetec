@@ -23,7 +23,7 @@ Noetec is a cross-platform Flutter application for block-based note-taking, task
 | `get_it` | Dependency injection container |
 | `watch_it` | Reactive widgets (WatchingWidget subscribes to notifiers) |
 | `listen_it` | Reactive collections (ValueNotifier, ListNotifier, MapNotifier) |
-| `command_it` | Command bus for dispatching typed commands |
+| `command_it` | Reactive command wrappers (async/sync functions with `.isRunning`, `.errors`, `.value`) |
 | `markdown` | Markdown rendering |
 | `uuid` | Unique identifier generation |
 | `crypto` | SHA-256 hashing for content integrity |
@@ -39,16 +39,20 @@ The codebase is organized into few layers with strict dependency direction:
 ```
 View Layer (lib/view/)
     ↓ depends on
-System Layer (lib/systems/)
+Systems Layer (lib/systems/)
     ↓ depends on
-Infrastructure Layer (lib/entity/)
+Services / Infrastructure Layer (lib/service/)
+    ↑ uses
+Entities (lib/entity/)
 ```
 
 **View Layer** (`lib/view/`): Reactive widgets that watch system state and dispatch commands. No business logic, no direct entity mutation. Widgets use `WatchingWidget` to subscribe to notifiers and rebuild automatically when state changes.
 
-**System Layer** (`lib/systems/`): Feature-based modules containing reactive state and command handlers. Each system owns a specific domain (vault, editor, persistence, etc.) and exposes its state via notifiers. Systems operate on entities and coordinate infrastructure.
+**Systems Layer** (`lib/systems/`): Feature-based modules containing reactive state and command handlers. Each system owns a specific domain (vault, editor, persistence, etc.) and exposes its state via notifiers. Systems operate on entities and coordinate infrastructure.
 
-**Infrastructure** (`lib/infrastructure/`): Platform-specific implementations (filesystem, storage, external APIs) accessed through abstract interfaces defined in systems.
+**Services / Infrastructure Layer** (`lib/service/`): Infrastructure services with abstract interfaces and implementations in the same file. Provides platform-specific capabilities (filesystem, settings, storage) to systems. Pattern: `abstract interface class IXxxService` + `XxxServiceImpl` in `lib/service/xxx_service.dart`.
+
+**Entities** (`lib/entity/`): Domain models — immutable data structures with no framework dependencies.
 
 **App** (`lib/app/`): App level layer. Bootstraping, navigation, all app orchestration.
 
@@ -59,26 +63,24 @@ Infrastructure Layer (lib/entity/)
 The application follows a unidirectional data flow pattern:
 
 ```
-1. User action in View or Infrastructure event
+1. User action in View
    ↓
-2. View dispatches Command (via command_it)
+2. View calls command.run(param) on a System's Command
    ↓
-3. CommandBus routes to appropriate System's CommandHandler
+3. Command executes the handler function, performing domain operations on Entities
    ↓
-4. CommandHandler performs domain operations on Entities
+4. Handler updates System's reactive state (Notifier)
    ↓
-5. CommandHandler updates System's reactive state (Notifier)
+5. WatchingWidget detects state change and rebuilds
    ↓
-6. WatchingWidget detects state change and rebuilds
-   ↓
-7. Back to step 1
+6. Back to step 1
 ```
 
 **Key properties:**
 - **Unidirectional**: No circular dependencies between systems
 - **Explicit**: All state changes flow through commands
 - **Isolated**: Systems cannot directly mutate other systems' state
-- **Cross-system communication**: If System A needs System B to perform an action, A dispatches a command that B handles. A can read B's state (watch) but never mutates it.
+- **Cross-system communication**: If System A needs System B to perform an action, A calls B's command directly. A can read B's state (watch) but never mutates it.
 
 ---
 
@@ -93,7 +95,7 @@ Each system owns its reactive state through notifiers from `listen_it`:
 
 Widgets use `WatchingWidget` from `watch_it` to subscribe to specific notifiers. When a notifier's value changes, the widget automatically rebuilds.
 
-**Commands** are dispatched via `command_it`. Each system registers command handlers for the commands it processes. The command bus routes commands to the appropriate handler.
+**Commands** are created via `command_it` factory methods (`Command.createAsync*`, `Command.createSync*`). Each system exposes commands as fields. Views call `command.run(param)` to trigger state changes.
 
 **Entities are immutable**: All mutations create new objects. Systems hold the "current state" in notifiers, but the underlying entities never mutate — they are replaced with new versions.
 
@@ -108,7 +110,7 @@ The application is divided into feature-based systems, each responsible for a sp
 | **NavigationSystem** | App screen state, routing between screens (vault picker, editor, settings) |
 | **MarkdownSystem** | Conversion between markdown text and block structures (parse and serialize) |
 | **EditorSystem** | Document editing, user actions (insert, delete, move), cursor and selection state |
-| **VaultSystem** | Vault lifecycle (create, open, close), file tree, file I/O, device identity, HLC (Hybrid Logical Clock) |
+| **VaultSystem** | Vault lifecycle (create, open, close), recent vaults list. Current iteration: minimal MVP without HLC, oplog, WAL |
 | **PersistenceSystem** | Autosave, dirty tracking, WAL (Write-Ahead Log) for crash recovery, session restoration |
 | **OplogSystem** | Block-level operation log, diff engine, DAG (Directed Acyclic Graph), state reconstruction from oplog |
 | **SyncSystem** | File watchers, merge engine, conflict detection and resolution, external edit handling |
@@ -129,7 +131,6 @@ Each system is a folder under `lib/systems/` containing:
 - State notifiers (reactive state)
 - Command handlers (process commands, operate on entities)
 - Models (system-specific data structures)
-- Infrastructure interfaces (abstract classes for platform-specific implementations)
 
 ---
 
@@ -250,8 +251,8 @@ Operations are idempotent (e.g., deleting a non-existent block is a no-op), allo
 
 The project is implemented in six phases, each building on the previous:
 
-**Phase 1: Vault Foundation**
-Create the vault structure on disk, implement HLC for causal ordering, build file I/O for reading/writing markdown files with YAML frontmatter, integrate with the existing document model, and implement markdown parsing/serialization with block IDs.
+**Phase 1: Vault Foundation (Minimal MVP)**
+Implement vault management — create, open, close vaults, recent vaults list with persistence. Vault is a directory with `.noetec/vault.json` metadata. No HLC, oplog, or WAL in this iteration.
 
 **Phase 2: UI Shell & Navigation**
 Build the app layout (sidebar + editor), file tree widget with expand/collapse, desktop and mobile layouts (responsive), navigation between screens (vault picker, editor), and dialogs for creating/renaming/deleting files and folders.
