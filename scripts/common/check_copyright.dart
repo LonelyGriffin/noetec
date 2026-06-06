@@ -7,16 +7,14 @@
 
 import 'dart:io';
 
-const _doubleSlashCopyrightText ='''
+const _doubleSlashCopyrightText = '''
 // Noetec.
 // Copyright (c) 2026 The Noetec Authors.
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 ''';
 
-const fileTypeToExpectCopyright = {
-  'dart': _doubleSlashCopyrightText,
-};
+const fileTypeToExpectCopyright = {'dart': _doubleSlashCopyrightText};
 
 List<String> findFilesWithoutCopyright(String folderPath) {
   List<String> filesWithoutCopyright = [];
@@ -29,10 +27,8 @@ List<String> findFilesWithoutCopyright(String folderPath) {
 
   final folderContent = directory.listSync(recursive: true);
 
-  filesWithoutCopyright.addAll(folderContent
-    .whereType<File>()
-    .map((file) => file.path)
-    .where((filePath) {
+  filesWithoutCopyright.addAll(
+    folderContent.whereType<File>().map((file) => file.path).where((filePath) {
       final fileExtension = filePath.split('.').last;
       if (!fileTypeToExpectCopyright.containsKey(fileExtension)) {
         return false;
@@ -42,7 +38,7 @@ List<String> findFilesWithoutCopyright(String folderPath) {
         return false;
       }
       return !hasCopyrightInFile(filePath, expectCopyrightText);
-    })
+    }),
   );
 
   final subFolders = folderContent.whereType<Directory>();
@@ -68,7 +64,7 @@ bool checkCopyrightInFile(String filePath) {
 bool hasCopyrightInFile(String filePath, String expectCopyrightText) {
   try {
     final fileContent = File(filePath).readAsStringSync();
-    
+
     return fileContent.startsWith(expectCopyrightText);
   } catch (e) {
     print('Error reading file $filePath: $e');
@@ -89,14 +85,13 @@ bool checkCopyrightInStagedFile(String filePath) {
 
 bool hasCopyrightInStagedFile(String filePath, String expectCopyrightText) {
   try {
-     final indexContentResult = Process.runSync(
-      'git',
-      ['show', ':$filePath'],
-      runInShell: true,
-    );
+    final indexContentResult = Process.runSync('git', [
+      'show',
+      ':$filePath',
+    ], runInShell: true);
 
     final fileContent = indexContentResult.stdout as String;
-    
+
     return fileContent.startsWith(expectCopyrightText);
   } catch (e) {
     print('Error reading file $filePath: $e');

@@ -1,0 +1,15 @@
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
+import 'package:flutter/material.dart';
+
+class EditorScreen extends StatelessWidget {
+  const EditorScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Editor', style: TextStyle(fontSize: 24)));
+  }
+}
