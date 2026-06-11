@@ -108,7 +108,9 @@ class WelcomeScreen extends WatchingWidget {
                   const SizedBox(width: 16),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: isCreating ? null : _pickAndCreate,
+                      onPressed: isCreating
+                          ? null
+                          : () => _handleCreate(context),
                       icon: const Icon(Icons.add),
                       label: const Text('Create Vault'),
                     ),
@@ -122,10 +124,52 @@ class WelcomeScreen extends WatchingWidget {
     );
   }
 
-  Future<void> _pickAndCreate() async {
-    final path = await di<IFileSystemService>().pickDirectory();
-    if (path == null) return;
-    di<VaultSystem>().createVaultCommand.run(path);
+  Future<void> _handleCreate(BuildContext context) async {
+    final pickedPath = await di<IFileSystemService>().pickDirectory();
+    if (pickedPath == null) return;
+    // ignore: use_build_context_synchronously
+    final vaultName = await _showVaultNameDialog(context, pickedPath);
+    if (vaultName == null || vaultName.trim().isEmpty) return;
+    di<VaultSystem>().createVaultCommand.run((
+      parentPath: pickedPath,
+      vaultName: vaultName.trim(),
+    ));
+  }
+
+  Future<String?> _showVaultNameDialog(
+    BuildContext context,
+    String parentPath,
+  ) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Create Vault'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Vault name',
+              hintText: 'My Vault',
+            ),
+            onSubmitted: (value) {
+              Navigator.of(dialogContext).pop(value);
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(null),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _pickAndOpen() async {

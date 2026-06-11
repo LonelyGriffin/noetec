@@ -99,32 +99,53 @@ void main() {
     });
 
     test('createVault — creates vault on disk and sets currentVault', () async {
-      await vaultSystem.createVaultCommand.runAsync('/test/path');
+      await vaultSystem.createVaultCommand.runAsync((
+        parentPath: '/test',
+        vaultName: 'my-vault',
+      ));
 
       expect(vaultSystem.currentVault.value, isNotNull);
-      expect(vaultSystem.currentVault.value!.rootPath, equals('/test/path'));
+      expect(vaultSystem.currentVault.value!.name, equals('my-vault'));
       expect(
-        fakeFileSystem.files.containsKey('/test/path/.noetec/vault.json'),
+        vaultSystem.currentVault.value!.rootPath.endsWith('my-vault'),
         isTrue,
       );
-      expect(fakeFileSystem.directories.contains('/test/path/.noetec'), isTrue);
+      expect(
+        fakeFileSystem.files.keys.any(
+          (key) => key.endsWith('.noetec/vault.json'),
+        ),
+        isTrue,
+      );
+      expect(
+        fakeFileSystem.directories.any((dir) => dir.endsWith('.noetec')),
+        isTrue,
+      );
     });
 
     test('createVault — adds vault to recentVaults', () async {
-      await vaultSystem.createVaultCommand.runAsync('/test/path');
+      await vaultSystem.createVaultCommand.runAsync((
+        parentPath: '/test',
+        vaultName: 'my-vault',
+      ));
 
       expect(vaultSystem.recentVaults, hasLength(1));
-      expect(vaultSystem.recentVaults.first.rootPath, equals('/test/path'));
+      expect(
+        vaultSystem.recentVaults.first.rootPath.endsWith('my-vault'),
+        isTrue,
+      );
     });
 
     test(
-      'createVault — throws VaultAlreadyExistsException on existing vault',
+      'createVault — throws DirectoryAlreadyExistsException on existing dir',
       () async {
-        fakeFileSystem.files['/test/path/.noetec/vault.json'] = '{}';
+        fakeFileSystem.directories.add('/test/existing');
 
         await expectLater(
-          vaultSystem.createVaultCommand.runAsync('/test/path'),
-          throwsA(isA<VaultAlreadyExistsException>()),
+          vaultSystem.createVaultCommand.runAsync((
+            parentPath: '/test',
+            vaultName: 'existing',
+          )),
+          throwsA(isA<DirectoryAlreadyExistsException>()),
         );
       },
     );
@@ -152,7 +173,10 @@ void main() {
     );
 
     test('closeVault — sets currentVault to null', () async {
-      await vaultSystem.createVaultCommand.runAsync('/test/path');
+      await vaultSystem.createVaultCommand.runAsync((
+        parentPath: '/test',
+        vaultName: 'my-vault',
+      ));
       expect(vaultSystem.currentVault.value, isNotNull);
 
       vaultSystem.closeVaultCommand.run();

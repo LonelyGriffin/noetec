@@ -23,6 +23,16 @@ class VaultAlreadyExistsException implements Exception {
       'VaultAlreadyExistsException: vault already exists at $path';
 }
 
+class DirectoryAlreadyExistsException implements Exception {
+  DirectoryAlreadyExistsException(this.existingPath);
+
+  final String existingPath;
+
+  @override
+  String toString() =>
+      'DirectoryAlreadyExistsException: directory already exists at $existingPath';
+}
+
 class InvalidVaultException implements Exception {
   InvalidVaultException(this.path);
 
@@ -42,11 +52,11 @@ class VaultSystem {
   final currentVault = CustomValueNotifier<VaultEntity?>(null);
   final recentVaults = ListNotifier<VaultEntity>();
 
-  late final createVaultCommand = Command.createAsync<String, VaultEntity?>(
-    _createVault,
-    initialValue: null,
-    debugName: 'createVault',
-  );
+  late final createVaultCommand =
+      Command.createAsync<
+        ({String parentPath, String vaultName}),
+        VaultEntity?
+      >(_createVault, initialValue: null, debugName: 'createVault');
 
   late final openVaultCommand = Command.createAsync<String, VaultEntity?>(
     _openVault,
@@ -66,23 +76,26 @@ class VaultSystem {
       ..addAll(vaults);
   }
 
-  Future<VaultEntity?> _createVault(String directoryPath) async {
-    final noetecDir = p.join(directoryPath, '.noetec');
-    final vaultFile = p.join(noetecDir, 'vault.json');
+  Future<VaultEntity?> _createVault(
+    ({String parentPath, String vaultName}) params,
+  ) async {
+    final directoryPath = p.join(params.parentPath, params.vaultName);
 
-    if (await _fileSystem.fileExists(vaultFile)) {
-      throw VaultAlreadyExistsException(directoryPath);
+    if (await _fileSystem.directoryExists(directoryPath)) {
+      throw DirectoryAlreadyExistsException(directoryPath);
     }
 
+    final noetecDir = p.join(directoryPath, '.noetec');
     await _fileSystem.createDirectory(noetecDir);
 
     final vault = VaultEntity(
       id: _ids.generateId(),
-      name: p.basename(directoryPath),
+      name: params.vaultName,
       rootPath: directoryPath,
       createdAt: DateTime.now(),
     );
 
+    final vaultFile = p.join(noetecDir, 'vault.json');
     final content = json.encode(vault.toMap());
     await _fileSystem.writeFile(vaultFile, content);
 
