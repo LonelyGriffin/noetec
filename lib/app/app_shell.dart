@@ -4,7 +4,15 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:noetec/systems/layout/layout_ui_system.dart';
+import 'package:noetec/view/widgets/content_panel.dart';
+import 'package:noetec/view/widgets/content_panel/bookmarks_panel.dart';
+import 'package:noetec/view/widgets/content_panel/journal_panel.dart';
+import 'package:noetec/view/widgets/content_panel/pages_panel.dart';
+import 'package:noetec/view/widgets/content_panel/settings_panel.dart';
+import 'package:noetec/view/widgets/editor_area.dart';
+import 'package:noetec/view/widgets/icon_rail.dart';
+import 'package:watch_it/watch_it.dart';
 
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child});
@@ -13,106 +21,125 @@ class AppShell extends StatelessWidget {
 
   static const double _breakpoint = 720;
 
-  static const _navItems = [
-    _NavItem(path: '/editor', label: 'Editor', icon: Icons.edit_outlined),
-    _NavItem(
-      path: '/settings',
-      label: 'Settings',
-      icon: Icons.settings_outlined,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-    final activeIndex = _navItems.indexWhere(
-      (item) => location.startsWith(item.path),
-    );
     final isDesktop = MediaQuery.sizeOf(context).width >= _breakpoint;
 
     if (isDesktop) {
-      return _DesktopShell(
-        selectedIndex: activeIndex >= 0 ? activeIndex : 0,
-        items: _navItems,
-        child: child,
-      );
+      return const _DesktopShell();
     }
 
-    return _MobileShell(
-      selectedIndex: activeIndex >= 0 ? activeIndex : 0,
-      items: _navItems,
-      child: child,
-    );
+    return const _MobileShell();
   }
 }
 
-class _DesktopShell extends StatelessWidget {
-  const _DesktopShell({
-    required this.selectedIndex,
-    required this.items,
-    required this.child,
-  });
-
-  final int selectedIndex;
-  final List<_NavItem> items;
-  final Widget child;
+class _DesktopShell extends WatchingWidget {
+  const _DesktopShell();
 
   @override
   Widget build(BuildContext context) {
+    final isCollapsed = watchValue<LayoutUISystem, bool>(
+      (s) => s.isContentPanelCollapsed,
+    );
+
     return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: (index) => context.go(items[index].path),
-            labelType: NavigationRailLabelType.all,
-            destinations: [
-              for (final item in items)
-                NavigationRailDestination(
-                  icon: Icon(item.icon),
-                  label: Text(item.label),
-                ),
-            ],
-          ),
-          const VerticalDivider(thickness: 1, width: 1),
-          Expanded(child: child),
-        ],
+      body: SafeArea(
+        child: Row(
+          children: [
+            const IconRail(),
+            const VerticalDivider(thickness: 1, width: 1),
+            const ContentPanel(),
+            if (!isCollapsed) const VerticalDivider(thickness: 1, width: 1),
+            const Expanded(child: EditorArea()),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _MobileShell extends StatelessWidget {
-  const _MobileShell({
-    required this.selectedIndex,
-    required this.items,
-    required this.child,
-  });
-
-  final int selectedIndex;
-  final List<_NavItem> items;
-  final Widget child;
+class _MobileShell extends WatchingWidget {
+  const _MobileShell();
 
   @override
   Widget build(BuildContext context) {
+    final activePanel = watchValue<LayoutUISystem, RailPanel>(
+      (s) => s.activePanel,
+    );
+
     return Scaffold(
-      body: child,
+      body: const EditorArea(),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (index) => context.go(items[index].path),
-        destinations: [
-          for (final item in items)
-            NavigationDestination(icon: Icon(item.icon), label: item.label),
+        selectedIndex: _panelIndex(activePanel),
+        onDestinationSelected: (index) {
+          final panel = _panelAtIndex(index);
+          di<LayoutUISystem>().selectPanel(panel);
+          _showPanelSheet(context, panel);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.book_outlined),
+            label: 'Journal',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.article_outlined),
+            label: 'Pages',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bookmark_outline),
+            label: 'Bookmarks',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            label: 'Settings',
+          ),
         ],
       ),
     );
   }
-}
 
-class _NavItem {
-  const _NavItem({required this.path, required this.label, required this.icon});
+  static int _panelIndex(RailPanel panel) {
+    return switch (panel) {
+      RailPanel.journal => 0,
+      RailPanel.pages => 1,
+      RailPanel.bookmarks => 2,
+      RailPanel.settings => 3,
+    };
+  }
 
-  final String path;
-  final String label;
-  final IconData icon;
+  static RailPanel _panelAtIndex(int index) {
+    return switch (index) {
+      0 => RailPanel.journal,
+      1 => RailPanel.pages,
+      2 => RailPanel.bookmarks,
+      _ => RailPanel.settings,
+    };
+  }
+
+  void _showPanelSheet(BuildContext context, RailPanel panel) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return _panelWidget(panel);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _panelWidget(RailPanel panel) {
+    return switch (panel) {
+      RailPanel.journal => const JournalPanel(),
+      RailPanel.pages => const PagesPanel(),
+      RailPanel.bookmarks => const BookmarksPanel(),
+      RailPanel.settings => const SettingsPanel(),
+    };
+  }
 }

@@ -5,7 +5,6 @@
 
 import 'package:command_it/command_it.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noetec/entity/vault/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
@@ -44,15 +43,6 @@ class WelcomeScreen extends WatchingWidget {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(error.error.toString())));
-        }
-      },
-    );
-
-    registerHandler<VaultSystem, VaultEntity?>(
-      select: (s) => s.currentVault,
-      handler: (context, vault, cancel) {
-        if (vault != null) {
-          context.go('/editor');
         }
       },
     );

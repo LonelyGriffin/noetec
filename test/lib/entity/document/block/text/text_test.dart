@@ -1,8 +1,8 @@
 // ignore: depend_on_referenced_packages
 import 'package:flutter_test/flutter_test.dart';
-import 'package:noetec/entity/document/block/text/text.dart';
-import 'package:noetec/entity/document/block/text/text_attribute.dart';
-import 'package:noetec/entity/document/block/text/text_format.dart';
+import 'package:noetec/entity/page/block/text/text.dart';
+import 'package:noetec/entity/page/block/text/text_attribute.dart';
+import 'package:noetec/entity/page/block/text/text_format.dart';
 
 void main() {
   group('TextBlockEntityBuilder.setAttribute', () {

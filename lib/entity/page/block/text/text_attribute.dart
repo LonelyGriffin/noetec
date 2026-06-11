@@ -4,7 +4,7 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 import 'package:flutter/foundation.dart';
-import 'package:noetec/entity/document/block/text/text_format.dart';
+import 'package:noetec/entity/page/block/text/text_format.dart';
 
 @immutable
 abstract class TextAttributeEntity {

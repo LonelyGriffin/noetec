@@ -7,6 +7,7 @@ import 'package:get_it/get_it.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
 import 'package:noetec/service/settings_service.dart';
+import 'package:noetec/systems/layout/layout_ui_system.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 
@@ -28,6 +29,8 @@ Future<void> configureDI() async {
       getIt<IIdService>(),
     ),
   );
+
+  getIt.registerSingleton<LayoutUISystem>(LayoutUISystem());
 
   await getIt<VaultSystem>().init();
 }

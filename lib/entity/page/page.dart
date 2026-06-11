@@ -3,15 +3,15 @@
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
-import 'package:noetec/entity/document/block/block.dart';
+import 'package:noetec/entity/page/block/block.dart';
 
 /// Make it mutable for performance reasons, unlike other entities.
-class DocumentEntity {
+class PageEntity {
   final String id;
   final Map<String, BlockEntity> blocks = {};
   final List<BlockEntity> rootBlocks = [];
 
-  DocumentEntity({required this.id});
+  PageEntity({required this.id});
 
   BlockEntity? getBlockById(String id) => blocks[id];
 

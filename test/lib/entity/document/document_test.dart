@@ -1,7 +1,7 @@
 // ignore: depend_on_referenced_packages
 import 'package:flutter_test/flutter_test.dart';
-import 'package:noetec/entity/document/block/block.dart';
-import 'package:noetec/entity/document/document.dart';
+import 'package:noetec/entity/page/block/block.dart';
+import 'package:noetec/entity/page/page.dart';
 
 class MutableBlock extends BlockEntity {
   MutableBlock({required super.id, super.parentId, List<BlockEntity>? children})
@@ -11,7 +11,7 @@ class MutableBlock extends BlockEntity {
 void main() {
   group('DocumentEntity.addBlock', () {
     test('adds root block at beginning when afterBlockId is null', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final block = MutableBlock(id: 'b1');
 
       doc.addBlock(block, null);
@@ -21,7 +21,7 @@ void main() {
     });
 
     test('adds root block after specified block', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final b1 = MutableBlock(id: 'b1');
       final b2 = MutableBlock(id: 'b2');
 
@@ -32,7 +32,7 @@ void main() {
     });
 
     test('adds root block at end when afterBlockId not found in root', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final b1 = MutableBlock(id: 'b1');
 
       doc.addBlock(b1, 'nonexistent');
@@ -41,7 +41,7 @@ void main() {
     });
 
     test('adds child block at beginning when afterBlockId is null', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final parent = MutableBlock(id: 'parent');
       final child = MutableBlock(id: 'child', parentId: 'parent');
 
@@ -53,7 +53,7 @@ void main() {
     });
 
     test('adds child block after specified sibling', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final parent = MutableBlock(id: 'parent');
       final c1 = MutableBlock(id: 'c1', parentId: 'parent');
       final c2 = MutableBlock(id: 'c2', parentId: 'parent');
@@ -66,7 +66,7 @@ void main() {
     });
 
     test('adds child at end when afterBlockId not found in siblings', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final parent = MutableBlock(id: 'parent');
       final child = MutableBlock(id: 'child', parentId: 'parent');
 
@@ -77,7 +77,7 @@ void main() {
     });
 
     test('throws when parent block does not exist', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final child = MutableBlock(id: 'child', parentId: 'missing');
 
       expect(() => doc.addBlock(child, null), throwsA(isA<ArgumentError>()));
@@ -85,7 +85,7 @@ void main() {
     });
 
     test('adds first root block then inserts before it', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final b1 = MutableBlock(id: 'b1');
       final b2 = MutableBlock(id: 'b2');
 
@@ -98,7 +98,7 @@ void main() {
 
   group('DocumentEntity.removeBlock', () {
     test('removes root block from document', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final block = MutableBlock(id: 'b1');
 
       doc.addBlock(block, null);
@@ -109,7 +109,7 @@ void main() {
     });
 
     test('does nothing when block id does not exist', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
 
       doc.removeBlock('nonexistent');
 
@@ -118,7 +118,7 @@ void main() {
     });
 
     test('removes child block from parent', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final parent = MutableBlock(id: 'parent');
       final child = MutableBlock(id: 'child', parentId: 'parent');
 
@@ -132,7 +132,7 @@ void main() {
     });
 
     test('recursively removes block and all descendants', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final parent = MutableBlock(id: 'parent');
       final child1 = MutableBlock(id: 'c1', parentId: 'parent');
       final child2 = MutableBlock(id: 'c2', parentId: 'parent');
@@ -151,7 +151,7 @@ void main() {
     });
 
     test('removes only target block and its children, not siblings', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final parent = MutableBlock(id: 'parent');
       final c1 = MutableBlock(id: 'c1', parentId: 'parent');
       final c2 = MutableBlock(id: 'c2', parentId: 'parent');
@@ -167,7 +167,7 @@ void main() {
     });
 
     test('removes nested grandchild correctly', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final parent = MutableBlock(id: 'parent');
       final child = MutableBlock(id: 'child', parentId: 'parent');
       final grandchild = MutableBlock(id: 'gc', parentId: 'parent');
@@ -188,7 +188,7 @@ void main() {
 
   group('DocumentEntity.flatBlockIds', () {
     test('returns empty list for empty document', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
 
       final ids = doc.flatBlockIds();
 
@@ -196,7 +196,7 @@ void main() {
     });
 
     test('returns ids of root blocks in order', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final b1 = MutableBlock(id: 'b1');
       final b2 = MutableBlock(id: 'b2');
       final b3 = MutableBlock(id: 'b3');
@@ -211,7 +211,7 @@ void main() {
     });
 
     test('returns depth-first order with children', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final parent = MutableBlock(id: 'parent');
       final c1 = MutableBlock(id: 'c1', parentId: 'parent');
       final c2 = MutableBlock(id: 'c2', parentId: 'parent');
@@ -226,7 +226,7 @@ void main() {
     });
 
     test('handles deeply nested tree in depth-first order', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final root = MutableBlock(id: 'root');
       final child = MutableBlock(id: 'child', parentId: 'root');
       final grandchild = MutableBlock(id: 'gc', parentId: 'root');
@@ -242,7 +242,7 @@ void main() {
     });
 
     test('returns correct order for multiple root blocks with children', () {
-      final doc = DocumentEntity(id: 'doc');
+      final doc = PageEntity(id: 'doc');
       final p1 = MutableBlock(id: 'p1');
       final p2 = MutableBlock(id: 'p2');
       final c1 = MutableBlock(id: 'c1', parentId: 'p1');
