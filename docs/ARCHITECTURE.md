@@ -113,7 +113,7 @@ The application is divided into feature-based systems, each responsible for a sp
 | **VaultSystem** | Vault lifecycle (create, open, close), recent vaults list. Current iteration: minimal MVP without HLC, oplog, WAL |
 | **PersistenceSystem** | Autosave, dirty tracking, WAL (Write-Ahead Log) for crash recovery, session restoration |
 | **OplogSystem** | Block-level operation log, diff engine, DAG (Directed Acyclic Graph), state reconstruction from oplog |
-| **SyncSystem** | File watchers, merge engine, conflict detection and resolution, external edit handling |
+| **SyncSystem** | File watchers, merge engine, conflict resolution, external edit handling |
 
 **System dependencies** (directional, no cycles):
 
@@ -144,30 +144,29 @@ The vault is a directory on the user's filesystem with the following structure:
 │   ├── device.json                   # Device identity (UUID, name, last HLC)
 │   ├── config.json                   # Vault configuration
 │   ├── session.json                  # Last session state (open documents, sidebar)
-│   ├── conflicts.json                # Unresolved merge conflicts
 │   ├── wal/                          # Write-Ahead Log files (crash recovery)
 │   └── cache/                        # Cached data (file tree, etc.)
 │
 ├── .sync/                            # Synced between devices
-│   └── vault/                        # Per-file oplog logs
+│   └── pages/                        # Per-file oplog logs
 │       └── <relative-path>/
 │           ├── <device-uuid-1>.oplog.jsonl
 │           └── <device-uuid-2>.oplog.jsonl
 │
-└── vault/                            # User's markdown files (snapshots)
+└── pages/                            # User's markdown files (snapshots)
     ├── welcome.md
     └── notes/
         └── project.md
 ```
 
 **Key concepts:**
-- `vault/` contains the current snapshot of all files (what the user sees)
-- `.sync/vault/` contains the operation log for each file (one `.oplog.jsonl` per device per file)
+- `pages/` contains the current snapshot of all files (what the user sees)
+- `.sync/pages/` contains the operation log for each file (one `.oplog.jsonl` per device per file)
 - `.noetec/` is device-local and not synced (contains device identity, session state, WAL)
 
 **Markdown file format:**
 
-Each `.md` file in `vault/` starts with YAML frontmatter:
+Each `.md` file in `pages/` starts with YAML frontmatter:
 
 ```markdown
 ---
@@ -264,7 +263,7 @@ Implement the document editor with user actions (insert, delete, move, format), 
 Record block-level operations to oplog on each save, implement the diff engine to compute changes between document states, build the DAG from oplog entries across devices, implement state reconstruction from oplog, and add integrity checking (verify hash matches after replay).
 
 **Phase 5: Sync & Merge**
-Implement file watchers to detect changes in `.sync/` (from other devices) and `vault/` (from external editors), build the 3-way merge engine with conflict detection, implement conflict storage and resolution UI, handle file-level operations (rename, delete) across devices, and notify users of remote changes and conflicts.
+Implement file watchers to detect changes in `.sync/` (from other devices) and `pages/` (from external editors), build the 3-way merge engine with conflict detection, implement conflict resolution UI, handle file-level operations (rename, delete) across devices, and notify users of remote changes and conflicts.
 
 **Phase 6: External Vault**
 Abstract the filesystem with a platform-independent interface, implement file picker for choosing vault location, support multiple vaults with hot-swap (close current, open another), implement platform-specific access (SAF for Android, security-scoped bookmarks for macOS), and add vault validation and error handling.

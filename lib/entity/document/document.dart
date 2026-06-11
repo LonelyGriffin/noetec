@@ -5,6 +5,7 @@
 
 import 'package:noetec/entity/document/block/block.dart';
 
+/// Make it mutable for performance reasons, unlike other entities.
 class DocumentEntity {
   final String id;
   final Map<String, BlockEntity> blocks = {};

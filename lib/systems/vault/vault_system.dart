@@ -10,7 +10,7 @@ import 'package:command_it/command_it.dart';
 import 'package:noetec/entity/vault/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
-import 'package:noetec/service/vault_repository.dart';
+import 'package:noetec/systems/vault/vault_repository.dart';
 import 'package:path/path.dart' as p;
 
 class VaultAlreadyExistsException implements Exception {

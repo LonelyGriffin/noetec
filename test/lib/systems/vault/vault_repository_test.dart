@@ -6,7 +6,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/entity/vault/vault.dart';
 import 'package:noetec/service/settings_service.dart';
-import 'package:noetec/service/vault_repository.dart';
+import 'package:noetec/systems/vault/vault_repository.dart';
 
 class FakeSettingsService implements ISettingsService {
   final Map<String, String> _stringStore = {};

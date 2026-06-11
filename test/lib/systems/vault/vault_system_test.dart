@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/entity/vault/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
-import 'package:noetec/service/vault_repository.dart';
+import 'package:noetec/systems/vault/vault_repository.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 
 class FakeFileSystemService implements IFileSystemService {

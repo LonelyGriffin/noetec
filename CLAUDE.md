@@ -50,12 +50,12 @@ lib/
 │   └── bootstrap_widget.dart      # Бутстрап-виджет
 ├── entity/                        # Domain entities (immutable, без Flutter зависимостей)
 ├── systems/                       # Systems layer (фичи с reactive state и commands)
-│   └── vault/                     # Фича vault management
+│   └── vault/                     # Фича vault management (системы и репозитории этой фичи)
 ├── service/                       # Infrastructure services (интерфейсы + реализации)
 │   ├── id_service.dart            # IIdService + IdService
 │   ├── file_system_service.dart   # IFileSystemService + FileSystemServiceImpl
-│   ├── settings_service.dart      # ISettingsService + SettingsServiceImpl
-│   └── vault_repository.dart      # IVaultRepository + VaultRepositoryImpl
+│   └── settings_service.dart      # ISettingsService + SettingsServiceImpl
+
 ├── view/                          # Presentation
 │   └── screens/
 └── main.dart                      # Точка входа
