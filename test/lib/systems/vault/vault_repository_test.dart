@@ -4,7 +4,7 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:noetec/entity/vault/vault.dart';
+import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/settings_service.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';
 

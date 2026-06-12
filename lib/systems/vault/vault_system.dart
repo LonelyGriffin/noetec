@@ -7,7 +7,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:command_it/command_it.dart';
-import 'package:noetec/entity/vault/vault.dart';
+import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';

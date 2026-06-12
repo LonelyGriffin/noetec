@@ -5,7 +5,7 @@
 
 import 'package:command_it/command_it.dart';
 import 'package:flutter/material.dart';
-import 'package:noetec/entity/vault/vault.dart';
+import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 import 'package:watch_it/watch_it.dart';

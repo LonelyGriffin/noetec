@@ -5,7 +5,7 @@
 
 import 'dart:convert';
 
-import 'package:noetec/entity/vault/vault.dart';
+import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/settings_service.dart';
 
 abstract interface class IVaultRepository {
