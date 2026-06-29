@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:noetec/systems/layout/layout_ui_system.dart';
+import 'package:noetec/view/widgets/editor/page_editor_widget.dart';
 import 'package:watch_it/watch_it.dart';
 
 class EditorArea extends WatchingWidget {
@@ -115,33 +116,12 @@ class _EditorContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final activeTab = tabs.where((t) => t.id == activeTabId).firstOrNull;
 
     if (activeTab == null) {
       return const SizedBox.shrink();
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            activeTab.title,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Editor content for "${activeTab.title}" will appear here.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
+    return PageEditorWidget(pageId: activeTab.id);
   }
 }

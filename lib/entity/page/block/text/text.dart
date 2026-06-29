@@ -3,136 +3,87 @@
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
-import 'package:flutter/foundation.dart';
+import 'package:listen_it/listen_it.dart';
 import 'package:noetec/entity/page/block/block.dart';
-import 'package:noetec/entity/page/block/text/text_attribute.dart';
+import 'package:noetec/entity/page/block/text/text_segment.dart';
+import 'package:noetec/entity/page/selection.dart';
 
-@immutable
 class TextBlockEntity extends BlockEntity {
-  final String text;
-  final List<TextAttributeEntity> attributes;
+  final ListNotifier<TextSegment> segments;
 
-  const TextBlockEntity._({
+  TextBlockEntity({
     required super.id,
-    required super.parentId,
-    required this.text,
-    required this.attributes,
-  });
+    super.parentId,
+    List<TextSegment>? segments,
+  }) : segments = ListNotifier(data: segments ?? [const TextSegment(text: '')]);
 
-  factory TextBlockEntity({
-    required String id,
-    required String parentId,
-    required String text,
-  }) {
-    return TextBlockEntity._(
-      id: id,
-      parentId: parentId,
-      text: text,
-      attributes: [FormatedTextAttributeEntity(from: 0, to: text.length)],
+  String computeAllSegmentsText() {
+    final buffer = StringBuffer();
+    for (final segment in segments) {
+      buffer.write(segment.text);
+    }
+    return buffer.toString();
+  }
+
+  int flatOffsetFromCursor(int segmentIndex, int offset) {
+    var flatOffset = 0;
+    for (var i = 0; i < segmentIndex && i < segments.length; i++) {
+      flatOffset += segments[i].text.length;
+    }
+    return flatOffset + offset;
+  }
+
+  CursorPositionInTextBlock cursorPosFromFlatOffset(int flatOffset) {
+    var remaining = flatOffset;
+    for (var i = 0; i < segments.length; i++) {
+      final segLen = segments[i].text.length;
+      if (remaining <= segLen) {
+        return CursorPositionInTextBlock(
+          blockId: id,
+          segmentIndex: i,
+          offset: remaining,
+        );
+      }
+      remaining -= segLen;
+    }
+    return CursorPositionInTextBlock(
+      blockId: id,
+      segmentIndex: segments.length - 1,
+      offset: segments.last.text.length,
     );
   }
 
-  static TextBlockEntity fromBuilder({
-    required TextBlockEntityBuilder builder,
-  }) {
-    return TextBlockEntity._(
-      id: builder.id,
-      parentId: builder.parentId!,
-      text: builder.text,
-      attributes: builder.attributes,
-    );
-  }
-}
-
-class TextBlockEntityBuilder {
-  final String _id;
-  final String? _parentId;
-  final String _text;
-  List<TextAttributeEntity> _attributes;
-
-  TextBlockEntityBuilder({
-    required String text,
-    required String id,
-    required String? parentId,
-    List<FormatedTextAttributeEntity>? attributes,
-  }) : _id = id,
-       _parentId = parentId,
-       _text = text,
-       _attributes =
-           attributes ??
-           [FormatedTextAttributeEntity(from: 0, to: text.length)];
-
-  String get id => _id;
-  String get text => _text;
-  String? get parentId => _parentId;
-  List<TextAttributeEntity> get attributes {
-    return List.unmodifiable(_attributes);
+  ({int segmentIndex, int offset})? charPosFromFlatOffset(int flatOffset) {
+    var remaining = flatOffset;
+    for (var i = 0; i < segments.length; i++) {
+      final segLen = segments[i].text.length;
+      if (remaining < segLen) {
+        return (segmentIndex: i, offset: remaining);
+      }
+      remaining -= segLen;
+    }
+    return null;
   }
 
-  TextBlockEntity build() {
-    return TextBlockEntity.fromBuilder(builder: this);
-  }
+  (int, int) wordBoundaryAt(int flatOffset) {
+    final fullText = computeAllSegmentsText();
+    if (fullText.isEmpty) return (0, 0);
 
-  TextBlockEntityBuilder setAttribute({required TextAttributeEntity attr}) {
-    final result = <TextAttributeEntity>[];
-    bool inserted = false;
+    final clampedOffset = flatOffset.clamp(0, fullText.length);
 
-    void addWithMerge(
-      List<TextAttributeEntity> list,
-      TextAttributeEntity newAttr,
-    ) {
-      if (list.isNotEmpty && list.last.equalByAttrs(newAttr)) {
-        list[list.length - 1] = list.last.copyWithRange(
-          from: list.last.from,
-          to: newAttr.to,
-        );
-      } else {
-        list.add(newAttr);
+    final wordRegex = RegExp(r'\w+');
+    for (final match in wordRegex.allMatches(fullText)) {
+      if (match.start <= clampedOffset && clampedOffset < match.end) {
+        return (match.start, match.end);
       }
     }
 
-    for (var existing in _attributes) {
-      if (existing.to <= attr.from) {
-        addWithMerge(result, existing);
-        continue;
-      }
+    return (clampedOffset, clampedOffset);
+  }
 
-      if (!inserted && existing.from >= attr.to) {
-        addWithMerge(result, attr);
-        inserted = true;
-      }
-
-      if (existing.from >= attr.to) {
-        addWithMerge(result, existing);
-        continue;
-      }
-
-      // Overlap
-      if (existing.from < attr.from) {
-        addWithMerge(
-          result,
-          existing.copyWithRange(from: existing.from, to: attr.from),
-        );
-      }
-
-      if (!inserted) {
-        addWithMerge(result, attr);
-        inserted = true;
-      }
-
-      if (existing.to > attr.to) {
-        addWithMerge(
-          result,
-          existing.copyWithRange(from: attr.to, to: existing.to),
-        );
-      }
-    }
-
-    if (!inserted) {
-      addWithMerge(result, attr);
-    }
-
-    _attributes = result;
-    return this;
+  @override
+  void dispose() {
+    segments.dispose();
+    super.dispose();
   }
 }

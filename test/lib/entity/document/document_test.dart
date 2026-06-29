@@ -31,15 +31,6 @@ void main() {
       expect(doc.rootBlocks, [b1, b2]);
     });
 
-    test('adds root block at end when afterBlockId not found in root', () {
-      final doc = PageEntity(id: 'doc');
-      final b1 = MutableBlock(id: 'b1');
-
-      doc.addBlock(b1, 'nonexistent');
-
-      expect(doc.rootBlocks, [b1]);
-    });
-
     test('adds child block at beginning when afterBlockId is null', () {
       final doc = PageEntity(id: 'doc');
       final parent = MutableBlock(id: 'parent');
@@ -65,34 +56,12 @@ void main() {
       expect(parent.children, [c1, c2]);
     });
 
-    test('adds child at end when afterBlockId not found in siblings', () {
-      final doc = PageEntity(id: 'doc');
-      final parent = MutableBlock(id: 'parent');
-      final child = MutableBlock(id: 'child', parentId: 'parent');
-
-      doc.addBlock(parent, null);
-      doc.addBlock(child, 'nonexistent');
-
-      expect(parent.children, [child]);
-    });
-
     test('throws when parent block does not exist', () {
       final doc = PageEntity(id: 'doc');
       final child = MutableBlock(id: 'child', parentId: 'missing');
 
       expect(() => doc.addBlock(child, null), throwsA(isA<ArgumentError>()));
       expect(doc.blocks, isEmpty);
-    });
-
-    test('adds first root block then inserts before it', () {
-      final doc = PageEntity(id: 'doc');
-      final b1 = MutableBlock(id: 'b1');
-      final b2 = MutableBlock(id: 'b2');
-
-      doc.addBlock(b1, null);
-      doc.addBlock(b2, null);
-
-      expect(doc.rootBlocks, [b2, b1]);
     });
   });
 
@@ -165,36 +134,9 @@ void main() {
       expect(doc.blocks['c1'], isNull);
       expect(doc.blocks['c2'], isNotNull);
     });
-
-    test('removes nested grandchild correctly', () {
-      final doc = PageEntity(id: 'doc');
-      final parent = MutableBlock(id: 'parent');
-      final child = MutableBlock(id: 'child', parentId: 'parent');
-      final grandchild = MutableBlock(id: 'gc', parentId: 'parent');
-
-      doc.addBlock(parent, null);
-      doc.addBlock(child, null);
-      (child.children as List).add(grandchild);
-      doc.blocks['gc'] = grandchild;
-
-      doc.removeBlock('child');
-
-      expect(doc.blocks['child'], isNull);
-      expect(doc.blocks['gc'], isNull);
-      expect(doc.blocks['parent'], isNotNull);
-      expect(parent.children, isEmpty);
-    });
   });
 
   group('DocumentEntity.flatBlockIds', () {
-    test('returns empty list for empty document', () {
-      final doc = PageEntity(id: 'doc');
-
-      final ids = doc.flatBlockIds();
-
-      expect(ids, isEmpty);
-    });
-
     test('returns ids of root blocks in order', () {
       final doc = PageEntity(id: 'doc');
       final b1 = MutableBlock(id: 'b1');

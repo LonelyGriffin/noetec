@@ -5,6 +5,8 @@
 
 import 'package:flutter/foundation.dart';
 
+enum CursorMoveDirection { left, right }
+
 @immutable
 abstract class SelectionEntity {
   const SelectionEntity();

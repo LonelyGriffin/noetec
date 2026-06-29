@@ -14,7 +14,8 @@
 
 ## Обзор проекта
 
-Виденье проекта можно посмотреть в docs/FIRST_VISION.md а архитектуру в docs/ARCHITECTURE.md
+Виденье проекта можно посмотреть в docs/FIRST_VISION.md, архитектуру в docs/ARCHITECTURE.md.
+Состояние системы ввода и редактирования описано в docs/USER_INPUT_SYSTEM.md.
 
 ### Ключевые технологии
 
@@ -48,14 +49,22 @@ lib/
 │   ├── configure_di.dart          # Регистрация зависимостей в get_it
 │   ├── main_app_widget.dart       # Корневой виджет приложения
 │   └── bootstrap_widget.dart      # Бутстрап-виджет
-├── entity/                        # Domain entities (immutable, без Flutter зависимостей)
-├── systems/                       # Systems layer (фичи с reactive state и commands)
-│   └── vault/                     # Фича vault management (системы и репозитории этой фичи)
-├── service/                       # Infrastructure services (интерфейсы + реализации)
+├── entity/                        # Domain entities
+│   ├── page/                      # Page entities (mutable для редактирования)
+│   │   ├── block/                 # Block entities (TextBlockEntity с segments)
+│   │   ├── page.dart              # PageEntity (blocks, selection)
+│   │   └── selection.dart         # Selection hierarchy
+│   └── vault/                     # Vault entities (immutable)
+├── systems/                       # Systems layer (фичи с reactive state)
+│   ├── layout/                    # UI layout system
+│   ├── markdown_system/           # Markdown parser/serializer
+│   ├── page_system/               # Page editing, selection, clipboard
+│   ├── user_input_system/         # IME, keyboard, pointer, clipboard handlers
+│   └── vault/                     # Vault management
+├── service/                       # Infrastructure services
 │   ├── id_service.dart            # IIdService + IdService
 │   ├── file_system_service.dart   # IFileSystemService + FileSystemServiceImpl
 │   └── settings_service.dart      # ISettingsService + SettingsServiceImpl
-
 ├── view/                          # Presentation
 │   └── screens/
 └── main.dart                      # Точка входа
@@ -65,16 +74,17 @@ lib/
 
 ### Типы тестов
 
-- **Юнит-тесты**: покрывают domain-логику конкретных функций классов
+- **Юнит-тесты**: покрывают domain-логику конкретных функций классов. 
 - **Интеграционные тесты**: покрывают определеные юзер кейсы тестируючие в комплексе все системы
+
+**Не нужно писать тесты на тривиальную логику, малозначимые участки приложения. Дублирующие тесты.**
 
 ### Структура тестов
 
 ```
 test/
 └── lib/
-│   └── <зеркало структуры lib/>
-└── integration
+    └── <зеркало структуры lib/>
 ```
 
 ### Запуск
@@ -111,11 +121,12 @@ DI-контейнер `get_it` настраивается в `lib/app/configure_
 
 ## Подводные камни / Что не делать
 
-- **Не мутировать состояние** — создавать новые immutable объекты через `.copyWith()` или конструкторы
+- **PageEntity и TextBlockEntity mutable** — они используют `ListNotifier` и `ValueNotifier` для производительности. Другие entity (Vault) остаются immutable.
 - **Не использовать `print()`** — использовать `package:logging`
 - **Не редактировать сгенерированные файлы** в `*.g.dart`, `*.freezed.dart`
-- **Не нарушать слои** — `entity/` не должен импортировать Flutter
+- **Не нарушать слои** — `entity/` не должен импортировать Flutter (кроме `flutter/foundation.dart` для `ValueNotifier`)
 - **Не использовать `setState()` в ViewModels** — использовать Stream-based реактивность
+- **IME sync** — после мутаций текста/курсора в handlers вызывать `ime.syncImeState(pageId)`
 
 ## Типичные задачи разработки
 

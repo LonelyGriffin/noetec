@@ -6,18 +6,35 @@
 import 'package:flutter/foundation.dart';
 
 @immutable
-class TextFormatEntity {
-  final bool isBold;
-  final bool isItalic;
-  final bool isStroke;
-  final bool isUnderline;
+class TextFormat {
+  final int _flags;
 
-  const TextFormatEntity({
-    this.isBold = false,
-    this.isItalic = false,
-    this.isStroke = false,
-    this.isUnderline = false,
-  });
+  const TextFormat._(this._flags);
 
-  static const empty = TextFormatEntity();
+  int get flags => _flags;
+
+  static const TextFormat none = TextFormat._(0);
+  static const TextFormat bold = TextFormat._(1 << 0);
+  static const TextFormat italic = TextFormat._(1 << 1);
+  static const TextFormat strikethrough = TextFormat._(1 << 2);
+  static const TextFormat underline = TextFormat._(1 << 3);
+
+  factory TextFormat.fromFlags(int flags) => TextFormat._(flags);
+
+  bool has(TextFormat flag) => (_flags & flag._flags) == flag._flags;
+
+  TextFormat operator |(TextFormat other) =>
+      TextFormat._(_flags | other._flags);
+
+  TextFormat without(TextFormat other) => TextFormat._(_flags & ~other._flags);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is TextFormat && other._flags == _flags);
+
+  @override
+  int get hashCode => _flags.hashCode;
+
+  @override
+  String toString() => 'TextFormat($_flags)';
 }

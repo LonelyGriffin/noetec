@@ -22,7 +22,7 @@ class IconRail extends WatchingWidget {
         children: [
           Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 _RailIconButton(
                   icon: Icons.book_outlined,

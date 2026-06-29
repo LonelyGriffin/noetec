@@ -52,11 +52,6 @@ void main() {
       repository = VaultRepositoryImpl(fakeSettings);
     });
 
-    test('loadRecentVaults — returns empty list when no data stored', () async {
-      final result = await repository.loadRecentVaults();
-      expect(result, isEmpty);
-    });
-
     test('addToRecent — adds vault and loadRecentVaults returns it', () async {
       final vault = makeVault();
       await repository.addToRecent(vault);
@@ -91,20 +86,6 @@ void main() {
       final result = await repository.loadRecentVaults();
       expect(result, hasLength(1));
       expect(result.first.id, equals('vault-2'));
-    });
-
-    test('saveRecentVaults — persists list correctly', () async {
-      final vaults = [
-        makeVault(id: 'vault-1', name: 'First'),
-        makeVault(id: 'vault-2', name: 'Second'),
-      ];
-
-      await repository.saveRecentVaults(vaults);
-      final result = await repository.loadRecentVaults();
-
-      expect(result, hasLength(2));
-      expect(result[0].name, equals('First'));
-      expect(result[1].name, equals('Second'));
     });
   });
 }

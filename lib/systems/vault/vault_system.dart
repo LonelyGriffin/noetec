@@ -8,8 +8,11 @@ import 'dart:convert';
 
 import 'package:command_it/command_it.dart';
 import 'package:noetec/entity/vault.dart';
+import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
+import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
+import 'package:noetec/systems/vault/closing_event.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';
 import 'package:path/path.dart' as p;
 
@@ -43,14 +46,28 @@ class InvalidVaultException implements Exception {
 }
 
 class VaultSystem {
-  VaultSystem(this._fileSystem, this._repository, this._ids);
+  VaultSystem(
+    this._fileSystem,
+    this._repository,
+    this._ids,
+    this._deviceService,
+  );
 
   final IFileSystemService _fileSystem;
   final IVaultRepository _repository;
   final IIdService _ids;
+  final IDeviceService _deviceService;
 
   final currentVault = CustomValueNotifier<VaultEntity?>(null);
   final recentVaults = ListNotifier<VaultEntity>();
+
+  final StreamController<ClosingEvent> _closingController =
+      StreamController<ClosingEvent>.broadcast();
+  Stream<ClosingEvent> get closing => _closingController.stream;
+
+  final StreamController<VaultEntity> _vaultCreatedController =
+      StreamController<VaultEntity>.broadcast();
+  Stream<VaultEntity> get vaultCreated => _vaultCreatedController.stream;
 
   late final createVaultCommand =
       Command.createAsync<
@@ -64,7 +81,7 @@ class VaultSystem {
     debugName: 'openVault',
   );
 
-  late final closeVaultCommand = Command.createSyncNoParamNoResult(
+  late final closeVaultCommand = Command.createAsyncNoParamNoResult(
     _closeVault,
     debugName: 'closeVault',
   );
@@ -87,6 +104,8 @@ class VaultSystem {
 
     final noetecDir = p.join(directoryPath, '.noetec');
     await _fileSystem.createDirectory(noetecDir);
+    await _fileSystem.createDirectory(p.join(directoryPath, 'pages'));
+    await _fileSystem.createDirectory(p.join(directoryPath, '.sync', 'pages'));
 
     final vault = VaultEntity(
       id: _ids.generateId(),
@@ -95,13 +114,19 @@ class VaultSystem {
       createdAt: DateTime.now(),
     );
 
+    await _deviceService.ensureDevice(directoryPath, vault.id);
+
     final vaultFile = p.join(noetecDir, 'vault.json');
     final content = json.encode(vault.toMap());
     await _fileSystem.writeFile(vaultFile, content);
 
+    await _createWelcomePage(directoryPath);
+
     currentVault.value = vault;
     await _repository.addToRecent(vault);
     unawaited(_syncRecentVaults());
+
+    _vaultCreatedController.add(vault);
 
     return vault;
   }
@@ -117,6 +142,11 @@ class VaultSystem {
     final data = json.decode(content) as Map<String, dynamic>;
     final vault = VaultEntity.fromMap(data);
 
+    await _fileSystem.createDirectory(p.join(directoryPath, 'pages'));
+    await _fileSystem.createDirectory(p.join(directoryPath, '.sync', 'pages'));
+
+    await _deviceService.ensureDevice(directoryPath, vault.id);
+
     currentVault.value = vault;
     await _repository.addToRecent(vault);
     unawaited(_syncRecentVaults());
@@ -124,8 +154,37 @@ class VaultSystem {
     return vault;
   }
 
-  void _closeVault() {
+  Future<void> _createWelcomePage(String vaultRootPath) async {
+    const welcomeContent =
+        '::: {#welcome-block-01}\n'
+        'Welcome to Noetec! This is your first note. '
+        'Start typing to edit, or create new pages from the panel.\n'
+        ':::\n';
+
+    final hash = PageFrontmatterCodec.computeContentHash(welcomeContent);
+    final frontmatter = PageFrontmatter(
+      id: _ids.generateId(),
+      contentHash: 'sha256:$hash',
+      modified: DateTime.now().toUtc(),
+    );
+
+    final fileContent = PageFrontmatterCodec.encode(
+      frontmatter,
+      welcomeContent,
+    );
+
+    await _fileSystem.writeFile(
+      p.join(vaultRootPath, 'pages', 'welcome.md'),
+      fileContent,
+    );
+  }
+
+  Future<void> _closeVault() async {
+    final event = ClosingEvent();
+    _closingController.add(event);
+    await event.waitAll();
     currentVault.value = null;
+    _deviceService.clear();
   }
 
   Future<void> _syncRecentVaults() async {
@@ -141,5 +200,7 @@ class VaultSystem {
     createVaultCommand.dispose();
     openVaultCommand.dispose();
     closeVaultCommand.dispose();
+    _closingController.close();
+    _vaultCreatedController.close();
   }
 }

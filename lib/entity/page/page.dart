@@ -3,19 +3,23 @@
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
+import 'package:flutter/foundation.dart';
 import 'package:noetec/entity/page/block/block.dart';
+import 'package:noetec/entity/page/selection.dart';
 
-/// Make it mutable for performance reasons, unlike other entities.
 class PageEntity {
   final String id;
+  String? relativePath;
   final Map<String, BlockEntity> blocks = {};
   final List<BlockEntity> rootBlocks = [];
+  final ValueNotifier<SelectionEntity> selection = ValueNotifier(
+    const NoSelectionEntity(),
+  );
 
-  PageEntity({required this.id});
+  PageEntity({required this.id, this.relativePath});
 
-  BlockEntity? getBlockById(String id) => blocks[id];
+  BlockEntity? getBlockById(String blockId) => blocks[blockId];
 
-  /// Remove block and childs
   void removeBlock(String blockId) {
     final block = blocks[blockId];
     if (block == null) return;
@@ -34,8 +38,6 @@ class PageEntity {
     blocks.remove(blockId);
   }
 
-  /// Add block after other in document
-  /// If [afterBlockId] is null block will be added as first in root
   void addBlock(BlockEntity block, String? afterBlockId) {
     if (block.parentId == null) {
       if (afterBlockId == null) {
@@ -71,7 +73,23 @@ class PageEntity {
     blocks[block.id] = block;
   }
 
-  /// Returns a flat, depth-first list of all block IDs in the document tree.
+  void addBlockAt(BlockEntity block, int index) {
+    if (block.parentId == null) {
+      final clamped = index.clamp(0, rootBlocks.length);
+      rootBlocks.insert(clamped, block);
+    } else {
+      final parentBlock = blocks[block.parentId];
+      if (parentBlock == null) {
+        throw ArgumentError(
+          'Parent block with id ${block.parentId} does not exist',
+        );
+      }
+      final clamped = index.clamp(0, parentBlock.children.length);
+      parentBlock.children.insert(clamped, block);
+    }
+    blocks[block.id] = block;
+  }
+
   List<String> flatBlockIds() {
     final result = <String>[];
     void visit(BlockEntity b) {
@@ -85,5 +103,12 @@ class PageEntity {
       visit(b);
     }
     return result;
+  }
+
+  void dispose() {
+    selection.dispose();
+    for (final block in blocks.values) {
+      block.dispose();
+    }
   }
 }

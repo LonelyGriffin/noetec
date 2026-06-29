@@ -5,7 +5,9 @@
 
 import 'package:command_it/command_it.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:noetec/entity/device/device_identity.dart';
 import 'package:noetec/entity/vault.dart';
+import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';
@@ -46,6 +48,63 @@ class FakeFileSystemService implements IFileSystemService {
 
   @override
   Future<String?> pickDirectory() async => null;
+
+  @override
+  Future<List<FileEntry>> listDirectory(String path) async {
+    final normalized = _normalize(path);
+    final entries = <FileEntry>[];
+    final seen = <String>{};
+
+    for (final dir in directories) {
+      if (dir.startsWith('$normalized/')) {
+        final relative = dir.substring(normalized.length + 1);
+        final name = relative.split('/').first;
+        if (seen.add(name)) {
+          entries.add(
+            FileEntry(name: name, path: '$normalized/$name', isDirectory: true),
+          );
+        }
+      }
+    }
+
+    for (final file in files.keys) {
+      if (file.startsWith('$normalized/')) {
+        final relative = file.substring(normalized.length + 1);
+        if (!relative.contains('/')) {
+          entries.add(
+            FileEntry(
+              name: relative,
+              path: file,
+              isDirectory: false,
+              lastModified: DateTime.now(),
+            ),
+          );
+        }
+      }
+    }
+
+    return entries;
+  }
+
+  @override
+  Future<void> deleteFile(String path) async {
+    files.remove(_normalize(path));
+  }
+
+  @override
+  Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
+
+  @override
+  Stream<FileEntry> watchDirectory(
+    String path, {
+    Duration pollInterval = const Duration(seconds: 5),
+  }) => const Stream.empty();
+
+  @override
+  Future<void> appendToFile(String path, String content) async {
+    final normalized = _normalize(path);
+    files[normalized] = (files[normalized] ?? '') + content;
+  }
 }
 
 class FakeVaultRepository implements IVaultRepository {
@@ -78,11 +137,41 @@ class FakeIdService implements IIdService {
   String generateId() => 'test-id-${_counter++}';
 }
 
+class FakeDeviceService implements IDeviceService {
+  DeviceIdentity? _device;
+
+  @override
+  DeviceIdentity? get currentDevice => _device;
+
+  @override
+  Future<DeviceIdentity> ensureDevice(
+    String vaultRootPath,
+    String vaultId,
+  ) async {
+    _device = DeviceIdentity(
+      uuid: 'test-device-uuid',
+      name: 'test',
+      createdAt: DateTime.now(),
+      lastHlc: null,
+    );
+    return _device!;
+  }
+
+  @override
+  Future<void> updateLastHlc(String vaultRootPath, String hlcKey) async {}
+
+  @override
+  void clear() {
+    _device = null;
+  }
+}
+
 void main() {
   group('VaultSystem —', () {
     late FakeFileSystemService fakeFileSystem;
     late FakeVaultRepository fakeRepository;
     late FakeIdService fakeIdService;
+    late FakeDeviceService fakeDeviceService;
     late VaultSystem vaultSystem;
 
     setUp(() {
@@ -90,7 +179,13 @@ void main() {
       fakeFileSystem = FakeFileSystemService();
       fakeRepository = FakeVaultRepository();
       fakeIdService = FakeIdService();
-      vaultSystem = VaultSystem(fakeFileSystem, fakeRepository, fakeIdService);
+      fakeDeviceService = FakeDeviceService();
+      vaultSystem = VaultSystem(
+        fakeFileSystem,
+        fakeRepository,
+        fakeIdService,
+        fakeDeviceService,
+      );
     });
 
     tearDown(() {
@@ -179,7 +274,7 @@ void main() {
       ));
       expect(vaultSystem.currentVault.value, isNotNull);
 
-      vaultSystem.closeVaultCommand.run();
+      await vaultSystem.closeVaultCommand.runAsync();
       expect(vaultSystem.currentVault.value, isNull);
     });
 
