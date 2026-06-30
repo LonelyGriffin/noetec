@@ -6,7 +6,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:noetec/service/vault_file_service.dart';
-import 'package:noetec/systems/layout/layout_ui_system.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 import 'package:watch_it/watch_it.dart';
@@ -197,14 +196,7 @@ class _TreeNodeState extends State<_TreeNode> {
   }
 
   Future<void> _openPage(PageFileItem item) async {
-    final pageSystem = di<PageSystem>();
-    final layoutSystem = di<LayoutUISystem>();
-
-    final page = await pageSystem.loadPage(item.relativePath);
-    final title = item.name.endsWith('.md')
-        ? item.name.substring(0, item.name.length - 3)
-        : item.name;
-    layoutSystem.openTab(EditorTab(id: page.id, title: title));
+    await di<PageSystem>().loadPage(item.relativePath);
   }
 }
 

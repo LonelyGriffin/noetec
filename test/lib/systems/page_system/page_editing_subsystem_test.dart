@@ -2,6 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/entity/page/block/text/text.dart';
 import 'package:noetec/entity/page/block/text/text_segment.dart';
+import 'package:noetec/entity/page/page.dart';
 import 'package:noetec/entity/page/selection.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
@@ -57,7 +58,9 @@ void main() {
       _FakeFileSystemService(),
       vaultSystem,
     );
-    pageSystem.openPage('page-1');
+    final page = PageEntity(id: 'page-1', relativePath: 'pages/page-1.md');
+    pageSystem.openPages['page-1'] = page;
+    pageSystem.activePageId.value = 'page-1';
   });
 
   tearDown(() {

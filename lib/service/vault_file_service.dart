@@ -8,8 +8,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:listen_it/listen_it.dart';
 import 'package:noetec/service/file_system_service.dart';
-import 'package:noetec/systems/layout/layout_ui_system.dart';
 import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
+import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
@@ -53,21 +53,21 @@ final class PageFileItem extends PageFileNode {
 }
 
 class VaultFileService {
-  VaultFileService(this._fileSystem, this._vaultSystem, this._layoutSystem) {
+  VaultFileService(this._fileSystem, this._vaultSystem, this._pageSystem) {
     _vaultSystem.currentVault.addListener(_onVaultChanged);
-    _layoutSystem.activeTabId.addListener(_onActiveTabChanged);
+    _pageSystem.activePageId.addListener(_onActivePageChanged);
   }
 
   final IFileSystemService _fileSystem;
   final VaultSystem _vaultSystem;
-  final LayoutUISystem _layoutSystem;
+  final PageSystem _pageSystem;
   final fileTree = ListNotifier<PageFileNode>();
   final renamingPath = ValueNotifier<String?>(null);
   final selectedPagePath = ValueNotifier<String?>(null);
 
   static const _uuid = Uuid();
 
-  void _onActiveTabChanged() {
+  void _onActivePageChanged() {
     selectedPagePath.value = null;
   }
 
@@ -210,7 +210,7 @@ class VaultFileService {
 
   void dispose() {
     _vaultSystem.currentVault.removeListener(_onVaultChanged);
-    _layoutSystem.activeTabId.removeListener(_onActiveTabChanged);
+    _pageSystem.activePageId.removeListener(_onActivePageChanged);
     renamingPath.dispose();
     selectedPagePath.dispose();
     fileTree.dispose();

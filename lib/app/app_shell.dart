@@ -4,7 +4,6 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 import 'package:flutter/material.dart';
-import 'package:noetec/systems/layout/layout_ui_system.dart';
 import 'package:noetec/view/widgets/content_panel.dart';
 import 'package:noetec/view/widgets/content_panel/bookmarks_panel.dart';
 import 'package:noetec/view/widgets/content_panel/journal_panel.dart';
@@ -12,7 +11,8 @@ import 'package:noetec/view/widgets/content_panel/pages_panel.dart';
 import 'package:noetec/view/widgets/content_panel/settings_panel.dart';
 import 'package:noetec/view/widgets/editor_area.dart';
 import 'package:noetec/view/widgets/icon_rail.dart';
-import 'package:watch_it/watch_it.dart';
+
+enum RailPanel { journal, pages, bookmarks, settings }
 
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child});
@@ -33,23 +33,40 @@ class AppShell extends StatelessWidget {
   }
 }
 
-class _DesktopShell extends WatchingWidget {
+class _DesktopShell extends StatefulWidget {
   const _DesktopShell();
 
   @override
-  Widget build(BuildContext context) {
-    final isCollapsed = watchValue<LayoutUISystem, bool>(
-      (s) => s.isContentPanelCollapsed,
-    );
+  State<_DesktopShell> createState() => _DesktopShellState();
+}
 
+class _DesktopShellState extends State<_DesktopShell> {
+  RailPanel _activePanel = RailPanel.pages;
+  bool _isContentPanelCollapsed = false;
+
+  void _selectPanel(RailPanel panel) {
+    setState(() => _activePanel = panel);
+  }
+
+  // ignore: unused_element
+  void _toggleCollapsed() {
+    setState(() => _isContentPanelCollapsed = !_isContentPanelCollapsed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Row(
           children: [
-            const IconRail(),
+            IconRail(activePanel: _activePanel, onSelectPanel: _selectPanel),
             const VerticalDivider(thickness: 1, width: 1),
-            const ContentPanel(),
-            if (!isCollapsed) const VerticalDivider(thickness: 1, width: 1),
+            ContentPanel(
+              activePanel: _activePanel,
+              isCollapsed: _isContentPanelCollapsed,
+            ),
+            if (!_isContentPanelCollapsed)
+              const VerticalDivider(thickness: 1, width: 1),
             const Expanded(child: EditorArea()),
           ],
         ),
@@ -58,22 +75,29 @@ class _DesktopShell extends WatchingWidget {
   }
 }
 
-class _MobileShell extends WatchingWidget {
+class _MobileShell extends StatefulWidget {
   const _MobileShell();
 
   @override
-  Widget build(BuildContext context) {
-    final activePanel = watchValue<LayoutUISystem, RailPanel>(
-      (s) => s.activePanel,
-    );
+  State<_MobileShell> createState() => _MobileShellState();
+}
 
+class _MobileShellState extends State<_MobileShell> {
+  RailPanel _activePanel = RailPanel.pages;
+
+  void _selectPanel(RailPanel panel) {
+    setState(() => _activePanel = panel);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: const EditorArea(),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _panelIndex(activePanel),
+        selectedIndex: _panelIndex(_activePanel),
         onDestinationSelected: (index) {
           final panel = _panelAtIndex(index);
-          di<LayoutUISystem>().selectPanel(panel);
+          _selectPanel(panel);
           _showPanelSheet(context, panel);
         },
         destinations: const [

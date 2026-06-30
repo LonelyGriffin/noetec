@@ -12,7 +12,6 @@ import 'package:noetec/entity/page/page.dart';
 import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
-import 'package:noetec/systems/layout/layout_ui_system.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
 import 'package:noetec/systems/page_system/page_action_dispatcher.dart';
 import 'package:noetec/systems/page_system/page_clipboard_subsystem.dart';
@@ -22,7 +21,6 @@ import 'package:noetec/systems/page_system/page_selection_subsystem.dart';
 import 'package:noetec/systems/vault/closing_event.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 import 'package:path/path.dart' as p;
-import 'package:watch_it/watch_it.dart';
 
 final class SessionState {
   final List<String> openPagePaths;
@@ -95,8 +93,7 @@ class PageSystem {
 
   Future<void> initializeForNewVault() async {
     try {
-      final page = await loadPage('pages/welcome.md');
-      di<LayoutUISystem>().openTab(EditorTab(id: page.id, title: 'welcome'));
+      await loadPage('pages/welcome.md');
       await saveSession();
     } catch (_) {}
   }
@@ -111,8 +108,7 @@ class PageSystem {
     return openPages[id];
   }
 
-  void openPage(String pageId) {
-    openPages.putIfAbsent(pageId, () => PageEntity(id: pageId));
+  void setActivePage(String pageId) {
     activePageId.value = pageId;
     unawaited(saveSession());
   }
@@ -149,7 +145,7 @@ class PageSystem {
 
   Future<void> savePage(String pageId) async {
     final page = openPages[pageId];
-    if (page == null || page.relativePath == null || _vaultRootPath == null) {
+    if (page == null || _vaultRootPath == null) {
       return;
     }
 
@@ -165,17 +161,17 @@ class PageSystem {
 
     final fileContent = PageFrontmatterCodec.encode(frontmatter, markdown);
     final absolutePath = p.normalize(
-      p.join(_vaultRootPath!, page.relativePath!),
+      p.join(_vaultRootPath!, page.relativePath),
     );
     await _fileSystem.writeFile(absolutePath, fileContent);
   }
 
   void closePage(String pageId) {
     final page = openPages.remove(pageId);
-    if (page?.relativePath != null) {
-      _pathToPageId.remove(page!.relativePath);
+    if (page != null) {
+      _pathToPageId.remove(page.relativePath);
+      page.dispose();
     }
-    page?.dispose();
 
     if (activePageId.value == pageId) {
       activePageId.value = openPages.keys.isEmpty ? null : openPages.keys.first;
@@ -197,8 +193,7 @@ class PageSystem {
   Future<void> saveSession() async {
     if (_vaultRootPath == null) return;
     final openPaths = openPages.values
-        .where((page) => page.relativePath != null)
-        .map((page) => page.relativePath!)
+        .map((page) => page.relativePath)
         .toList();
     final activePage = getActivePage();
     final state = SessionState(

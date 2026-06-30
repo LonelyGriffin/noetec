@@ -4,18 +4,16 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 import 'package:flutter/material.dart';
-import 'package:noetec/systems/layout/layout_ui_system.dart';
-import 'package:watch_it/watch_it.dart';
 
 class BookmarksPanel extends StatelessWidget {
   const BookmarksPanel({super.key});
 
   static const _stubBookmarks = [
-    (id: 'bm-1', title: 'Architecture Overview'),
-    (id: 'bm-2', title: 'API Reference'),
-    (id: 'bm-3', title: 'Design Patterns'),
-    (id: 'bm-4', title: 'Deployment Guide'),
-    (id: 'bm-5', title: 'Troubleshooting'),
+    (title: 'Architecture Overview'),
+    (title: 'API Reference'),
+    (title: 'Design Patterns'),
+    (title: 'Deployment Guide'),
+    (title: 'Troubleshooting'),
   ];
 
   @override
@@ -42,14 +40,12 @@ class BookmarksPanel extends StatelessWidget {
                 ListTile(
                   leading: Icon(
                     Icons.bookmark,
-                    color: theme.colorScheme.primary,
+                    color: theme.colorScheme.onSurfaceVariant,
                     size: 20,
                   ),
                   title: Text(bookmark.title),
                   dense: true,
-                  onTap: () => di<LayoutUISystem>().openTab(
-                    EditorTab(id: bookmark.id, title: bookmark.title),
-                  ),
+                  enabled: false,
                 ),
             ],
           ),

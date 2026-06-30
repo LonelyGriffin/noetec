@@ -112,7 +112,7 @@ void main() {
       // Verify pages were restored in PageSystem
       expect(pageSystem.openPages.length, equals(1));
       final restoredPaths = pageSystem.openPages.values
-          .map((e) => e.relativePath!)
+          .map((e) => e.relativePath)
           .toSet();
       expect(restoredPaths, contains('pages/welcome.md'));
 
@@ -210,7 +210,7 @@ void main() {
       final pageSystem = GetIt.instance<PageSystem>();
       // Alpha should restore only its own pages, no Beta pages leaked
       final alphaRestoredPaths = pageSystem.openPages.values
-          .map((e) => e.relativePath!)
+          .map((e) => e.relativePath)
           .toSet();
       expect(alphaRestoredPaths, contains('pages/welcome.md'));
       expect(alphaRestoredPaths, isNot(contains('pages/beta-b.md')));

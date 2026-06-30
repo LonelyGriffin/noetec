@@ -4,27 +4,26 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 import 'package:flutter/material.dart';
-import 'package:noetec/systems/layout/layout_ui_system.dart';
+import 'package:noetec/app/app_shell.dart';
 import 'package:noetec/view/widgets/content_panel/bookmarks_panel.dart';
 import 'package:noetec/view/widgets/content_panel/journal_panel.dart';
 import 'package:noetec/view/widgets/content_panel/pages_panel.dart';
 import 'package:noetec/view/widgets/content_panel/settings_panel.dart';
-import 'package:watch_it/watch_it.dart';
 
-class ContentPanel extends WatchingWidget {
-  const ContentPanel({super.key});
+class ContentPanel extends StatelessWidget {
+  const ContentPanel({
+    super.key,
+    required this.activePanel,
+    required this.isCollapsed,
+  });
 
   static const double width = 280;
 
+  final RailPanel activePanel;
+  final bool isCollapsed;
+
   @override
   Widget build(BuildContext context) {
-    final activePanel = watchValue<LayoutUISystem, RailPanel>(
-      (s) => s.activePanel,
-    );
-    final isCollapsed = watchValue<LayoutUISystem, bool>(
-      (s) => s.isContentPanelCollapsed,
-    );
-
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,

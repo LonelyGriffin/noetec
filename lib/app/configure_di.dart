@@ -12,7 +12,6 @@ import 'package:noetec/service/id_service.dart';
 import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/service/settings_service.dart';
 import 'package:noetec/service/vault_file_service.dart';
-import 'package:noetec/systems/layout/layout_ui_system.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
 import 'package:noetec/systems/oplog_system/oplog_system.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
@@ -62,8 +61,6 @@ Future<void> configureDI({
     ),
   );
 
-  getIt.registerSingleton<LayoutUISystem>(LayoutUISystem());
-
   getIt.registerSingleton<MarkdownSystem>(MarkdownSystem(getIt<IIdService>()));
 
   getIt.registerSingleton<PageSystem>(
@@ -79,7 +76,7 @@ Future<void> configureDI({
     VaultFileService(
       getIt<IFileSystemService>(),
       getIt<VaultSystem>(),
-      getIt<LayoutUISystem>(),
+      getIt<PageSystem>(),
     ),
   );
 

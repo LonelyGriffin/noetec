@@ -4,18 +4,20 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 import 'package:flutter/material.dart';
-import 'package:noetec/systems/layout/layout_ui_system.dart';
-import 'package:watch_it/watch_it.dart';
+import 'package:noetec/app/app_shell.dart';
 
-class IconRail extends WatchingWidget {
-  const IconRail({super.key});
+class IconRail extends StatelessWidget {
+  const IconRail({
+    super.key,
+    required this.activePanel,
+    required this.onSelectPanel,
+  });
+
+  final RailPanel activePanel;
+  final ValueChanged<RailPanel> onSelectPanel;
 
   @override
   Widget build(BuildContext context) {
-    final activePanel = watchValue<LayoutUISystem, RailPanel>(
-      (s) => s.activePanel,
-    );
-
     return SizedBox(
       width: 56,
       child: Column(
@@ -28,24 +30,21 @@ class IconRail extends WatchingWidget {
                   icon: Icons.book_outlined,
                   label: 'Journal',
                   isActive: activePanel == RailPanel.journal,
-                  onTap: () =>
-                      di<LayoutUISystem>().selectPanel(RailPanel.journal),
+                  onTap: () => onSelectPanel(RailPanel.journal),
                 ),
                 const SizedBox(height: 8),
                 _RailIconButton(
                   icon: Icons.article_outlined,
                   label: 'Pages',
                   isActive: activePanel == RailPanel.pages,
-                  onTap: () =>
-                      di<LayoutUISystem>().selectPanel(RailPanel.pages),
+                  onTap: () => onSelectPanel(RailPanel.pages),
                 ),
                 const SizedBox(height: 8),
                 _RailIconButton(
                   icon: Icons.bookmark_outline,
                   label: 'Bookmarks',
                   isActive: activePanel == RailPanel.bookmarks,
-                  onTap: () =>
-                      di<LayoutUISystem>().selectPanel(RailPanel.bookmarks),
+                  onTap: () => onSelectPanel(RailPanel.bookmarks),
                 ),
               ],
             ),
@@ -56,7 +55,7 @@ class IconRail extends WatchingWidget {
               icon: Icons.settings_outlined,
               label: 'Settings',
               isActive: activePanel == RailPanel.settings,
-              onTap: () => di<LayoutUISystem>().selectPanel(RailPanel.settings),
+              onTap: () => onSelectPanel(RailPanel.settings),
             ),
           ),
         ],

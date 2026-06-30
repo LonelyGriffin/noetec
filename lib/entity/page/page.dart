@@ -6,17 +6,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:noetec/entity/page/block/block.dart';
 import 'package:noetec/entity/page/selection.dart';
+import 'package:path/path.dart' as p;
 
 class PageEntity {
   final String id;
-  String? relativePath;
+  final String relativePath;
   final Map<String, BlockEntity> blocks = {};
   final List<BlockEntity> rootBlocks = [];
   final ValueNotifier<SelectionEntity> selection = ValueNotifier(
     const NoSelectionEntity(),
   );
 
-  PageEntity({required this.id, this.relativePath});
+  PageEntity({required this.id, required this.relativePath});
+
+  String get title => p.basenameWithoutExtension(relativePath);
 
   BlockEntity? getBlockById(String blockId) => blocks[blockId];
 
