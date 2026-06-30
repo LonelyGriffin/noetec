@@ -81,33 +81,6 @@ void main() {
         expectedActivePagePath: 'pages/welcome.md',
       );
 
-      // UI: create new page via Pages panel
-      await tester.tap(findPagesPanelButton());
-      await tester.pumpAndSettle();
-
-      await tester.tap(findNewPageButton());
-      await tester.pumpAndSettle();
-
-      await tester.enterText(findPageRenameField(), 'extra');
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pumpAndSettle();
-
-      // UI: open "extra" page from Pages panel
-      final extraPageFinder = findPageInPanel('extra.md');
-
-      await tester.tap(findPagesPanelButton());
-      await tester.pumpAndSettle();
-
-      await tester.ensureVisible(extraPageFinder);
-      await tester.tap(extraPageFinder);
-      await tester.pumpAndSettle();
-
-      await expectSessionJsonValid(
-        vaultPath,
-        expectedOpenPagePaths: ['pages/welcome.md', 'pages/extra.md'],
-        expectedActivePagePath: 'pages/extra.md',
-      );
-
       // UI: Close vault via Settings panel "Open Another Vault"
       await tester.tap(findSettingsPanelButton());
       await tester.pumpAndSettle();
@@ -132,21 +105,20 @@ void main() {
       // This is expected to fail until implementation is in place.
       await expectSessionJsonValid(
         vaultPath,
-        expectedOpenPagePaths: ['pages/welcome.md', 'pages/extra.md'],
-        expectedActivePagePath: 'pages/extra.md',
+        expectedOpenPagePaths: ['pages/welcome.md'],
+        expectedActivePagePath: 'pages/welcome.md',
       );
 
       // Verify pages were restored in PageSystem
-      expect(pageSystem.openPages.length, equals(2));
+      expect(pageSystem.openPages.length, equals(1));
       final restoredPaths = pageSystem.openPages.values
           .map((e) => e.relativePath!)
           .toSet();
       expect(restoredPaths, contains('pages/welcome.md'));
-      expect(restoredPaths, contains('pages/extra.md'));
 
       expect(
         pageSystem.getActivePage()!.relativePath,
-        equals('pages/extra.md'),
+        equals('pages/welcome.md'),
       );
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -182,26 +154,10 @@ void main() {
 
       final vaultAlphaPath = p.join(parentDir.rootPath, 'VaultAlpha');
 
-      // UI: create new page via Pages panel
-      await tester.tap(findPagesPanelButton());
-      await tester.pumpAndSettle();
-
-      await tester.tap(findNewPageButton());
-      await tester.pumpAndSettle();
-
-      await tester.enterText(findPageRenameField(), 'alpha-a');
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pumpAndSettle();
-
-      // UI: open "alpha-a" page from Pages panel
-      await tester.ensureVisible(findPageInPanel('alpha-a.md'));
-      await tester.tap(findPageInPanel('alpha-a.md'));
-      await tester.pumpAndSettle();
-
       await expectSessionJsonValid(
         vaultAlphaPath,
-        expectedOpenPagePaths: ['pages/welcome.md', 'pages/alpha-a.md'],
-        expectedActivePagePath: 'pages/alpha-a.md',
+        expectedOpenPagePaths: ['pages/welcome.md'],
+        expectedActivePagePath: 'pages/welcome.md',
       );
 
       // UI: Close vault via Settings panel
@@ -222,26 +178,10 @@ void main() {
 
       final vaultBetaPath = p.join(parentDir.rootPath, 'VaultBeta');
 
-      // UI: create new page via Pages panel
-      await tester.tap(findPagesPanelButton());
-      await tester.pumpAndSettle();
-
-      await tester.tap(findNewPageButton());
-      await tester.pumpAndSettle();
-
-      await tester.enterText(findPageRenameField(), 'beta-b');
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pumpAndSettle();
-
-      // UI: open "beta-b" page from Pages panel
-      await tester.ensureVisible(findPageInPanel('beta-b.md'));
-      await tester.tap(findPageInPanel('beta-b.md'));
-      await tester.pumpAndSettle();
-
       await expectSessionJsonValid(
         vaultBetaPath,
-        expectedOpenPagePaths: ['pages/welcome.md', 'pages/beta-b.md'],
-        expectedActivePagePath: 'pages/beta-b.md',
+        expectedOpenPagePaths: ['pages/welcome.md'],
+        expectedActivePagePath: 'pages/welcome.md',
       );
 
       // Alpha's session.json should NOT contain Beta's pages
@@ -253,7 +193,6 @@ void main() {
       final alphaOpenPages = (alphaContent['open_pages'] as List)
           .cast<String>();
       expect(alphaOpenPages, contains('pages/welcome.md'));
-      expect(alphaOpenPages, contains('pages/alpha-a.md'));
       expect(alphaOpenPages, isNot(contains('pages/beta-b.md')));
 
       // UI: close Beta vault via Settings panel
@@ -274,8 +213,121 @@ void main() {
           .map((e) => e.relativePath!)
           .toSet();
       expect(alphaRestoredPaths, contains('pages/welcome.md'));
-      expect(alphaRestoredPaths, contains('pages/alpha-a.md'));
       expect(alphaRestoredPaths, isNot(contains('pages/beta-b.md')));
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await GetIt.instance.reset();
+      await parentDir.dispose();
+    }
+  });
+
+  testWidgets('Page tab management and session persistence', (tester) async {
+    final fileSystem = TestFileSystemService();
+    final settings = InMemorySettingsService();
+    final secureKeyStore = InMemorySecureKeyStore();
+    final parentDir = await VaultFolderFixture.createEmpty();
+    fileSystem.nextPickPath = parentDir.rootPath;
+
+    await configureDI(
+      fileSystem: fileSystem,
+      settings: settings,
+      secureKeyStore: secureKeyStore,
+    );
+
+    try {
+      await tester.pumpWidget(const MainApp());
+      await tester.pumpAndSettle();
+
+      // Create vault
+      await tester.tap(findCreateVaultButton());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(findVaultNameField(), 'TabVault');
+      await tester.tap(findDialogCreateButton());
+      await tester.pumpAndSettle();
+
+      final vaultPath = p.join(parentDir.rootPath, 'TabVault');
+
+      // Verify welcome tab is open in editor
+      expect(findTabWithTitle('welcome'), findsOneWidget);
+
+      // Verify initial session with welcome.md
+      await expectSessionJsonValid(
+        vaultPath,
+        expectedOpenPagePaths: ['pages/welcome.md'],
+        expectedActivePagePath: 'pages/welcome.md',
+      );
+
+      // Create extra.md via Pages panel
+      await tester.tap(findPagesPanelButton());
+      await tester.pumpAndSettle();
+
+      await tester.tap(findNewPageButton());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(findPageRenameField(), 'extra');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      // Open extra.md from Pages panel
+      await tester.tap(findPagesPanelButton());
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(findPageInPanel('extra.md'));
+      await tester.tap(findPageInPanel('extra.md'));
+      await tester.pumpAndSettle();
+
+      // Verify session with both pages
+      await expectSessionJsonValid(
+        vaultPath,
+        expectedOpenPagePaths: ['pages/welcome.md', 'pages/extra.md'],
+        expectedActivePagePath: 'pages/extra.md',
+      );
+
+      // Close extra.md tab via UI
+      await tester.tap(findTabCloseButton('extra'));
+      await tester.pumpAndSettle();
+
+      // Verify extra tab is gone, welcome tab still present
+      expect(findTabWithTitle('extra'), findsNothing);
+      expect(findTabWithTitle('welcome'), findsOneWidget);
+
+      // Verify session updated
+      await expectSessionJsonValid(
+        vaultPath,
+        expectedOpenPagePaths: ['pages/welcome.md'],
+        expectedActivePagePath: 'pages/welcome.md',
+      );
+
+      // Close welcome.md tab via UI
+      await tester.tap(findTabCloseButton('welcome'));
+      await tester.pumpAndSettle();
+
+      // Verify empty editor state
+      expect(find.text('Open a page to start editing'), findsOneWidget);
+
+      // Verify session is empty
+      await expectSessionJsonValid(
+        vaultPath,
+        expectedOpenPagePaths: [],
+        expectedActivePagePath: null,
+      );
+
+      // Reopen extra.md via Pages panel (panel is already open)
+      expect(findPageInPanel('extra.md'), findsOneWidget);
+      await tester.ensureVisible(findPageInPanel('extra.md'));
+      await tester.tap(findPageInPanel('extra.md'));
+      await tester.pumpAndSettle();
+
+      // Verify tab is present
+      expect(findTabWithTitle('extra'), findsOneWidget);
+
+      // Verify session updated
+      await expectSessionJsonValid(
+        vaultPath,
+        expectedOpenPagePaths: ['pages/extra.md'],
+        expectedActivePagePath: 'pages/extra.md',
+      );
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await GetIt.instance.reset();

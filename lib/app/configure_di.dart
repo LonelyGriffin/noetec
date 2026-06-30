@@ -76,7 +76,11 @@ Future<void> configureDI({
   );
 
   getIt.registerSingleton<VaultFileService>(
-    VaultFileService(getIt<IFileSystemService>(), getIt<VaultSystem>()),
+    VaultFileService(
+      getIt<IFileSystemService>(),
+      getIt<VaultSystem>(),
+      getIt<LayoutUISystem>(),
+    ),
   );
 
   getIt.registerSingleton<UserInputService>(

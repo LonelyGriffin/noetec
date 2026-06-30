@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:listen_it/listen_it.dart';
 import 'package:noetec/service/file_system_service.dart';
+import 'package:noetec/systems/layout/layout_ui_system.dart';
 import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 import 'package:path/path.dart' as p;
@@ -52,17 +53,23 @@ final class PageFileItem extends PageFileNode {
 }
 
 class VaultFileService {
-  VaultFileService(this._fileSystem, this._vaultSystem) {
+  VaultFileService(this._fileSystem, this._vaultSystem, this._layoutSystem) {
     _vaultSystem.currentVault.addListener(_onVaultChanged);
+    _layoutSystem.activeTabId.addListener(_onActiveTabChanged);
   }
 
   final IFileSystemService _fileSystem;
   final VaultSystem _vaultSystem;
+  final LayoutUISystem _layoutSystem;
   final fileTree = ListNotifier<PageFileNode>();
   final renamingPath = ValueNotifier<String?>(null);
   final selectedPagePath = ValueNotifier<String?>(null);
 
   static const _uuid = Uuid();
+
+  void _onActiveTabChanged() {
+    selectedPagePath.value = null;
+  }
 
   void _onVaultChanged() {
     final vault = _vaultSystem.currentVault.value;
@@ -168,8 +175,10 @@ class VaultFileService {
     final oldFileName = p.basename(oldRelativePath);
     if (finalName == oldFileName) return oldRelativePath;
 
-    final oldAbsolutePath = p.join(vaultRootPath, oldRelativePath);
-    final newAbsolutePath = p.join(p.dirname(oldAbsolutePath), finalName);
+    final oldAbsolutePath = p.normalize(p.join(vaultRootPath, oldRelativePath));
+    final newAbsolutePath = p.normalize(
+      p.join(p.dirname(oldAbsolutePath), finalName),
+    );
 
     if (await _fileSystem.fileExists(newAbsolutePath)) {
       throw PageNameConflictException(finalName);
@@ -201,6 +210,7 @@ class VaultFileService {
 
   void dispose() {
     _vaultSystem.currentVault.removeListener(_onVaultChanged);
+    _layoutSystem.activeTabId.removeListener(_onActiveTabChanged);
     renamingPath.dispose();
     selectedPagePath.dispose();
     fileTree.dispose();

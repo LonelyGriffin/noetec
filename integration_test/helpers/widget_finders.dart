@@ -14,7 +14,12 @@ Finder findOpenAnotherVaultButton() =>
     find.widgetWithText(OutlinedButton, 'Open Another Vault');
 
 // Tab bar
-Finder findTabWithTitle(String title) => find.text(title);
+Finder findTabWithTitle(String title) => find.byKey(Key('tab-$title'));
+
+Finder findTabCloseButton(String title) => find.descendant(
+  of: findTabWithTitle(title),
+  matching: find.byIcon(Icons.close),
+);
 
 // Pages panel
 Finder findPageInPanel(String name) => find.text(name);

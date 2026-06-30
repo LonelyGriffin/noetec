@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:noetec/systems/layout/layout_ui_system.dart';
+import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/view/widgets/editor/page_editor_widget.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -71,6 +72,7 @@ class _EditorTabBar extends StatelessWidget {
                   : theme.colorScheme.surfaceContainerLowest,
             ),
             child: Row(
+              key: Key('tab-${tab.title}'),
               children: [
                 const SizedBox(width: 12),
                 Expanded(
@@ -89,7 +91,10 @@ class _EditorTabBar extends StatelessWidget {
                   ),
                 ),
                 InkWell(
-                  onTap: () => di<LayoutUISystem>().closeTab(tab.id),
+                  onTap: () {
+                    di<PageSystem>().closePage(tab.id);
+                    di<LayoutUISystem>().closeTab(tab.id);
+                  },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Icon(

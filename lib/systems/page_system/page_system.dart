@@ -12,6 +12,7 @@ import 'package:noetec/entity/page/page.dart';
 import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
+import 'package:noetec/systems/layout/layout_ui_system.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
 import 'package:noetec/systems/page_system/page_action_dispatcher.dart';
 import 'package:noetec/systems/page_system/page_clipboard_subsystem.dart';
@@ -21,6 +22,7 @@ import 'package:noetec/systems/page_system/page_selection_subsystem.dart';
 import 'package:noetec/systems/vault/closing_event.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 import 'package:path/path.dart' as p;
+import 'package:watch_it/watch_it.dart';
 
 final class SessionState {
   final List<String> openPagePaths;
@@ -93,7 +95,8 @@ class PageSystem {
 
   Future<void> initializeForNewVault() async {
     try {
-      await loadPage('pages/welcome.md');
+      final page = await loadPage('pages/welcome.md');
+      di<LayoutUISystem>().openTab(EditorTab(id: page.id, title: 'welcome'));
       await saveSession();
     } catch (_) {}
   }
@@ -123,7 +126,7 @@ class PageSystem {
       return page;
     }
 
-    final absolutePath = p.join(_vaultRootPath!, relativePath);
+    final absolutePath = p.normalize(p.join(_vaultRootPath!, relativePath));
     final raw = await _fileSystem.readFile(absolutePath);
     final (:frontmatter, :content) = PageFrontmatterCodec.parse(raw);
 
@@ -161,7 +164,9 @@ class PageSystem {
     );
 
     final fileContent = PageFrontmatterCodec.encode(frontmatter, markdown);
-    final absolutePath = p.join(_vaultRootPath!, page.relativePath!);
+    final absolutePath = p.normalize(
+      p.join(_vaultRootPath!, page.relativePath!),
+    );
     await _fileSystem.writeFile(absolutePath, fileContent);
   }
 
@@ -201,14 +206,14 @@ class PageSystem {
       activePagePath: activePage?.relativePath,
     );
     await _fileSystem.writeFile(
-      '$_vaultRootPath/$_sessionFile',
+      p.normalize(p.join(_vaultRootPath!, _sessionFile)),
       jsonEncode(state.toJson()),
     );
   }
 
   Future<void> restoreSession() async {
     if (_vaultRootPath == null) return;
-    final filePath = '$_vaultRootPath/$_sessionFile';
+    final filePath = p.normalize(p.join(_vaultRootPath!, _sessionFile));
     if (!await _fileSystem.fileExists(filePath)) return;
     try {
       final raw = await _fileSystem.readFile(filePath);
