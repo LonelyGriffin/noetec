@@ -237,6 +237,10 @@ class WalService {
     }
 
     final walPath = _absoluteWalPath(relativePath);
+    final walDir = '$_vaultRootPath/.noetec/wal';
+    if (!await _fs.directoryExists(walDir)) {
+      await _fs.createDirectory(walDir);
+    }
     await _fs.appendToFile(walPath, '${jsonEncode(json)}\n');
   }
 

@@ -80,28 +80,12 @@ Future<void> configureDI({
     ),
   );
 
-  getIt.registerSingleton<UserInputService>(
-    UserInputService(getIt<PageSystem>()),
-  );
-
   getIt.registerSingleton<HlcService>(
     HlcService(getIt<VaultSystem>(), getIt<IDeviceService>()),
   );
 
   getIt.registerSingleton<WalService>(
     WalService(getIt<IFileSystemService>(), getIt<VaultSystem>()),
-  );
-
-  getIt.registerSingleton<PersistenceSystem>(
-    PersistenceSystem(
-      wal: getIt<WalService>(),
-      pageSystem: getIt<PageSystem>(),
-      vaultSystem: getIt<VaultSystem>(),
-    ),
-  );
-
-  getIt.registerSingleton<CrashRecoveryService>(
-    CrashRecoveryService(getIt<WalService>()),
   );
 
   getIt.registerSingleton<OpLogSystem>(
@@ -111,6 +95,23 @@ Future<void> configureDI({
       vaultSystem: getIt<VaultSystem>(),
       deviceService: getIt<IDeviceService>(),
     ),
+  );
+
+  getIt.registerSingleton<PersistenceSystem>(
+    PersistenceSystem(
+      wal: getIt<WalService>(),
+      oplog: getIt<OpLogSystem>(),
+      pageSystem: getIt<PageSystem>(),
+      vaultSystem: getIt<VaultSystem>(),
+    ),
+  );
+
+  getIt.registerSingleton<CrashRecoveryService>(
+    CrashRecoveryService(getIt<WalService>()),
+  );
+
+  getIt.registerSingleton<UserInputService>(
+    UserInputService(getIt<PageSystem>(), getIt<PersistenceSystem>()),
   );
 
   getIt.registerSingleton<SyncSystem>(

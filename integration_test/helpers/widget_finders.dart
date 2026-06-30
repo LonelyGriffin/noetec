@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:noetec/view/widgets/editor/text_block_render_widget.dart';
 
 Finder findCreateVaultButton() =>
     find.widgetWithText(FilledButton, 'Create Vault');
@@ -32,3 +33,6 @@ Finder findRecentVaultEntry(String name) => find.widgetWithText(ListTile, name);
 // Rail panel buttons
 Finder findPagesPanelButton() => find.byTooltip('Pages');
 Finder findSettingsPanelButton() => find.byTooltip('Settings');
+
+// Editor
+Finder findEditorBlock() => find.byType(TextBlockRenderWidget).first;

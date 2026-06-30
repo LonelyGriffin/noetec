@@ -7,11 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:noetec/entity/page/block/text/text.dart';
 import 'package:noetec/entity/page/selection.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
+import 'package:noetec/systems/persistence_system/persistence_system.dart';
 import 'package:noetec/systems/user_input_system/handlers/clipboard_input_handler.dart';
 import 'package:noetec/systems/user_input_system/handlers/ime_input_handler.dart';
 
 class KeyboardInputHandler {
   late final PageSystem _pageSystem;
+  late final PersistenceSystem _persistence;
   late final ImeInputHandler _ime;
   late final ClipboardInputHandler _clipboard;
 
@@ -27,10 +29,12 @@ class KeyboardInputHandler {
 
   void init(
     PageSystem pageSystem,
+    PersistenceSystem persistence,
     ImeInputHandler ime,
     ClipboardInputHandler clipboard,
   ) {
     _pageSystem = pageSystem;
+    _persistence = persistence;
     _ime = ime;
     _clipboard = clipboard;
   }
@@ -137,7 +141,7 @@ class KeyboardInputHandler {
   }
 
   void _handleSave(String pageId) {
-    _pageSystem.savePage(pageId);
+    _persistence.savePage(pageId);
   }
 
   void _handleHardwareCharacterInput(String character) {

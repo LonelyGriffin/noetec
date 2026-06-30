@@ -52,6 +52,23 @@ class PageSystem {
   String? _vaultRootPath;
   final Map<String, String> _pathToPageId = {};
 
+  final _pageOpenedController =
+      StreamController<(String pageId, String relativePath)>.broadcast(
+        sync: true,
+      );
+  Stream<(String pageId, String relativePath)> get pageOpened =>
+      _pageOpenedController.stream;
+
+  final _pageClosedController = StreamController<String>.broadcast(sync: true);
+  Stream<String> get pageClosed => _pageClosedController.stream;
+
+  final _pageCreatedController =
+      StreamController<(String pageId, String relativePath)>.broadcast(
+        sync: true,
+      );
+  Stream<(String pageId, String relativePath)> get pageCreated =>
+      _pageCreatedController.stream;
+
   late final PageEditingSubsystem editing;
   late final PageSelectionSubsystem selection;
   late final PageClipboardSubsystem clipboard;
@@ -93,7 +110,8 @@ class PageSystem {
 
   Future<void> initializeForNewVault() async {
     try {
-      await loadPage('pages/welcome.md');
+      final page = await loadPage('pages/welcome.md');
+      _pageCreatedController.add((page.id, 'pages/welcome.md'));
       await saveSession();
     } catch (_) {}
   }
@@ -137,16 +155,17 @@ class PageSystem {
     openPages[page.id] = page;
     _pathToPageId[relativePath] = page.id;
     activePageId.value = page.id;
+    _pageOpenedController.add((page.id, relativePath));
 
     await saveSession();
 
     return page;
   }
 
-  Future<void> savePage(String pageId) async {
+  Future<String> savePage(String pageId) async {
     final page = openPages[pageId];
     if (page == null || _vaultRootPath == null) {
-      return;
+      return '';
     }
 
     final textBlocks = page.rootBlocks.whereType<TextBlockEntity>().toList();
@@ -164,6 +183,7 @@ class PageSystem {
       p.join(_vaultRootPath!, page.relativePath),
     );
     await _fileSystem.writeFile(absolutePath, fileContent);
+    return 'sha256:$hash';
   }
 
   void closePage(String pageId) {
@@ -171,6 +191,7 @@ class PageSystem {
     if (page != null) {
       _pathToPageId.remove(page.relativePath);
       page.dispose();
+      _pageClosedController.add(pageId);
     }
 
     if (activePageId.value == pageId) {
@@ -231,6 +252,9 @@ class PageSystem {
     _closingSubscription?.cancel();
     _vaultCreatedSubscription?.cancel();
     _vaultSystem.currentVault.removeListener(_onVaultChanged);
+    _pageOpenedController.close();
+    _pageClosedController.close();
+    _pageCreatedController.close();
     for (final page in openPages.values) {
       page.dispose();
     }

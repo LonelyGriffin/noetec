@@ -2,7 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/entity/page/page_edit_action.dart';
 import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
+import 'package:noetec/service/hlc_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
+import 'package:noetec/systems/oplog_system/oplog_system.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/systems/persistence_system/persistence_system.dart';
 import 'package:noetec/systems/persistence_system/wal_service.dart';
@@ -50,11 +52,17 @@ void main() {
     late PageSystem pageSystem;
     late WalService walService;
     late PersistenceSystem persistenceSystem;
-    late List<String> savedPages;
+    late String testPageId;
 
-    setUp(() {
+    setUp(() async {
       fs = _FakeFs();
       fs.dirs.add('/vault/.noetec/wal');
+      fs.files['/vault/pages/welcome.md'] = '''---
+id: page1
+content_hash: ''
+modified: 2026-01-01T00:00:00.000Z
+---
+Hello world''';
       vaultSystem = createTestVaultSystem();
       pageSystem = PageSystem(
         FakeIdService(),
@@ -63,10 +71,18 @@ void main() {
         vaultSystem,
       );
       walService = WalService(fs, vaultSystem);
-      savedPages = [];
+
+      final hlcService = HlcService(vaultSystem, FakeDeviceService());
+      final realOplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: FakeDeviceService(),
+      );
 
       persistenceSystem = PersistenceSystem(
         wal: walService,
+        oplog: realOplog,
         pageSystem: pageSystem,
         vaultSystem: vaultSystem,
       );
@@ -77,6 +93,9 @@ void main() {
         rootPath: '/vault',
         createdAt: DateTime(2026),
       );
+
+      await pageSystem.loadPage('pages/welcome.md');
+      testPageId = pageSystem.openPages.keys.first;
     });
 
     tearDown(() {
@@ -86,73 +105,73 @@ void main() {
       vaultSystem.dispose();
     });
 
-    test('registerPage creates clean state', () {
-      persistenceSystem.registerPage('page1', 'pages/welcome.md');
+    test('page load creates clean state', () {
+      expect(pageSystem.openPages.keys.toList(), contains(testPageId));
       expect(
-        persistenceSystem.saveStateOf('page1').value.state,
+        persistenceSystem.saveStateOf(testPageId).value.state,
         PageSaveState.clean,
       );
     });
 
     test('action dispatch marks page dirty', () {
-      persistenceSystem.registerPage('page1', 'pages/welcome.md');
-      pageSystem.activePageId.value = 'page1';
+      pageSystem.activePageId.value = testPageId;
 
       pageSystem.actionDispatcher.dispatch(
         const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'),
       );
 
       expect(
-        persistenceSystem.saveStateOf('page1').value.state,
+        persistenceSystem.saveStateOf(testPageId).value.state,
         PageSaveState.dirty,
       );
     });
 
     test('savePage transitions dirty → saving → clean', () async {
-      persistenceSystem.registerPage('page1', 'pages/welcome.md');
-      pageSystem.activePageId.value = 'page1';
+      pageSystem.activePageId.value = testPageId;
 
       pageSystem.actionDispatcher.dispatch(
         const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'),
       );
       expect(
-        persistenceSystem.saveStateOf('page1').value.state,
+        persistenceSystem.saveStateOf(testPageId).value.state,
         PageSaveState.dirty,
       );
 
-      await persistenceSystem.savePage('page1');
+      await persistenceSystem.savePage(testPageId);
 
       expect(
-        persistenceSystem.saveStateOf('page1').value.state,
+        persistenceSystem.saveStateOf(testPageId).value.state,
         PageSaveState.clean,
       );
-      expect(persistenceSystem.saveStateOf('page1').value.lastSaved, isNotNull);
+      expect(
+        persistenceSystem.saveStateOf(testPageId).value.lastSaved,
+        isNotNull,
+      );
     });
 
     test('savePage on clean page is no-op', () async {
-      persistenceSystem.registerPage('page1', 'pages/welcome.md');
-
-      await persistenceSystem.savePage('page1');
-
-      expect(savedPages, isEmpty);
-    });
-
-    test('unregisterPage removes state notifier', () {
-      persistenceSystem.registerPage('page1', 'pages/welcome.md');
-      persistenceSystem.unregisterPage('page1');
+      await persistenceSystem.savePage(testPageId);
 
       expect(
-        persistenceSystem.saveStateOf('page1').value.state,
+        persistenceSystem.saveStateOf(testPageId).value.state,
+        PageSaveState.clean,
+      );
+    });
+
+    test('closePage removes state notifier', () async {
+      pageSystem.closePage(testPageId);
+
+      expect(
+        persistenceSystem.saveStateOf(testPageId).value.state,
         PageSaveState.clean,
       );
     });
 
     test('markDirty explicitly sets dirty state', () {
-      persistenceSystem.registerPage('page1', 'pages/welcome.md');
-      persistenceSystem.markDirty('page1');
+      persistenceSystem.markDirty(testPageId);
 
       expect(
-        persistenceSystem.saveStateOf('page1').value.state,
+        persistenceSystem.saveStateOf(testPageId).value.state,
         PageSaveState.dirty,
       );
     });

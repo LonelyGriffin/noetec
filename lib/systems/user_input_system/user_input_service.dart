@@ -6,6 +6,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
+import 'package:noetec/systems/persistence_system/persistence_system.dart';
 import 'package:noetec/systems/user_input_system/handlers/clipboard_input_handler.dart';
 import 'package:noetec/systems/user_input_system/handlers/ime_input_handler.dart';
 import 'package:noetec/systems/user_input_system/handlers/keyboard_input_handler.dart';
@@ -17,11 +18,11 @@ class UserInputService {
   final ClipboardInputHandler _clipboard = ClipboardInputHandler();
   final KeyboardInputHandler _keyboard = KeyboardInputHandler();
 
-  UserInputService(PageSystem pageSystem) {
+  UserInputService(PageSystem pageSystem, PersistenceSystem persistence) {
     _ime.init(pageSystem);
     _clipboard.init(pageSystem, _ime);
     _pointer.init(pageSystem, _ime);
-    _keyboard.init(pageSystem, _ime, _clipboard);
+    _keyboard.init(pageSystem, persistence, _ime, _clipboard);
   }
 
   VoidCallback? get onPlatformImeUpdateNeeded => _ime.onPlatformImeUpdateNeeded;
