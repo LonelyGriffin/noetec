@@ -103,6 +103,12 @@ class WalService {
     }
   }
 
+  Future<List<PageEditAction>> readActionsFor(String relativePath) async {
+    if (_vaultRootPath == null) return const [];
+    final walPath = _absoluteWalPath(relativePath);
+    return readWal(walPath);
+  }
+
   Future<void> clearAll() async {
     if (_vaultRootPath == null) return;
     for (final buffer in _buffers.values) {
@@ -166,9 +172,11 @@ class WalService {
   }
 
   String _extractRelativePathFromWal(String walFilePath) {
-    return walFilePath
-        .replaceAll('\\', '/')
-        .replaceFirst('$_vaultRootPath/.noetec/wal/', '');
+    final normalized = walFilePath.replaceAll('\\', '/');
+    final prefix = '$_vaultRootPath/.noetec/wal/';
+    return normalized.startsWith(prefix)
+        ? normalized.substring(prefix.length)
+        : normalized;
   }
 
   Future<List<PageEditAction>> readWal(String walFilePath) async {
@@ -255,7 +263,8 @@ class WalService {
     }
 
     final walPath = _absoluteWalPath(relativePath);
-    final parentDir = walPath.substring(0, walPath.lastIndexOf('/'));
+    final normalized = walPath.replaceAll('\\', '/');
+    final parentDir = normalized.substring(0, normalized.lastIndexOf('/'));
     if (!await _fs.directoryExists(parentDir)) {
       await _fs.createDirectory(parentDir);
     }

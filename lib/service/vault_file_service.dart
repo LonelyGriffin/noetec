@@ -144,14 +144,15 @@ class VaultFileService {
     final name = await _generateUniquePageName(pagesDir);
     final filePath = p.join(pagesDir, name);
 
-    const emptyContent = '';
-    final hash = PageFrontmatterCodec.computeContentHash(emptyContent);
+    final blockId = _uuid.v4();
+    final content = '::: {#$blockId}\n\n:::\n';
+    final hash = PageFrontmatterCodec.computeContentHash(content);
     final frontmatter = PageFrontmatter(
       id: _uuid.v4(),
       contentHash: 'sha256:$hash',
       modified: DateTime.now().toUtc(),
     );
-    final fileContent = PageFrontmatterCodec.encode(frontmatter, emptyContent);
+    final fileContent = PageFrontmatterCodec.encode(frontmatter, content);
     await _fileSystem.writeFile(filePath, fileContent);
 
     await scanFileTree(vaultRootPath);

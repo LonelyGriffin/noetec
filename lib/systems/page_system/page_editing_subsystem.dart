@@ -20,6 +20,35 @@ class PageEditingSubsystem {
 
   PageEditingSubsystem(this._pageSystem, this._idService, this._dispatcher);
 
+  void applyAction(String pageId, PageEditAction action) {
+    final page = _pageSystem.openPages[pageId];
+    if (page == null) return;
+
+    final block = page.getBlockById(action.blockId);
+    if (block is! TextBlockEntity) return;
+
+    switch (action) {
+      case InsertTextAction(:final flatOffset, :final text):
+        _applyInsertText(block, flatOffset, text);
+      case DeleteTextBackAction(:final flatOffset):
+        _applyDeleteBack(page, block, flatOffset);
+      case DeleteTextForwardAction(:final flatOffset):
+        _applyDeleteForward(page, block, flatOffset);
+      case BlockSplitAction(:final splitOffset):
+        _applySplit(page, block, splitOffset);
+      case ReplaceTextAction(
+        :final flatStart,
+        :final flatEnd,
+        :final replacement,
+      ):
+        _applyReplace(block, flatStart, flatEnd, replacement);
+      case PasteTextAction(:final flatOffset, :final clipboardContent):
+        _applyInsertText(block, flatOffset, clipboardContent);
+      case DeleteSelectionAction():
+        break;
+    }
+  }
+
   void insertText(int flatOffset, String text) {
     final page = _pageSystem.getActivePage();
     if (page == null) return;
@@ -33,18 +62,7 @@ class PageEditingSubsystem {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final insertionPos = block.cursorPosFromFlatOffset(flatOffset);
-    final segment = block.segments[insertionPos.segmentIndex];
-    final newText = segment.text.replaceRange(
-      insertionPos.offset,
-      insertionPos.offset,
-      text,
-    );
-    final newSegment = segment.cloneWithText(newText);
-
-    final newSegments = List<TextSegment>.from(block.segments);
-    newSegments[insertionPos.segmentIndex] = newSegment;
-    block.segments.replaceRange(0, block.segments.length, newSegments);
+    _applyInsertText(block, flatOffset, text);
 
     final newFlatOffset = flatOffset + text.length;
     final newCursorPos = block.cursorPosFromFlatOffset(newFlatOffset);
@@ -78,20 +96,7 @@ class PageEditingSubsystem {
       return;
     }
 
-    final deletePos = block.charPosFromFlatOffset(flatOffset - 1);
-    if (deletePos == null) return;
-
-    final segment = block.segments[deletePos.segmentIndex];
-    final newText = segment.text.replaceRange(
-      deletePos.offset,
-      deletePos.offset + 1,
-      '',
-    );
-    final newSegment = segment.cloneWithText(newText);
-
-    final newSegments = List<TextSegment>.from(block.segments);
-    newSegments[deletePos.segmentIndex] = newSegment;
-    block.segments.replaceRange(0, block.segments.length, newSegments);
+    _applyDeleteBack(page, block, flatOffset);
 
     final newFlatOffset = flatOffset - 1;
     final newCursorPos = block.cursorPosFromFlatOffset(newFlatOffset);
@@ -122,20 +127,7 @@ class PageEditingSubsystem {
       return;
     }
 
-    final deletePos = block.charPosFromFlatOffset(flatOffset);
-    if (deletePos == null) return;
-
-    final segment = block.segments[deletePos.segmentIndex];
-    final newText = segment.text.replaceRange(
-      deletePos.offset,
-      deletePos.offset + 1,
-      '',
-    );
-    final newSegment = segment.cloneWithText(newText);
-
-    final newSegments = List<TextSegment>.from(block.segments);
-    newSegments[deletePos.segmentIndex] = newSegment;
-    block.segments.replaceRange(0, block.segments.length, newSegments);
+    _applyDeleteForward(page, block, flatOffset);
 
     final newCursorPos = block.cursorPosFromFlatOffset(flatOffset);
 
@@ -159,31 +151,7 @@ class PageEditingSubsystem {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final (beforeSegments, afterSegments) = splitSegmentsAt(
-      List.of(block.segments),
-      splitOffset,
-    );
-
-    final normalizedBefore = beforeSegments.isEmpty
-        ? [const TextSegment(text: '')]
-        : beforeSegments;
-    final normalizedAfter = afterSegments.isEmpty
-        ? [const TextSegment(text: '')]
-        : afterSegments;
-
-    block.segments.replaceRange(0, block.segments.length, normalizedBefore);
-
-    final newBlock = TextBlockEntity(
-      id: _idService.generateId(),
-      parentId: block.parentId,
-      segments: normalizedAfter,
-    );
-
-    final siblings = block.parentId == null
-        ? page.rootBlocks
-        : (page.getBlockById(block.parentId!)?.children ?? page.rootBlocks);
-    final currentIndex = siblings.indexOf(block);
-    page.addBlockAt(newBlock, currentIndex + 1);
+    final newBlock = _applySplit(page, block, splitOffset);
 
     page.selection.value = SingleCursorSelectionEntity(
       cursorPos: CursorPositionInTextBlock(
@@ -211,23 +179,7 @@ class PageEditingSubsystem {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final segs = List.of(block.segments);
-
-    final (before, fromStart) = splitSegmentsAt(segs, flatStart);
-    final rangeLen = flatEnd - flatStart;
-    final (replaced, after) = splitSegmentsAt(fromStart, rangeLen);
-
-    final newSegs = <TextSegment>[
-      ...before,
-      if (replacement.isNotEmpty)
-        replaced.isNotEmpty
-            ? replaced.first.cloneWithText(replacement)
-            : TextSegment(text: replacement),
-      ...after,
-    ];
-
-    final normalized = normalizeSegments(newSegs);
-    block.segments.replaceRange(0, block.segments.length, normalized);
+    _applyReplace(block, flatStart, flatEnd, replacement);
 
     final newFlatOffset = flatStart + replacement.length;
     page.selection.value = SingleCursorSelectionEntity(
@@ -268,6 +220,133 @@ class PageEditingSubsystem {
     }
 
     _dispatcher.dispatch(DeleteSelectionAction(blockId: first.blockId));
+  }
+
+  void _applyInsertText(TextBlockEntity block, int flatOffset, String text) {
+    final insertionPos = block.cursorPosFromFlatOffset(flatOffset);
+    final segment = block.segments[insertionPos.segmentIndex];
+    final newText = segment.text.replaceRange(
+      insertionPos.offset,
+      insertionPos.offset,
+      text,
+    );
+    final newSegment = segment.cloneWithText(newText);
+
+    final newSegments = List<TextSegment>.from(block.segments);
+    newSegments[insertionPos.segmentIndex] = newSegment;
+    block.segments.replaceRange(0, block.segments.length, newSegments);
+  }
+
+  void _applyDeleteBack(
+    PageEntity page,
+    TextBlockEntity block,
+    int flatOffset,
+  ) {
+    if (flatOffset <= 0) {
+      _mergeWithPreviousBlock(page, block);
+      return;
+    }
+
+    final deletePos = block.charPosFromFlatOffset(flatOffset - 1);
+    if (deletePos == null) return;
+
+    final segment = block.segments[deletePos.segmentIndex];
+    final newText = segment.text.replaceRange(
+      deletePos.offset,
+      deletePos.offset + 1,
+      '',
+    );
+    final newSegment = segment.cloneWithText(newText);
+
+    final newSegments = List<TextSegment>.from(block.segments);
+    newSegments[deletePos.segmentIndex] = newSegment;
+    block.segments.replaceRange(0, block.segments.length, newSegments);
+  }
+
+  void _applyDeleteForward(
+    PageEntity page,
+    TextBlockEntity block,
+    int flatOffset,
+  ) {
+    final totalLength = block.computeAllSegmentsText().length;
+    if (flatOffset >= totalLength) {
+      _mergeWithNextBlock(page, block);
+      return;
+    }
+
+    final deletePos = block.charPosFromFlatOffset(flatOffset);
+    if (deletePos == null) return;
+
+    final segment = block.segments[deletePos.segmentIndex];
+    final newText = segment.text.replaceRange(
+      deletePos.offset,
+      deletePos.offset + 1,
+      '',
+    );
+    final newSegment = segment.cloneWithText(newText);
+
+    final newSegments = List<TextSegment>.from(block.segments);
+    newSegments[deletePos.segmentIndex] = newSegment;
+    block.segments.replaceRange(0, block.segments.length, newSegments);
+  }
+
+  TextBlockEntity _applySplit(
+    PageEntity page,
+    TextBlockEntity block,
+    int splitOffset,
+  ) {
+    final (beforeSegments, afterSegments) = splitSegmentsAt(
+      List.of(block.segments),
+      splitOffset,
+    );
+
+    final normalizedBefore = beforeSegments.isEmpty
+        ? [const TextSegment(text: '')]
+        : beforeSegments;
+    final normalizedAfter = afterSegments.isEmpty
+        ? [const TextSegment(text: '')]
+        : afterSegments;
+
+    block.segments.replaceRange(0, block.segments.length, normalizedBefore);
+
+    final newBlock = TextBlockEntity(
+      id: _idService.generateId(),
+      parentId: block.parentId,
+      segments: normalizedAfter,
+    );
+
+    final siblings = block.parentId == null
+        ? page.rootBlocks
+        : (page.getBlockById(block.parentId!)?.children ?? page.rootBlocks);
+    final currentIndex = siblings.indexOf(block);
+    page.addBlockAt(newBlock, currentIndex + 1);
+
+    return newBlock;
+  }
+
+  void _applyReplace(
+    TextBlockEntity block,
+    int flatStart,
+    int flatEnd,
+    String replacement,
+  ) {
+    final segs = List.of(block.segments);
+
+    final (before, fromStart) = splitSegmentsAt(segs, flatStart);
+    final rangeLen = flatEnd - flatStart;
+    final (replaced, after) = splitSegmentsAt(fromStart, rangeLen);
+
+    final newSegs = <TextSegment>[
+      ...before,
+      if (replacement.isNotEmpty)
+        replaced.isNotEmpty
+            ? replaced.first.cloneWithText(replacement)
+            : TextSegment(text: replacement),
+      ...after,
+    ];
+
+    final normalized = normalizeSegments(newSegs);
+    block.segments.replaceRange(0, block.segments.length, normalized);
   }
 
   void _mergeWithPreviousBlock(PageEntity page, TextBlockEntity block) {

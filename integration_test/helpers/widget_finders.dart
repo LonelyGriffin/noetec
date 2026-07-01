@@ -22,6 +22,11 @@ Finder findTabCloseButton(String title) => find.descendant(
   matching: find.byIcon(Icons.close),
 );
 
+Finder findTabUnsavedIndicator(String title) => find.descendant(
+  of: findTabWithTitle(title),
+  matching: find.byIcon(Icons.circle),
+);
+
 // Pages panel
 Finder findPageInPanel(String name) => find.text(name);
 Finder findNewPageButton() => find.byTooltip('New Page');

@@ -267,3 +267,12 @@ Future<void> expectPageFileContentHashChanged(
     reason: 'content_hash should have changed from $oldHash',
   );
 }
+
+Future<void> expectWalExists(String vaultPath, String relativePath) async {
+  final walFile = File(_walPath(vaultPath, relativePath));
+  expect(
+    await walFile.exists(),
+    isTrue,
+    reason: 'WAL should exist for $relativePath',
+  );
+}

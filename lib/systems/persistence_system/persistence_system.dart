@@ -10,7 +10,6 @@ import '../../entity/page/block/text/text.dart';
 import '../../entity/page/page_edit_action.dart';
 import '../../systems/oplog_system/oplog_system.dart';
 import '../../systems/page_system/page_system.dart';
-import '../../systems/vault/closing_event.dart';
 import '../../systems/vault/vault_system.dart';
 import 'wal_service.dart';
 
@@ -48,7 +47,6 @@ class PersistenceSystem {
        _oplog = oplog,
        _pageSystem = pageSystem,
        _vaultSystem = vaultSystem {
-    _closingSubscription = _vaultSystem.closing.listen(_onClosing);
     _vaultSystem.currentVault.addListener(_onVaultChanged);
     _pageOpenedSub = _pageSystem.pageOpened.listen(_onPageOpened);
     _pageClosedSub = _pageSystem.pageClosed.listen(_onPageClosed);
@@ -60,7 +58,6 @@ class PersistenceSystem {
   final PageSystem _pageSystem;
   final VaultSystem _vaultSystem;
   final Map<String, ValueNotifier<PageSaveInfo>> _saveStates = {};
-  StreamSubscription<ClosingEvent>? _closingSubscription;
   StreamSubscription<(String, String)>? _pageOpenedSub;
   StreamSubscription<String>? _pageClosedSub;
   StreamSubscription<(String, String)>? _pageCreatedSub;
@@ -78,6 +75,16 @@ class PersistenceSystem {
       final blocks = page.rootBlocks.whereType<TextBlockEntity>().toList();
       _oplog.initLastKnownState(pageId, blocks);
     }
+    unawaited(_recoverFromWal(pageId, relativePath));
+  }
+
+  Future<void> _recoverFromWal(String pageId, String relativePath) async {
+    final actions = await _wal.readActionsFor(relativePath);
+    if (actions.isEmpty) return;
+    for (final action in actions) {
+      _pageSystem.editing.applyAction(pageId, action);
+    }
+    markDirty(pageId);
   }
 
   void _onPageClosed(String pageId) {
@@ -113,10 +120,6 @@ class PersistenceSystem {
     }
   }
 
-  void _onClosing(ClosingEvent event) {
-    event.waitFor(saveAll());
-  }
-
   void _onAction(PageEditAction action) {
     if (!_active) return;
     final pageId = _pageSystem.activePageId.value;
@@ -146,15 +149,18 @@ class PersistenceSystem {
         await _oplog.recordSave(page.relativePath, pageId, blocks, hash);
       }
       await _wal.clear(pageId);
+      if (_saveStates[pageId] != notifier) return;
       notifier.value = PageSaveInfo(
         state: PageSaveState.clean,
         lastSaved: DateTime.now(),
       );
     } catch (error) {
-      notifier.value = notifier.value.copyWith(
-        state: PageSaveState.error,
-        lastError: error.toString(),
-      );
+      if (_saveStates[pageId] == notifier) {
+        notifier.value = notifier.value.copyWith(
+          state: PageSaveState.error,
+          lastError: error.toString(),
+        );
+      }
     }
   }
 
@@ -167,7 +173,6 @@ class PersistenceSystem {
   }
 
   void dispose() {
-    _closingSubscription?.cancel();
     _pageOpenedSub?.cancel();
     _pageClosedSub?.cancel();
     _pageCreatedSub?.cancel();

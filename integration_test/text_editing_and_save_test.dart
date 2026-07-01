@@ -78,6 +78,13 @@ void main() {
         // Allow auto-save / crash-recovery debounce to flush
         await tester.pump(const Duration(milliseconds: 500));
 
+        // Assert: tab shows unsaved indicator (circle icon) after editing
+        expect(
+          findTabUnsavedIndicator('welcome'),
+          findsOneWidget,
+          reason: 'Tab should show unsaved indicator before Ctrl+S',
+        );
+
         // Assert: crash recovery log has the edit entry
         await expectCrashRecoveryLogContains(
           vaultPath,
@@ -91,6 +98,13 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
         await tester.pumpAndSettle();
+
+        // Assert: unsaved indicator (circle) disappears after save
+        expect(
+          findTabUnsavedIndicator('welcome'),
+          findsNothing,
+          reason: 'Tab should not show unsaved indicator after Ctrl+S',
+        );
 
         // Assert: crash recovery log cleared after save
         await expectCrashRecoveryLogAbsent(vaultPath, 'pages/welcome.md');

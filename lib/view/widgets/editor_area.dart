@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:noetec/entity/page/page.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
+import 'package:noetec/systems/persistence_system/persistence_system.dart';
 import 'package:noetec/view/widgets/editor/page_editor_widget.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -89,16 +90,34 @@ class _EditorTabBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                InkWell(
-                  onTap: () => di<PageSystem>().closePage(page.id),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(
-                      Icons.close,
-                      size: 14,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                ValueListenableBuilder<PageSaveInfo>(
+                  valueListenable: di<PersistenceSystem>().saveStateOf(page.id),
+                  // ignore: unnecessary_underscores
+                  builder: (_, info, __) {
+                    final isDirty = info.state != PageSaveState.clean;
+                    return isDirty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(
+                              Icons.circle,
+                              size: 8,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                        : InkWell(
+                            onTap: () => di<PageSystem>().closePage(page.id),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              child: Icon(
+                                Icons.close,
+                                size: 14,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          );
+                  },
                 ),
               ],
             ),

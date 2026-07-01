@@ -67,11 +67,25 @@ void main() {
       // Allow auto-save debounce to flush
       await tester.pump(const Duration(milliseconds: 500));
 
+      // Assert: tab shows unsaved indicator (circle icon) before save
+      expect(
+        findTabUnsavedIndicator('welcome'),
+        findsOneWidget,
+        reason: 'Tab should show unsaved indicator before Ctrl+S',
+      );
+
       // Act: save with Ctrl+S
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pumpAndSettle();
+
+      // Assert: unsaved indicator disappears after save
+      expect(
+        findTabUnsavedIndicator('welcome'),
+        findsNothing,
+        reason: 'Tab should not show unsaved indicator after Ctrl+S',
+      );
 
       // Arrange: capture hash after save
       final hashAfterSave = await readContentHash(
@@ -110,12 +124,19 @@ void main() {
           .first;
       expect(restoredBlock.computeAllSegmentsText(), contains('hello'));
 
-      // Assert: file hash unchanged after reopen
+      // Assert: file hash unchanged after reopen (content was saved)
       final hashAfterReopen = await readContentHash(
         vaultPath,
         'pages/welcome.md',
       );
       expect(hashAfterReopen, equals(hashAfterSave));
+
+      // Assert: no unsaved indicator since content was saved before closing
+      expect(
+        findTabUnsavedIndicator('welcome'),
+        findsNothing,
+        reason: 'Tab should not show unsaved indicator (content was saved)',
+      );
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await GetIt.instance.reset();

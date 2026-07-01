@@ -89,6 +89,18 @@ void main() {
       // Allow crash-recovery debounce to flush
       await tester.pump(const Duration(milliseconds: 500));
 
+      // Assert: extra.md tab shows unsaved indicator, welcome.md shows close button
+      expect(
+        findTabUnsavedIndicator('extra'),
+        findsOneWidget,
+        reason: 'Extra tab should show unsaved indicator',
+      );
+      expect(
+        findTabCloseButton('welcome'),
+        findsOneWidget,
+        reason: 'Welcome tab should show close button (not unsaved)',
+      );
+
       // Assert: crash recovery log records edit only for extra.md
       await expectCrashRecoveryLogContains(
         vaultPath,
@@ -103,6 +115,13 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pumpAndSettle();
+
+      // Assert: extra.md unsaved indicator disappears after save
+      expect(
+        findTabUnsavedIndicator('extra'),
+        findsNothing,
+        reason: 'Extra tab should not show unsaved indicator after Ctrl+S',
+      );
 
       // Assert: recovery log cleared, extra.md file updated
       await expectCrashRecoveryLogAbsent(vaultPath, 'pages/extra.md');
