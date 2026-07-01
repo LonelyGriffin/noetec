@@ -25,8 +25,7 @@ class OpLogWriter {
   }
 
   String _oplogDir(String relativePath) {
-    final encoded = Uri.encodeComponent(relativePath);
-    return '$_vaultRootPath/.sync/pages/$encoded';
+    return '$_vaultRootPath/.sync/$relativePath';
   }
 
   String _oplogFilePath(String relativePath, String deviceId) {

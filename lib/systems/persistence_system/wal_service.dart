@@ -112,11 +112,10 @@ class WalService {
 
     try {
       final walDir = '$_vaultRootPath/.noetec/wal';
-      final entries = await _fs.listDirectory(walDir);
-      for (final entry in entries) {
-        if (!entry.isDirectory && entry.name.endsWith('.wal.jsonl')) {
-          await _fs.deleteFile(entry.path);
-        }
+      if (!await _fs.directoryExists(walDir)) return;
+      final filePaths = await _findWalFilePaths(walDir);
+      for (final path in filePaths) {
+        await _fs.deleteFile(path);
       }
     } catch (_) {}
   }
@@ -127,22 +126,22 @@ class WalService {
     final walDir = '$_vaultRootPath/.noetec/wal';
 
     try {
-      final walEntries = await _fs.listDirectory(walDir);
-      for (final entry in walEntries) {
-        if (entry.isDirectory || !entry.name.endsWith('.wal.jsonl')) continue;
+      if (!await _fs.directoryExists(walDir)) return entries;
+      final filePaths = await _findWalFilePaths(walDir);
+      for (final filePath in filePaths) {
         try {
-          final raw = await _fs.readFile(entry.path);
+          final raw = await _fs.readFile(filePath);
           final lines = raw
               .split('\n')
               .where((line) => line.trim().isNotEmpty)
               .toList();
           if (lines.isEmpty) continue;
 
-          final relativePath = _relativePathFromWalFileName(entry.name);
+          final relativePath = _extractRelativePathFromWal(filePath);
           entries.add(
             WalEntry(
               relativePath: relativePath,
-              walFilePath: entry.path,
+              walFilePath: filePath,
               actionCount: lines.length,
             ),
           );
@@ -151,6 +150,25 @@ class WalService {
     } catch (_) {}
 
     return entries;
+  }
+
+  Future<List<String>> _findWalFilePaths(String dirPath) async {
+    final results = <String>[];
+    final entries = await _fs.listDirectory(dirPath);
+    for (final entry in entries) {
+      if (entry.isDirectory) {
+        results.addAll(await _findWalFilePaths(entry.path));
+      } else {
+        results.add(entry.path);
+      }
+    }
+    return results;
+  }
+
+  String _extractRelativePathFromWal(String walFilePath) {
+    return walFilePath
+        .replaceAll('\\', '/')
+        .replaceFirst('$_vaultRootPath/.noetec/wal/', '');
   }
 
   Future<List<PageEditAction>> readWal(String walFilePath) async {
@@ -237,9 +255,9 @@ class WalService {
     }
 
     final walPath = _absoluteWalPath(relativePath);
-    final walDir = '$_vaultRootPath/.noetec/wal';
-    if (!await _fs.directoryExists(walDir)) {
-      await _fs.createDirectory(walDir);
+    final parentDir = walPath.substring(0, walPath.lastIndexOf('/'));
+    if (!await _fs.directoryExists(parentDir)) {
+      await _fs.createDirectory(parentDir);
     }
     await _fs.appendToFile(walPath, '${jsonEncode(json)}\n');
   }
@@ -247,25 +265,7 @@ class WalService {
   void _flushBufferSync(String pageId) => _flushBuffer(pageId);
 
   String _absoluteWalPath(String relativePath) {
-    final encoded = _encodeRelativePath(relativePath);
-    return '$_vaultRootPath/.noetec/wal/$encoded.wal.jsonl';
-  }
-
-  static String _encodeRelativePath(String relativePath) {
-    var path = relativePath;
-    if (path.endsWith('.md')) path = path.substring(0, path.length - 3);
-    return Uri.encodeComponent(path);
-  }
-
-  static String _decodeRelativePath(String encoded) =>
-      '${Uri.decodeComponent(encoded)}.md';
-
-  static String _relativePathFromWalFileName(String walFileName) {
-    final encoded = walFileName.substring(
-      0,
-      walFileName.length - '.wal.jsonl'.length,
-    );
-    return _decodeRelativePath(encoded);
+    return '$_vaultRootPath/.noetec/wal/$relativePath';
   }
 
   void dispose() {

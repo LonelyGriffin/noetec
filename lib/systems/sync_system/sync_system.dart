@@ -124,20 +124,35 @@ class SyncSystem {
 
   Future<void> checkAll() async {
     if (_vaultRootPath == null) return;
-    final syncPagesDir = '$_vaultRootPath/.sync/pages';
-    if (!await _fileSystem.directoryExists(syncPagesDir)) return;
+    final syncDir = '$_vaultRootPath/.sync';
+    if (!await _fileSystem.directoryExists(syncDir)) return;
 
-    final entries = await _fileSystem.listDirectory(syncPagesDir);
+    final oplogPaths = await _findAllOplogPaths(syncDir);
+    for (final oplogPath in oplogPaths) {
+      final relativePath = _extractOplogRelativePath(oplogPath);
+      await checkFile(relativePath);
+    }
+  }
+
+  Future<List<String>> _findAllOplogPaths(String dirPath) async {
+    final results = <String>[];
+    final entries = await _fileSystem.listDirectory(dirPath);
     for (final entry in entries) {
-      if (!entry.isDirectory) continue;
-      final encoded = entry.name;
-      try {
-        final relativePath = Uri.decodeComponent(encoded);
-        await checkFile(relativePath);
-      } catch (_) {
-        continue;
+      if (entry.isDirectory) {
+        results.addAll(await _findAllOplogPaths(entry.path));
+      } else if (entry.name.endsWith('.oplog.jsonl')) {
+        results.add(entry.path);
       }
     }
+    return results;
+  }
+
+  String _extractOplogRelativePath(String oplogFilePath) {
+    final rel = oplogFilePath
+        .replaceAll('\\', '/')
+        .replaceFirst('$_vaultRootPath/.sync/', '');
+    final lastSlash = rel.lastIndexOf('/');
+    return rel.substring(0, lastSlash);
   }
 
   Future<void> checkFile(String relativePath) async {

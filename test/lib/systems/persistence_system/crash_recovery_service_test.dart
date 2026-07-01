@@ -37,11 +37,13 @@ class _FakeFs implements IFileSystemService {
   Future<List<FileEntry>> listDirectory(String path) async {
     final normalized = path.replaceAll('\\', '/');
     final entries = <FileEntry>[];
+    final seen = <String>{};
     for (final key in files.keys) {
       final normKey = key.replaceAll('\\', '/');
       if (normKey.startsWith('$normalized/')) {
         final relative = normKey.substring(normalized.length + 1);
-        if (!relative.contains('/')) {
+        final slashIndex = relative.indexOf('/');
+        if (slashIndex < 0) {
           entries.add(
             FileEntry(
               name: relative,
@@ -50,6 +52,17 @@ class _FakeFs implements IFileSystemService {
               lastModified: DateTime.now(),
             ),
           );
+        } else {
+          final dirName = relative.substring(0, slashIndex);
+          if (seen.add(dirName)) {
+            entries.add(
+              FileEntry(
+                name: dirName,
+                path: '$normalized/$dirName',
+                isDirectory: true,
+              ),
+            );
+          }
         }
       }
     }
@@ -107,9 +120,7 @@ void main() {
       final json = serializer.toJson(action);
       json['ts'] = DateTime.now().millisecondsSinceEpoch;
 
-      final encoded = Uri.encodeComponent('pages/welcome');
-      fs.files['/vault/.noetec/wal/$encoded.wal.jsonl'] =
-          '${jsonEncode(json)}\n';
+      fs.files['/vault/.noetec/wal/pages/welcome.md'] = '${jsonEncode(json)}\n';
 
       final candidates = await recoveryService.findCandidates();
       expect(candidates, hasLength(1));
@@ -123,14 +134,12 @@ void main() {
       const action = InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x');
       final json = serializer.toJson(action);
 
-      final encoded = Uri.encodeComponent('pages/welcome');
-      fs.files['/vault/.noetec/wal/$encoded.wal.jsonl'] =
-          '${jsonEncode(json)}\n';
+      fs.files['/vault/.noetec/wal/pages/welcome.md'] = '${jsonEncode(json)}\n';
 
       await recoveryService.discardAll();
 
       final walFiles = fs.files.keys
-          .where((k) => k.endsWith('.wal.jsonl'))
+          .where((k) => k.startsWith('/vault/.noetec/wal/'))
           .toList();
       expect(walFiles, isEmpty);
     });

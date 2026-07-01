@@ -26,7 +26,7 @@ class SyncWatcher {
     required String ownDeviceUuid,
     this.pollInterval = const Duration(seconds: 10),
   }) : _fileSystem = fileSystem,
-       _syncPagesPath = p.join(vaultRootPath, '.sync', 'pages'),
+       _syncPagesPath = p.join(vaultRootPath, '.sync'),
        _ownDeviceUuid = ownDeviceUuid;
 
   final IFileSystemService _fileSystem;
@@ -84,23 +84,20 @@ class SyncWatcher {
         .relative(absoluteFilePath, from: _syncPagesPath)
         .replaceAll('\\', '/');
     if (rel.startsWith('..')) return null;
-    final parts = p.split(rel);
-    if (parts.length < 2) return null;
 
-    final encodedDir = parts[0];
-    final fileName = parts[1];
+    final lastSlash = rel.lastIndexOf('/');
+    if (lastSlash < 0) return null;
+
+    final fileName = rel.substring(lastSlash + 1);
     if (!fileName.endsWith('.oplog.jsonl')) return null;
 
+    final relativePath = rel.substring(0, lastSlash);
     final deviceUuid = fileName.substring(
       0,
       fileName.length - '.oplog.jsonl'.length,
     );
-    try {
-      final relativePath = Uri.decodeComponent(encodedDir);
-      return (relativePath: relativePath, deviceUuid: deviceUuid);
-    } catch (_) {
-      return null;
-    }
+
+    return (relativePath: relativePath, deviceUuid: deviceUuid);
   }
 
   void dispose() {

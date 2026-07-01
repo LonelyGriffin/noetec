@@ -89,8 +89,7 @@ void main() {
 
       await writer.append('pages/welcome.md', entry);
 
-      const expectedPath =
-          '/vault/.sync/pages/pages%2Fwelcome.md/dev1.oplog.jsonl';
+      const expectedPath = '/vault/.sync/pages/welcome.md/dev1.oplog.jsonl';
       expect(fs.files.containsKey(expectedPath), isTrue);
     });
 
@@ -121,7 +120,7 @@ void main() {
       await writer.append('pages/welcome.md', e1);
       await writer.append('pages/welcome.md', e2);
 
-      const path = '/vault/.sync/pages/pages%2Fwelcome.md/dev1.oplog.jsonl';
+      const path = '/vault/.sync/pages/welcome.md/dev1.oplog.jsonl';
       final lines = fs.files[path]!.split('\n').where((l) => l.isNotEmpty);
       expect(lines.length, 2);
     });

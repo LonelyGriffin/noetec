@@ -25,15 +25,11 @@ Future<void> expectDeviceIdentityExists(String vaultPath) async {
 }
 
 String _walPath(String vaultPath, String relativePath) {
-  var path = relativePath;
-  if (path.endsWith('.md')) path = path.substring(0, path.length - 3);
-  final encoded = Uri.encodeComponent(path);
-  return p.join(vaultPath, '.noetec', 'wal', '$encoded.wal.jsonl');
+  return p.join(vaultPath, '.noetec', 'wal', relativePath);
 }
 
 String _oplogDir(String vaultPath, String relativePath) {
-  final encoded = Uri.encodeComponent(relativePath);
-  return p.join(vaultPath, '.sync', 'pages', encoded);
+  return p.join(vaultPath, '.sync', relativePath);
 }
 
 Future<void> expectCrashRecoveryLogExists(

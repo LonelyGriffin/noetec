@@ -43,11 +43,13 @@ class _FakeFs implements IFileSystemService {
   Future<List<FileEntry>> listDirectory(String path) async {
     final normalized = path.replaceAll('\\', '/');
     final entries = <FileEntry>[];
+    final seen = <String>{};
     for (final key in files.keys) {
       final normKey = key.replaceAll('\\', '/');
       if (normKey.startsWith('$normalized/')) {
         final relative = normKey.substring(normalized.length + 1);
-        if (!relative.contains('/')) {
+        final slashIndex = relative.indexOf('/');
+        if (slashIndex < 0) {
           entries.add(
             FileEntry(
               name: relative,
@@ -56,6 +58,17 @@ class _FakeFs implements IFileSystemService {
               lastModified: DateTime.now(),
             ),
           );
+        } else {
+          final dirName = relative.substring(0, slashIndex);
+          if (seen.add(dirName)) {
+            entries.add(
+              FileEntry(
+                name: dirName,
+                path: '$normalized/$dirName',
+                isDirectory: true,
+              ),
+            );
+          }
         }
       }
     }
@@ -63,7 +76,11 @@ class _FakeFs implements IFileSystemService {
       if (dir.startsWith('$normalized/')) {
         final relative = dir.substring(normalized.length + 1);
         if (!relative.contains('/')) {
-          entries.add(FileEntry(name: relative, path: dir, isDirectory: true));
+          if (seen.add(relative)) {
+            entries.add(
+              FileEntry(name: relative, path: dir, isDirectory: true),
+            );
+          }
         }
       }
     }
@@ -115,7 +132,7 @@ void main() {
       await wal.flush('page1');
 
       final walFiles = fs.files.keys
-          .where((k) => k.endsWith('.wal.jsonl'))
+          .where((k) => k.startsWith('/vault/.noetec/wal/'))
           .toList();
       expect(walFiles, hasLength(1));
     });
@@ -130,7 +147,7 @@ void main() {
       await wal.clear('page1');
 
       final walFiles = fs.files.keys
-          .where((k) => k.endsWith('.wal.jsonl'))
+          .where((k) => k.startsWith('/vault/.noetec/wal/'))
           .toList();
       expect(walFiles, isEmpty);
     });
@@ -247,7 +264,7 @@ void main() {
       await wal.flush('page1');
 
       final walFiles = fs.files.keys
-          .where((k) => k.endsWith('.wal.jsonl'))
+          .where((k) => k.startsWith('/vault/.noetec/wal/'))
           .toList();
       expect(walFiles, isEmpty);
     });
@@ -269,7 +286,7 @@ void main() {
       await wal.clearAll();
 
       final walFiles = fs.files.keys
-          .where((k) => k.endsWith('.wal.jsonl'))
+          .where((k) => k.startsWith('/vault/.noetec/wal/'))
           .toList();
       expect(walFiles, isEmpty);
     });
@@ -287,7 +304,7 @@ void main() {
       expect(pending.first.relativePath, 'pages/welcome.md');
     });
 
-    test('WAL path uses URI-encoded relative path', () async {
+    test('WAL path mirrors page directory structure', () async {
       wal.register('page1', 'pages/notes/idea.md');
       wal.appendAction(
         'page1',
@@ -296,10 +313,10 @@ void main() {
       await wal.flush('page1');
 
       final walFiles = fs.files.keys
-          .where((k) => k.endsWith('.wal.jsonl'))
+          .where((k) => k.startsWith('/vault/.noetec/wal/'))
           .toList();
       expect(walFiles, hasLength(1));
-      expect(walFiles.first.contains('pages%2Fnotes%2Fidea'), isTrue);
+      expect(walFiles.first, equals('/vault/.noetec/wal/pages/notes/idea.md'));
     });
 
     test('flush with no pending actions is no-op', () async {
@@ -307,7 +324,7 @@ void main() {
       await wal.flush('page1');
 
       final walFiles = fs.files.keys
-          .where((k) => k.endsWith('.wal.jsonl'))
+          .where((k) => k.startsWith('/vault/.noetec/wal/'))
           .toList();
       expect(walFiles, isEmpty);
     });
