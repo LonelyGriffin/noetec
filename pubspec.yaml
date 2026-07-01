@@ -8,23 +8,40 @@ environment:
 
 dependencies:
   command_it: ^9.5.0
+  crypto: ^3.0.6
+  cryptography: ^2.7.0
   dart_pre_commit: ^6.1.0
+  file_picker: ^11.0.2
   flutter:
     sdk: flutter
+  flutter_secure_storage: ^10.3.1
   get_it: ^9.2.0
   git_hooks: ^1.0.2
+  go_router: ^17.3.0
   json_serializable: ^6.14.0
   listen_it: ^5.3.4
   logging: ^1.3.0
+  macos_secure_bookmarks: ^0.2.1
   markdown: ^7.3.0
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  saf_stream: ^3.0.0
+  saf_util: ^3.1.0
+  shared_preferences: ^2.5.5
   uuid: ^4.5.2
   watch_it: ^2.4.1
+  yaml: ^3.1.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
   build_runner: ^2.15.0
+dart_pre_commit:
+  outdated: false
+  pull-up-dependencies: false
 
 flutter:
   uses-material-design: true
