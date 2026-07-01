@@ -16,6 +16,7 @@ class EditorArea extends WatchingWidget {
   @override
   Widget build(BuildContext context) {
     final pageSystem = di<PageSystem>();
+    watchValue<PageSystem, int>((s) => s.openPagesVersion);
     final pages = pageSystem.openPages.values.toList();
     final activePageId = watchValue<PageSystem, String?>((s) => s.activePageId);
     final theme = Theme.of(context);
@@ -95,28 +96,7 @@ class _EditorTabBar extends StatelessWidget {
                   // ignore: unnecessary_underscores
                   builder: (_, info, __) {
                     final isDirty = info.state != PageSaveState.clean;
-                    return isDirty
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Icon(
-                              Icons.circle,
-                              size: 8,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          )
-                        : InkWell(
-                            onTap: () => di<PageSystem>().closePage(page.id),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                              child: Icon(
-                                Icons.close,
-                                size: 14,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          );
+                    return _TabCloseButton(pageId: page.id, isDirty: isDirty);
                   },
                 ),
               ],
@@ -143,5 +123,47 @@ class _EditorContent extends StatelessWidget {
     }
 
     return PageEditorWidget(pageId: activePage.id);
+  }
+}
+
+class _TabCloseButton extends StatefulWidget {
+  const _TabCloseButton({required this.pageId, required this.isDirty});
+
+  final String pageId;
+  final bool isDirty;
+
+  @override
+  State<_TabCloseButton> createState() => _TabCloseButtonState();
+}
+
+class _TabCloseButtonState extends State<_TabCloseButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final showClose = !widget.isDirty || _isHovered;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: () => di<PageSystem>().closePage(widget.pageId),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: showClose
+              ? Icon(
+                  Icons.close,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                )
+              : Icon(
+                  Icons.circle,
+                  size: 8,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+        ),
+      ),
+    );
   }
 }

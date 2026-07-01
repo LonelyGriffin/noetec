@@ -42,6 +42,7 @@ final class SessionState {
 class PageSystem {
   final Map<String, PageEntity> openPages = {};
   final ValueNotifier<String?> activePageId = ValueNotifier(null);
+  final ValueNotifier<int> openPagesVersion = ValueNotifier(0);
 
   final IIdService _idService;
   final MarkdownSystem _markdownSystem;
@@ -156,6 +157,7 @@ class PageSystem {
     _pathToPageId[relativePath] = page.id;
     activePageId.value = page.id;
     _pageOpenedController.add((page.id, relativePath));
+    openPagesVersion.value++;
 
     await saveSession();
 
@@ -192,6 +194,7 @@ class PageSystem {
       _pathToPageId.remove(page.relativePath);
       page.dispose();
       _pageClosedController.add(pageId);
+      openPagesVersion.value++;
     }
 
     if (activePageId.value == pageId) {
@@ -207,6 +210,7 @@ class PageSystem {
     openPages.clear();
     _pathToPageId.clear();
     activePageId.value = null;
+    openPagesVersion.value++;
   }
 
   static const _sessionFile = '.noetec/session.json';
