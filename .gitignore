@@ -46,3 +46,11 @@ app.*.map.json
 /android/app/release
 
 .kilo/
+
+# Multica + Hermes agent runtime (local task state, caches, credentials,
+# sessions — hermes-home with .env/auth.json/state.db lives under the
+# noetec-ai-*/ task dirs). Local only, never commit.
+.multica/
+.skill-cache/
+.task_roots/
+noetec-ai-*/
