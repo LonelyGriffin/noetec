@@ -97,9 +97,19 @@ observation of a key is always trusted — see §5.2).
   be generated at first device registration for that vault.
 - The **public key** is the 32-byte Ed25519 public key, **MUST** be encoded
   as base64url (RFC 4648, §5, no padding), and **MUST** be stored:
-  - in the vault's `device.json` (`publicKey` field) for the local device, and
+  - in the vault's `device.json` (`public_key` JSON key) for the local
+    device, and
   - in the **first entry** of the device's oplog file (`pubKey` field), so
     that other devices can obtain it during sync.
+- **Encoding migration.** Legacy `device.json` files written before Phase 1
+  encode `public_key` as standard base64 **with** padding (RFC 4648, §4). On
+  the first Phase-1 read of such a value, an implementation **MUST** detect
+  the legacy encoding (the value contains `+`, `/`, or `=` — none of which
+  appear in the base64url alphabet), decode it to raw bytes, and re-encode it
+  as base64url before comparing or persisting it. An implementation **MAY**
+  rewrite the `device.json` file with the re-encoded value on its first
+  write. The wire formats defined by this specification (oplog entries,
+  manifest, `trusted_keys.json`) **MUST** use base64url exclusively.
 - The **private key** **MUST NOT** be stored in the sync folder, in the
   vault directory, or in any plain file. It **MUST** be kept in the
   platform secure key storage (`flutter_secure_storage`). This is an
@@ -204,7 +214,7 @@ object with exactly the following shape:
   "authorized_devices": [
     {
       "uuid": "<device uuid>",
-      "pubKey": "<base64url Ed25519 public key>",
+      "public_key": "<base64url Ed25519 public key>",
       "added_by": "<device uuid of the device that authorized this device>",
       "signature": "<base64url Ed25519 signature>"
     }
@@ -212,6 +222,12 @@ object with exactly the following shape:
   "manifest_signature": "<base64url Ed25519 signature>"
 }
 ```
+
+All manifest keys **MUST** be snake_case, as shown. (The source strategy
+document used `pubKey` in this file; the spec deliberately aligns the
+manifest to a single snake_case convention. A writer **MUST** emit
+`public_key`; a reader **MUST** reject a manifest that uses any other key
+name as invalid, per the rule below.)
 
 Field semantics:
 
@@ -223,7 +239,7 @@ Field semantics:
   Each record:
   - `uuid` — the `deviceUuid` of the authorized device. **MUST** be unique
     within the array.
-  - `pubKey` — that device's Ed25519 public key, base64url, per §2.1.
+  - `public_key` — that device's Ed25519 public key, base64url, per §2.1.
   - `added_by` — the `deviceUuid` of the device whose key signed this
     record. For devices added by the owner, **MUST** equal
     `owner_device_uuid`.
@@ -233,6 +249,18 @@ Field semantics:
 - `manifest_signature` — an Ed25519 signature, produced by the **owner's**
   private key, over `canonicalJson(manifestWithoutSignature)` — the manifest
   object without its own `manifest_signature` key, canonicalized per §2.2.
+
+**Key resolution (bootstrapping).** The verifier obtains the owner's public
+key from the TOFU trust store (§5.1), i.e. from the `pubKey` pinned when the
+owner's oplog file was first observed. This is consistent with the pipeline
+order in §7: the TOFU step runs before the manifest filter, so by the time
+the manifest is checked, the owner's key is already pinned (or is being
+pinned in the same pass). If the owner's key cannot be resolved (no pinned
+key and no owner file observed in this pass), the manifest **MUST** be
+treated as absent (document is public, §8.2) — it **MUST NOT** cause any
+device to be rejected. The `added_by` key of an authorization record is
+resolved the same way: from that device's pinned key, or from the first
+entry of that device's oplog file.
 
 An implementation writing the manifest **MUST** produce all signatures; an
 implementation **MUST NOT** accept a manifest whose `manifest_signature` does
@@ -274,9 +302,20 @@ seen: Map<String, String>?    // {deviceId: lastSeenHlcKey}
 ```
 
 - The key is another device's `deviceUuid` (never the entry's own device).
-- The value is the HLC key (the string form `physicalMs-counter-deviceId`
-  used in `hlc`/`parent` fields) of the **latest entry that the authoring
-  device has seen from that device** at the moment the entry is written.
+- The value is the HLC key of the **latest entry that the authoring device
+  has seen from that device** at the moment the entry is written. The HLC key
+  is the string form `<physicalMs>-<counter>-<deviceId>`, where `<physicalMs>`
+  is a decimal integer, `<counter>` is **lowercase hexadecimal, zero-padded to
+  at least 4 characters**, and `<deviceId>` is the device UUID; e.g.
+  `1756293123456-0001-7c1e2d3a-4b5f-4a6b-8c9d-0e1f2a3b4c5d`. This is the same
+  string form used in the `hlc` and `parent` fields of an entry.
+- **HLC ordering.** HLC keys are compared numerically by their components,
+  **not** lexicographically as strings: first by `physicalMs` (ascending),
+  then by `counter`, then by `deviceId`. The string form is not
+  lexicographically monotonic (`physicalMs` has variable width), so an
+  implementation **MUST** parse the key's components before comparing. All
+  occurrences of "HLC-ordered" in this specification mean this component-wise
+  ordering.
 
 ### 4.2 Population
 
@@ -320,9 +359,12 @@ the base64url Ed25519 public key first observed for that device:
 
 ```json
 {
-  "7c1e2d3a-4b5f-4a6b-8c9d-0e1f2a3b4c5d": "dGVzdHB1YmtleQ=="
+  "7c1e2d3a-4b5f-4a6b-8c9d-0e1f2a3b4c5d": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 ```
+
+(the value is a base64url-encoded 32-byte public key — 43 characters, no
+padding)
 
 ### 5.2 TOFU rules
 
@@ -502,7 +544,7 @@ Coverage of the threat model (§1.3) by phase. Legend: ✅ fully covered,
 | 1 | Entry forgery (appending entries under a victim's `deviceId`) | ✅ | ✅ | ✅ | ✅ |
 | 2 | Unauthorized device participation (new device injecting entries) | ❌ | ✅ | ✅ | ✅ |
 | 3 | History truncation (rolling back another device's file) | ⚠️ | ⚠️ | ✅ | ✅ |
-| 4 | Replay attack (reusing a valid signature from another document) | ❌ | ❌ | ❌ | ✅ |
+| 4 | Replay attack (reusing a valid signature from another document) | ✅ | ✅ | ✅ | ✅ |
 | 5 | HLC spoofing (future-dating `physicalMs` to win merges) | ❌ | ❌ | ❌ | ✅ |
 | 6 | Whole-file replacement (attacker's file under the victim's name) | ❌ | ❌ | ❌ | ✅ |
 
@@ -514,10 +556,11 @@ Notes:
 - Threat 3 is only partially detected by Phase 1: truncation of the *last*
   entries may be invisible while the surviving chain still verifies; witness
   cross-references (Phase 3) make it detectable via dangling references.
-- Threat 4 is covered by the `documentPath` component of the signing input
-  (§2.2): a signature copied from one document does not verify in another.
-  Phase 4 is listed as the covering phase because replay protection is only
-  *enforced* once TOFU pins which key is expected per document/device.
+- Threat 4 (cross-document replay) is closed by Phase 1 itself:
+  `documentPath` is part of the signing input (§2.2), so a signature copied
+  from one document does not verify in another. Phase 4 adds nothing specific
+  to replay — TOFU pins a key per *device*, not per document — and is listed
+  ✅ only because a closed threat stays closed in later phases.
 - Threat 6 (whole-file replacement) is closed by TOFU (§5.2): the replaced
   file's first-entry key does not match the pinned key.
 
