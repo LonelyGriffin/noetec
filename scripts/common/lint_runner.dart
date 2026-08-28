@@ -10,6 +10,15 @@ import 'check_copyright.dart';
 import 'format_runner.dart';
 import 'run_process.dart';
 
+/// Directories passed to `dart analyze`.
+///
+/// Scoped to the project's source directories instead of the whole package:
+/// `dart analyze` with no arguments walks every directory under the repo root,
+/// including the gitignored Multica/Hermes task artifacts under `noetec-ai-*/`
+/// (12k+ files, node_modules, …). On the WSL→Windows (9p) filesystem mount that
+/// scan is pathologically slow and used to hang the analyzer, so we scope it.
+const analyzeDirectories = ['lib', 'test', 'integration_test', 'scripts'];
+
 Future<bool> runLint({required bool stagedOnly}) async {
   final failures = <String>[];
 
@@ -18,7 +27,7 @@ Future<bool> runLint({required bool stagedOnly}) async {
 
   print('');
   print('🔄 Static analysis');
-  if (!await _runAnalyze()) failures.add('analyze');
+  if (!await runAnalyze()) failures.add('analyze');
 
   print('');
   print('🔄 Copyright check');
@@ -30,9 +39,9 @@ Future<bool> runLint({required bool stagedOnly}) async {
   return failures.isEmpty;
 }
 
-Future<bool> _runAnalyze() => runProcess(
+Future<bool> runAnalyze() => runProcess(
   'dart',
-  ['analyze'],
+  ['analyze', ...analyzeDirectories],
   failMessage: 'Static analysis found issues.',
   successMessage: 'No analysis issues.',
 );

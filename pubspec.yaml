@@ -42,6 +42,11 @@ dev_dependencies:
 dart_pre_commit:
   outdated: false
   pull-up-dependencies: false
+  # Whole-package `dart analyze` is disabled: it walks the gitignored
+  # Multica/Hermes task artifacts under `noetec-ai-*/` and hangs/slows on the
+  # WSL→Windows mount. The pre-commit hook runs a scoped analyze instead (see
+  # scripts/common/lint_runner.dart `runAnalyze`).
+  analyze: false
 
 flutter:
   uses-material-design: true

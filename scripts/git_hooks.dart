@@ -9,6 +9,7 @@ import "package:git_hooks/git_hooks.dart";
 
 import "common/changed_files.dart";
 import "common/check_copyright.dart";
+import "common/lint_runner.dart";
 
 /// Script entry point for git hooks.
 /// See [git_hooks] package docs for more details.
@@ -20,11 +21,17 @@ void main(List arguments) {
 Future<bool> _preCommit() async {
   print('🔄 Linting staged files...');
 
+  // Format + (its own whole-package analyze is disabled in pubspec.yaml via
+  // `dart_pre_commit.analyze: false`).
   final formattingCheckResult = await DartPreCommit.run();
+  // Scoped static analysis — see `analyzeDirectories` in lint_runner.dart.
+  final analyzeCheckResult = await runAnalyze();
   final stagedFiles = fetchStagedSourceFiles();
   final copyrightCheckResult = checkCopyrightInFiles(stagedFiles);
   final allChecksPassed =
-      formattingCheckResult.isSuccess && copyrightCheckResult;
+      formattingCheckResult.isSuccess &&
+      analyzeCheckResult &&
+      copyrightCheckResult;
 
   if (!allChecksPassed) {
     print('🛑 Commit aborted due to failed checks');

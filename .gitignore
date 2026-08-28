@@ -54,3 +54,4 @@ app.*.map.json
 .skill-cache/
 .task_roots/
 noetec-ai-*/
+.repos/
