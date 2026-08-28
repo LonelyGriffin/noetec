@@ -71,31 +71,46 @@ class PageFrontmatterCodec {
   static ({PageFrontmatter frontmatter, String content}) parse(
     String fileContent,
   ) {
-    final match = _frontmatterPattern.firstMatch(fileContent);
+    // Spec §2: on read the parser MUST normalize CRLF and lone CR line
+    // endings to LF before any further processing (frontmatter detection,
+    // hash computation, block parsing). The LF-only form is canonical.
+    final normalized = _normalizeLineEndings(fileContent);
+
+    final match = _frontmatterPattern.firstMatch(normalized);
 
     if (match != null) {
       final yamlBlock = match.group(1)!;
-      final content = fileContent.substring(match.end);
+      final content = _normalizeContent(normalized.substring(match.end));
 
       try {
         final yamlMap = loadYaml(yamlBlock);
         if (yamlMap is YamlMap) {
-          final frontmatter = PageFrontmatter.fromYamlMap(yamlMap);
-          return (
-            frontmatter: frontmatter,
-            content: _normalizeContent(content),
-          );
+          var frontmatter = PageFrontmatter.fromYamlMap(yamlMap);
+          // Spec §3.4.3: a missing content_hash MUST be recomputed per §5.
+          if (frontmatter.contentHash.isEmpty) {
+            frontmatter = frontmatter.copyWith(
+              contentHash: 'sha256:${computeContentHash(content)}',
+            );
+          }
+          return (frontmatter: frontmatter, content: content);
         }
       } catch (_) {}
     }
 
+    // Spec §3.4.1/2/6: missing, malformed, or unterminated frontmatter —
+    // the whole normalized file is the content body and a fresh frontmatter
+    // is synthesized.
+    // Spec §3.4.4: an empty or whitespace-only file parses to an empty
+    // content body.
     return (
       frontmatter: _freshFrontmatter(),
-      content: _normalizeContent(fileContent),
+      content: _emptyIfWhitespaceOnly(normalized),
     );
   }
 
   static String encode(PageFrontmatter frontmatter, String content) {
+    // Spec §2: on write all line endings in the file MUST be LF.
+    final normalized = _normalizeLineEndings(content);
     final fm = frontmatter.toYamlMap();
     final buffer = StringBuffer();
     buffer.writeln('---');
@@ -104,7 +119,7 @@ class PageFrontmatterCodec {
     });
     buffer.writeln('---');
     buffer.writeln();
-    buffer.write(content);
+    buffer.write(normalized);
     return buffer.toString();
   }
 
@@ -124,4 +139,13 @@ class PageFrontmatterCodec {
     if (content.startsWith('\n')) return content.substring(1);
     return content;
   }
+
+  /// Spec §2: normalizes CRLF and lone CR line endings to LF.
+  static String _normalizeLineEndings(String content) =>
+      content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+
+  /// Spec §3.4.4: an empty or whitespace-only file parses to an empty
+  /// content body.
+  static String _emptyIfWhitespaceOnly(String content) =>
+      content.trim().isEmpty ? '' : content;
 }
