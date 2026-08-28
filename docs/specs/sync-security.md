@@ -15,7 +15,8 @@ The base entry format (`version`, `hlc`, `parent`, `parentB`, `type`,
 `blockOps`, `fileOp`, `fileHash`, `deviceId`), the HLC key format, and the
 on-disk layout of device files are defined by the existing codebase; this
 document extends that format. `docs/specs/file-format.md` is the style and
-format reference.
+format reference; where the two documents overlap, this document is
+authoritative for the sync security extensions.
 
 The extensions are defined in four phases, all backward compatible with
 unsigned legacy data (§8):
@@ -230,7 +231,8 @@ lastSeenHlcKey}`.
 - The value is the HLC key of the latest entry the author saw from that
   device: `<physicalMs>-<counter>-<deviceId>` — decimal `physicalMs`,
   lowercase-hex `counter` zero-padded to ≥4 chars, `deviceId` as UUID (e.g.
-  `1756293123456-0001-7c1e2d3a-…`). This is the same string form as `hlc`/
+  `1756293123456-0001-7c1e2d3a-4b5f-4a6b-8c9d-0e1f2a3b4c5d`). This is the same
+  string form as `hlc`/
   `parent`.
 - **HLC ordering** is component-wise numeric — `physicalMs`, then `counter`,
   then `deviceId` — **not** lexicographic (variable-width `physicalMs` breaks
@@ -329,7 +331,7 @@ entries:
 3. **TOFU** (§5.2) — pin or reject the device key.
 4. **Manifest filter** (§3.3) — reject non-listed devices (only if a valid
    manifest exists).
-5. **HLC drift** (§6.1) — reject/flag future timestamps.
+5. **HLC drift** (§6) — reject/flag future timestamps.
 6. **Witness consistency** (§4.3) — report dangling references.
 
 Phases an implementation has not adopted are simply absent from the pipeline.
@@ -368,7 +370,7 @@ carry it. Phase-3 devices **SHOULD** include `seen` in every new entry.
 ### 8.4 Phase 4 — empty TOFU cache and drift
 
 - Empty `trusted_keys.json` → every first observation is trusted and recorded.
-- Not adopting drift validation: entries are accepted without the §6.1 check;
+- Not adopting drift validation: entries are accepted without the §6 check;
   adopting it later **MUST NOT** invalidate already-merged entries (it applies
   only to newly observed entries).
 
@@ -391,7 +393,7 @@ silently drop:
 1. Failed signature (§2.4).
 2. Non-manifest device (§3.3).
 3. TOFU key mismatch (§5.2) — show both keys, offer confirmation.
-4. HLC drift violation (§6.1).
+4. HLC drift violation (§6).
 5. Dangling witness reference (§4.3) — name the file and key.
 6. Legacy entries in a migrated document (§8.1).
 
