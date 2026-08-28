@@ -3,37 +3,30 @@
 **Format version: 1 (draft)**
 
 This document is the normative specification of the security extensions to the
-Noetec sync operation log (OpLog) entry format: cryptographic signatures,
-device authorization, witness references, and key-trust validation. It is a
-contract: implementations (parsers, serializers, sync engines, external tools)
-**MUST** conform to this document. If an implementation diverges from this
-specification, that is a bug in the implementation, not in this document.
+Noetec sync operation log (OpLog) entry format: signatures, device
+authorization, witness references, and key-trust validation. Implementations
+**MUST** conform to it; divergence is a bug in the implementation, not in this
+document.
 
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY**
-in this document are to be interpreted as described in RFC 2119.
+are interpreted as described in RFC 2119.
 
-The base OpLog entry format (`version`, `hlc`, `parent`, `parentB`, `type`,
+The base entry format (`version`, `hlc`, `parent`, `parentB`, `type`,
 `blockOps`, `fileOp`, `fileHash`, `deviceId`), the HLC key format, and the
-on-disk layout of device oplog files are defined by the existing codebase;
-this specification extends that format and **MUST** be read against it. The
-page file format specification (`docs/specs/file-format.md`) is the style and
-format reference for this document; where the two documents address the same
-concept, this document is authoritative for the sync security extensions.
+on-disk layout of device files are defined by the existing codebase; this
+document extends that format. `docs/specs/file-format.md` is the style and
+format reference.
 
-The extensions are defined in four phases:
+The extensions are defined in four phases, all backward compatible with
+unsigned legacy data (§8):
 
-- **Phase 1 — Cryptographic signatures** (mandatory target): every entry is
-  signed with the authoring device's Ed25519 key.
-- **Phase 2 — Device authorization manifest**: documents may declare the set
-  of devices allowed to contribute entries.
-- **Phase 3 — Witness fields** (`seen`): every entry records the latest
-  entries it has observed from other devices, making history truncation
-  detectable.
-- **Phase 4 — TOFU and HLC drift validation**: local trust-on-first-use key
-  pinning and rejection of physically implausible timestamps.
-
-All four phases are **backward compatible** with unsigned, legacy oplog data
-(see §8).
+- **Phase 1 — Signatures** (mandatory): every entry is signed with the
+  authoring device's Ed25519 key.
+- **Phase 2 — Device authorization manifest**: an allow-list of devices.
+- **Phase 3 — Witness fields** (`seen`): each entry records the latest entries
+  it observed from other devices, making truncation detectable.
+- **Phase 4 — TOFU and HLC drift validation**: trust-on-first-use key pinning
+  and rejection of implausible timestamps.
 
 ---
 
@@ -41,50 +34,42 @@ All four phases are **backward compatible** with unsigned, legacy oplog data
 
 ### 1.1 Storage layout
 
-The sync subsystem stores one append-only JSONL file per device per page:
+One append-only JSONL file per device per page:
 
 ```text
 .sync/pages/<encoded-path>/<deviceId>.oplog.jsonl
 ```
 
-- Each device appends entries **only** to its own file; this keeps
-  file-system-level sync (WebDAV/Dropbox) conflict-free and moves all
-  conflict resolution to the logical (DAG) level.
-- The device identifier in the file name is the device's `deviceUuid` — the
-  same identifier carried in `deviceId` on entries and in HLC keys. Security
-  extensions **MUST NOT** change this naming scheme.
-- The document's owner device identity (including its public key) is stored
-  in `.noetec/device.json` at the vault root.
-- This specification additionally defines two files: `.sync/.manifest.json`
-  (Phase 2) and `.noetec/trusted_keys.json` (Phase 4).
+- Each device appends **only** to its own file, keeping filesystem sync
+  (WebDAV/Dropbox) conflict-free; conflict resolution moves to the DAG level.
+- The file name uses the device's `deviceUuid` (as do `deviceId` and HLC
+  keys). Extensions **MUST NOT** change this.
+- The local device identity, including its public key, lives in
+  `.noetec/device.json`.
+- This document defines two more files: `.sync/.manifest.json` (Phase 2) and
+  `.noetec/trusted_keys.json` (Phase 4).
 
 ### 1.2 Entry format, extended
 
-The security extensions add the following fields to an oplog entry. All are
-new keys in the serialized entry; existing keys are unchanged:
+New fields on an entry; existing keys are unchanged:
 
-| Field       | Type             | Phase | Present | Description                                             |
-| ----------- | ---------------- | ----- | ------- | ------------------------------------------------------- |
-| `signature` | string           | 1     | MUST*   | Ed25519 signature over the entry, base64url-encoded.   |
-| `pubKey`    | string or null   | 1     | first entry of a device file MUST; all others MUST be absent | Base64url-encoded Ed25519 public key of the authoring device. |
-| `seen`      | map or null      | 3     | SHOULD for new entries | Witness references: `{deviceId: lastSeenHlcKey}`.      |
+| Field       | Type           | Phase | Present          | Description                                      |
+| ----------- | -------------- | ----- | ---------------- | ------------------------------------------------ |
+| `signature` | string         | 1     | MUST*            | Ed25519 signature over the entry, base64url.     |
+| `pubKey`    | string or null | 1     | first entry only | Base64url Ed25519 public key of the authoring device. |
+| `seen`      | map or null    | 3     | SHOULD           | Witness references `{deviceId: lastSeenHlcKey}`. |
 
-\* Mandatory for entries produced by implementations that have adopted
-Phase 1. Entries **without** `signature` are legacy entries and are accepted
-during migration (see §8.1).
+\* Mandatory for Phase-1 implementations; entries without `signature` are
+legacy and accepted during migration (§8.1).
 
 ### 1.3 Threat model
 
-The extensions defend against the following attacker: an adversary with
-**read/write access to the shared sync folder** (for example, through a
-compromised or overly broad sync share), who can read, append to, truncate,
-or replace oplog files and the manifest, but who does **not** possess the
-victim's private key.
-
-Out of scope are: an adversary with access to the victim device's secure key
-storage (the private key itself), and an adversary who can persistently
-tamper with *all* devices in a document at once (the first legitimate
-observation of a key is always trusted — see §5.2).
+The adversary has **read/write access to the shared sync folder** — able to
+read, append, truncate, or replace oplog files and the manifest — but does
+**not** possess any device's private key. Out of scope: an adversary with
+access to a device's secure key storage, and one able to tamper with *all*
+devices at once (the first legitimate observation of a key is always trusted,
+§5.2).
 
 ---
 
@@ -93,105 +78,70 @@ observation of a key is always trusted — see §5.2).
 ### 2.1 Keys
 
 - The signature algorithm **MUST** be Ed25519.
-- Each device holds exactly one key pair for a vault. The key pair **SHOULD**
-  be generated at first device registration for that vault.
-- The **public key** is the 32-byte Ed25519 public key, **MUST** be encoded
-  as base64url (RFC 4648, §5, no padding), and **MUST** be stored:
-  - in the vault's `device.json` (`public_key` JSON key) for the local
-    device, and
+- Each device holds exactly one key pair per vault, generated at first device
+  registration (**SHOULD**).
+- The **public key** is the 32-byte Ed25519 key, **MUST** be base64url-encoded
+  (RFC 4648 §5, no padding), and **MUST** be stored:
+  - in `device.json` (`public_key` JSON key) for the local device, and
   - in the **first entry** of the device's oplog file (`pubKey` field), so
-    that other devices can obtain it during sync.
-- **Encoding migration.** Legacy `device.json` files written before Phase 1
-  encode `public_key` as standard base64 **with** padding (RFC 4648, §4). On
-  the first Phase-1 read of such a value, an implementation **MUST** detect
-  the legacy encoding (the value contains `+`, `/`, or `=` — none of which
-  appear in the base64url alphabet), decode it to raw bytes, and re-encode it
-  as base64url before comparing or persisting it. An implementation **MAY**
-  rewrite the `device.json` file with the re-encoded value on its first
-  write. The wire formats defined by this specification (oplog entries,
-  manifest, `trusted_keys.json`) **MUST** use base64url exclusively.
-- The **private key** **MUST NOT** be stored in the sync folder, in the
-  vault directory, or in any plain file. It **MUST** be kept in the
-  platform secure key storage (`flutter_secure_storage`). This is an
-  implementation detail; this specification requires only that the private
-  key is never written to any syncable or world-readable location and that
-  only the authoring device can produce signatures for its `deviceUuid`.
-- A device's `deviceUuid` **MUST** remain the identity used in HLC keys,
-  `deviceId` fields, and file names, as before. Implementations **MAY**
-  additionally compute a key fingerprint (`SHA-256` of the raw public key
-  bytes) for display or diagnostics, but **MUST NOT** use it in place of the
-  `deviceUuid` in any wire format.
+    other devices can obtain it during sync.
+- **Encoding migration.** Legacy `device.json` files encode `public_key` as
+  standard base64 **with** padding (RFC 4648 §4). On first Phase-1 read, an
+  implementation **MUST** detect the legacy form (the value contains `+`,
+  `/`, or `=`), decode it, and re-encode as base64url; it **MAY** rewrite the
+  file on first write. All wire formats defined here (entries, manifest,
+  `trusted_keys.json`) **MUST** use base64url exclusively.
+- The **private key** **MUST NOT** be stored in the sync folder or any plain
+  file; it **MUST** live in platform secure storage
+  (`flutter_secure_storage`). Only the authoring device may produce signatures
+  for its `deviceUuid`.
+- `deviceUuid` **MUST** remain the identity in HLC keys, `deviceId`, and file
+  names.
 
 ### 2.2 Signing input
 
-An entry's signature **MUST** be computed over the **signing input**:
+The signature is computed over:
 
 ```text
 signingInput = canonicalJson(entryWithoutSignature) + documentPath
 ```
 
-where:
+- `entryWithoutSignature` is the entry object **without** `signature`; all
+  other keys (including `pubKey`) **MUST** be present exactly as serialized.
+- `documentPath` is the page path relative to the vault root, no extension,
+  `/` separators (e.g. `notes/ideas`), appended with no separator.
 
-1. `entryWithoutSignature` is the entry's JSON object **without** the
-   `signature` key (all other keys, including `pubKey`, **MUST** be present
-   in the object exactly as they appear in the serialized entry), and
-2. `documentPath` is the page's path **relative to the vault root**, without
-   the file extension, using `/` as the path separator (e.g. `notes/ideas`).
-
-`canonicalJson(obj)` **MUST** be defined as:
-
-- a JSON object serialized with **keys sorted lexicographically** (UTF-8 code
-  point order);
-- **no whitespace** other than the structural separators (`,` and `:`);
-- strings encoded as UTF-8;
-- arrays serialized in their stored order (order is significant);
-- `null`-valued keys **MAY** be omitted from the object (and therefore from
-  the signature input); implementations that omit them on write **MUST**
-  omit them on verify.
-
-`documentPath` is appended directly to the JSON text (no separator).
+`canonicalJson(obj)` **MUST** serialize: keys sorted lexicographically (UTF-8
+code point order), no whitespace beyond `,`/`:`, UTF-8 strings, arrays in
+stored order (order is significant). `null`-valued keys **MAY** be omitted; an
+implementation that omits them on write **MUST** omit them on verify.
 
 ### 2.3 Signature rules
 
-- On **write**, an implementing device **MUST** sign `signingInput` with its
-  Ed25519 private key and store the 64-byte signature, base64url-encoded
-  (no padding), in the entry's `signature` field.
-- The `pubKey` field **MUST** be present on the **first entry** of a device's
-  oplog file (the entry with no `parent`), **MUST** equal the device's
-  public key in `device.json`, and **MUST NOT** be present on any subsequent
-  entry of that file.
-- Entries from the same device in **different** documents are signed with
-  the same key pair; the key travels with the first entry of each file.
+- On **write**, a device **MUST** sign `signingInput` with its Ed25519 private
+  key and store the 64-byte signature, base64url (no padding), in `signature`.
+- `pubKey` **MUST** be present on the **first entry** (the entry with no
+  `parent`), **MUST** equal the key in `device.json`, and **MUST NOT** appear
+  on later entries.
 
 ### 2.4 Verification rules
 
-When building the oplog DAG from device files, an implementation **MUST**
-verify signatures as follows, processing each device file from its first
-entry to its last:
+Processing each device file from first to last entry:
 
-1. **First entry**: **MUST** contain a non-null `pubKey`. A first entry
-   without `pubKey` is treated as a legacy unsigned entry (see §8.1) and does
-   not by itself invalidate the file.
-2. **Every entry with a `signature`** **MUST** be verified: the signature
-   **MUST** be a valid Ed25519 signature of `signingInput` (§2.2) under the
-   device's public key (the `pubKey` from the file's first entry, or, for the
-   local device, the key from `device.json`).
-3. **Chain rejection on invalid signature.** If an entry's signature fails
-   verification (or the entry is structurally malformed in a way that
-   prevents verification), the implementation **MUST** reject that entry and
-   **MUST** reject **all subsequent entries in the same device file**
-   (everything after the first invalid entry, by file order). Earlier valid
-   entries remain part of the DAG.
-4. **Re-keying.** A change of public key is **MUST NOT** be accepted
-   silently: if a later entry of a device file (or the first entry of a
-   previously unseen file) carries a public key that differs from the one the
-   device has been observed with before, the implementation **MUST** apply the
-   TOFU rules of §5.2.
-5. Entries that are legacy (no `signature`) do not start a chain rejection;
-   a legacy entry followed by signed entries is accepted as long as the
-   signed entries verify (see §8.1).
-6. Rejected entries **MUST NOT** contribute to the DAG, to merge decisions,
-   or witness state, and **MUST** be reported to the user (see §9).
+1. **First entry** **MUST** contain a non-null `pubKey`; one without it is a
+   legacy entry (§8.1) and does not by itself invalidate the file.
+2. **Every signed entry** **MUST** verify: a valid Ed25519 signature of
+   `signingInput` (§2.2) under the device key (`pubKey` from the first entry,
+   or `device.json` for the local device).
+3. **Chain rejection.** If a signature fails (or the entry is structurally
+   unverifiable), reject that entry **and all subsequent entries in the file**.
+   Earlier valid entries remain in the DAG.
+4. **Re-keying** **MUST NOT** be accepted silently: a changed public key
+   **MUST** trigger the TOFU rules (§5.2).
+5. Legacy (unsigned) entries do not start a chain rejection; signed entries
+   after them are verified as usual (§8.1).
+6. Rejected entries **MUST NOT** contribute to the DAG, merge decisions, or
+   witness state, and **MUST** be reported (§9).
 
 ---
 
@@ -199,23 +149,22 @@ entry to its last:
 
 ### 3.1 Purpose
 
-Phase 1 binds every entry to a device key, but does not restrict *which*
-devices may contribute to a document. Phase 2 adds an explicit allow-list.
+Phase 1 binds entries to a key but not to a set of devices. Phase 2 adds an
+explicit allow-list.
 
 ### 3.2 Manifest file
 
-The manifest is stored at `.sync/.manifest.json` at the vault root (i.e. one
-manifest per vault, inside the syncable area). It **MUST** be a single JSON
-object with exactly the following shape:
+Stored at `.sync/.manifest.json` (one per vault). **MUST** be a single JSON
+object:
 
 ```json
 {
-  "owner_device_uuid": "<uuid of the document owner's device>",
+  "owner_device_uuid": "<owner device uuid>",
   "authorized_devices": [
     {
       "uuid": "<device uuid>",
       "public_key": "<base64url Ed25519 public key>",
-      "added_by": "<device uuid of the device that authorized this device>",
+      "added_by": "<uuid of the device that authorized this device>",
       "signature": "<base64url Ed25519 signature>"
     }
   ],
@@ -223,71 +172,50 @@ object with exactly the following shape:
 }
 ```
 
-All manifest keys **MUST** be snake_case, as shown. (The source strategy
-document used `pubKey` in this file; the spec deliberately aligns the
-manifest to a single snake_case convention. A writer **MUST** emit
-`public_key`; a reader **MUST** reject a manifest that uses any other key
-name as invalid, per the rule below.)
+All keys **MUST** be snake_case (a reader **MUST** reject any other key name
+as invalid). Field semantics:
 
-Field semantics:
-
-- `owner_device_uuid` — the `deviceUuid` of the device that owns the vault.
-  **MUST** be present.
-- `authorized_devices` — an array of authorization records, one per
-  authorized device (the owner **MAY** be listed; if absent, the owner is
-  implicitly authorized). **MUST** be present (an empty array is valid).
+- `owner_device_uuid` — the owning device's `deviceUuid` (**MUST** be
+  present).
+- `authorized_devices` — the allow-list (**MUST** be present; empty is
+  valid). The owner **MAY** be listed; if absent it is implicitly authorized.
   Each record:
-  - `uuid` — the `deviceUuid` of the authorized device. **MUST** be unique
-    within the array.
-  - `public_key` — that device's Ed25519 public key, base64url, per §2.1.
-  - `added_by` — the `deviceUuid` of the device whose key signed this
-    record. For devices added by the owner, **MUST** equal
-    `owner_device_uuid`.
-  - `signature` — an Ed25519 signature over `canonicalJson(recordWithoutSignature)`
-    (the record object without its own `signature` key, canonicalized per
-    §2.2), produced by the `added_by` device's private key.
-- `manifest_signature` — an Ed25519 signature, produced by the **owner's**
-  private key, over `canonicalJson(manifestWithoutSignature)` — the manifest
-  object without its own `manifest_signature` key, canonicalized per §2.2.
+  - `uuid` — the authorized `deviceUuid` (**MUST** be unique).
+  - `public_key` — its base64url Ed25519 key (§2.1).
+  - `added_by` — the `deviceUuid` whose key signs this record; for
+    owner-added devices **MUST** equal `owner_device_uuid`.
+  - `signature` — Ed25519 over `canonicalJson(recordWithoutSignature)`
+    (§2.2), by the `added_by` device.
+- `manifest_signature` — Ed25519 over
+  `canonicalJson(manifestWithoutSignature)` (§2.2), by the **owner**.
 
-**Key resolution (bootstrapping).** The verifier obtains the owner's public
-key from the TOFU trust store (§5.1), i.e. from the `pubKey` pinned when the
-owner's oplog file was first observed. This is consistent with the pipeline
-order in §7: the TOFU step runs before the manifest filter, so by the time
-the manifest is checked, the owner's key is already pinned (or is being
-pinned in the same pass). If the owner's key cannot be resolved (no pinned
-key and no owner file observed in this pass), the manifest **MUST** be
-treated as absent (document is public, §8.2) — it **MUST NOT** cause any
-device to be rejected. The `added_by` key of an authorization record is
-resolved the same way: from that device's pinned key, or from the first
-entry of that device's oplog file.
+**Key resolution.** The verifier takes the owner's key from the TOFU trust
+store (§5.1), i.e. the `pubKey` pinned when the owner's file was first
+observed (TOFU runs before the manifest filter, §7). If the owner's key cannot
+be resolved, the manifest **MUST** be treated as absent (public, §8.2) — never
+a rejection. `added_by` keys resolve the same way (pinned key, or the first
+entry of that device's file).
 
-An implementation writing the manifest **MUST** produce all signatures; an
-implementation **MUST NOT** accept a manifest whose `manifest_signature` does
-not verify under the owner's public key, and **MUST NOT** accept an
-authorization record whose `signature` does not verify under the key of the
-`added_by` device. A manifest that fails verification **MUST** be treated as
-absent (see §8.2) and **MUST** be reported to the user.
+A writer **MUST** produce all signatures; a reader **MUST NOT** accept a
+manifest whose `manifest_signature` fails under the owner's key, or a record
+whose `signature` fails under its `added_by` key. An invalid manifest
+**MUST** be treated as absent (§8.2) and reported.
 
 ### 3.3 Authorization check
 
-When building the oplog DAG, if a valid manifest exists for the vault, the
-implementation **MUST** reject every entry whose `deviceId` does not appear
-in `authorized_devices` (or equals `owner_device_uuid`). The public key of a
-rejected device's entries **MUST NOT** be added to the local trust store
-(§5.1) as a side effect of observing rejected entries.
+With a valid manifest, reject every entry whose `deviceId` is not in
+`authorized_devices` and is not `owner_device_uuid`. A rejected device's key
+**MUST NOT** be added to the trust store (§5.1).
 
 ### 3.4 Adding and revoking devices
 
-- Adding a device: the owner (or a device already in the manifest, for
-  future extensions) signs a new authorization record with its private key,
-  appends it to `authorized_devices`, and re-signs the whole manifest.
-- Removing a device: the owner removes the record and re-signs the manifest.
-  Revocation is **not** retroactive: entries already present in a removed
-  device's oplog file that are validly signed remain part of the DAG; the
-  device simply stops being able to add new entries.
+- **Add**: the owner (or, for future extensions, an already-authorized
+  device) signs a new record, appends it, and re-signs the manifest.
+- **Revoke**: the owner removes the record and re-signs. Revocation is not
+  retroactive — already-signed entries remain in the DAG; the device just
+  stops adding new ones.
 - The manifest **MAY** be updated while devices are online; each update is an
-  atomic replacement of the file.
+  atomic file replacement.
 
 ---
 
@@ -295,57 +223,41 @@ rejected device's entries **MUST NOT** be added to the local trust store
 
 ### 4.1 Field
 
-Each oplog entry **MAY** carry a `seen` field:
+An entry **MAY** carry `seen: Map<String, String>?` — `{deviceId:
+lastSeenHlcKey}`.
 
-```text
-seen: Map<String, String>?    // {deviceId: lastSeenHlcKey}
-```
-
-- The key is another device's `deviceUuid` (never the entry's own device).
-- The value is the HLC key of the **latest entry that the authoring device
-  has seen from that device** at the moment the entry is written. The HLC key
-  is the string form `<physicalMs>-<counter>-<deviceId>`, where `<physicalMs>`
-  is a decimal integer, `<counter>` is **lowercase hexadecimal, zero-padded to
-  at least 4 characters**, and `<deviceId>` is the device UUID; e.g.
-  `1756293123456-0001-7c1e2d3a-4b5f-4a6b-8c9d-0e1f2a3b4c5d`. This is the same
-  string form used in the `hlc` and `parent` fields of an entry.
-- **HLC ordering.** HLC keys are compared numerically by their components,
-  **not** lexicographically as strings: first by `physicalMs` (ascending),
-  then by `counter`, then by `deviceId`. The string form is not
-  lexicographically monotonic (`physicalMs` has variable width), so an
-  implementation **MUST** parse the key's components before comparing. All
-  occurrences of "HLC-ordered" in this specification mean this component-wise
-  ordering.
+- The key is another device's `deviceUuid` (never the entry's own).
+- The value is the HLC key of the latest entry the author saw from that
+  device: `<physicalMs>-<counter>-<deviceId>` — decimal `physicalMs`,
+  lowercase-hex `counter` zero-padded to ≥4 chars, `deviceId` as UUID (e.g.
+  `1756293123456-0001-7c1e2d3a-…`). This is the same string form as `hlc`/
+  `parent`.
+- **HLC ordering** is component-wise numeric — `physicalMs`, then `counter`,
+  then `deviceId` — **not** lexicographic (variable-width `physicalMs` breaks
+  string monotonicity). Implementations **MUST** parse components before
+  comparing. Every "HLC-ordered" reference in this document means this.
 
 ### 4.2 Population
 
-- When an implementing device creates an entry, it **SHOULD** include a
-  `seen` field mapping every *other* device of the document to the latest HLC
-  key it has observed from that device.
-- A device **MUST NOT** list itself in its own `seen` field.
-- The `seen` values for a given authoring device **MUST** be non-decreasing
-  over that device's file (by HLC key order): an entry's `seen[d]` **MUST**
-  be HLC-ordered at or after the previous entry's `seen[d]`, or absent.
+- On creating an entry, a device **SHOULD** map every *other* device to the
+  latest HLC key it observed from it.
+- A device **MUST NOT** list itself.
+- `seen[d]` **MUST** be non-decreasing (HLC order) across the device's file,
+  or absent.
 
 ### 4.3 Verification (truncation detection)
 
-The witness graph provides cross-device references that survive in files the
-attacker does not control, making truncation of *another* device's file
-detectable:
+Witness references live in files the attacker does not control, so truncation
+of *another* device's file becomes detectable:
 
-- After building the DAG, the implementation **SHOULD** check, for each entry
-  that carries `seen`: for every `(d, hlcKey)` in that entry's `seen`, if the
-  device `d`'s file exists but contains **no entry with an HLC key HLC-ordered
-  at or after `hlcKey`**, the reference is **dangling**.
-- A dangling reference indicates that the referenced device's file was
-  truncated after the referring entry was written (a truncation attack, or
-  an unrecoverable sync corruption). The implementation **MUST NOT** silently
-  ignore dangling references: it **MUST** report the affected file and the
-  dangling reference(s) to the user, and **SHOULD** treat the truncated file's
-  entries as untrusted (see §9 for the required user-facing behavior).
-- A `seen` reference to a device whose file does not exist at all is **not**
-  dangling (the device may simply have been removed from the sync share);
-  such references **MAY** be ignored.
+- After building the DAG, for each `(d, hlcKey)` in an entry's `seen`: if
+  device `d`'s file exists but has no entry HLC-ordered at or after `hlcKey`,
+  the reference is **dangling**.
+- Dangling references indicate the referenced file was truncated (attack or
+  unrecoverable corruption). **MUST NOT** ignore silently: report the file and
+  reference(s), and **SHOULD** treat that file's entries as untrusted (§9).
+- A `seen` reference to a device whose file does not exist is **not** dangling
+  (the device may be gone); **MAY** be ignored.
 
 ---
 
@@ -353,9 +265,8 @@ detectable:
 
 ### 5.1 Trusted keys file
 
-The local TOFU cache is stored at `.noetec/trusted_keys.json` (outside the
-syncable `.sync` area). It **MUST** be a JSON object mapping `deviceUuid` to
-the base64url Ed25519 public key first observed for that device:
+`.noetec/trusted_keys.json` (outside the syncable `.sync` area) maps
+`deviceUuid` to the base64url key first observed:
 
 ```json
 {
@@ -363,264 +274,188 @@ the base64url Ed25519 public key first observed for that device:
 }
 ```
 
-(the value is a base64url-encoded 32-byte public key — 43 characters, no
-padding)
+(the value is a base64url 32-byte key — 43 chars, no padding)
 
 ### 5.2 TOFU rules
 
-When the implementation observes an oplog file for a device for the first
-time (or sees a `pubKey` it has not seen for that device):
+On first observing a device's `pubKey`:
 
-1. If the device is **not present** in `trusted_keys.json`, the implementation
-   **MUST** record the observed `pubKey` for that `deviceUuid` (the first
-   observation is trusted).
-2. If the device **is present** and the observed `pubKey` **equals** the
-   stored key, verification proceeds normally (§2.4).
-3. If the device **is present** and the observed `pubKey` **differs** from
-   the stored key, the implementation **MUST** treat this as a key
-   substitution (a file-replacement attack, or a legitimate device that
-   lost its key):
-   - the conflicting file's entries **MUST NOT** be merged into the DAG;
-   - the implementation **MUST** warn the user and present the two keys;
-   - the user **MAY** explicitly confirm the new key, in which case the
-     implementation **MUST** update `trusted_keys.json` and re-verify the
-     file's entries; without confirmation the stored key remains authoritative.
-
-TOFU protects against whole-file replacement (threat 6, §10): an attacker
-who replaces `<victim>.oplog.jsonl` with a file signed by the attacker's
-key will be rejected, because the first entry's `pubKey` will not match the
-key stored in `trusted_keys.json`.
+1. Not in `trusted_keys.json` → **MUST** record it (first observation is
+   trusted).
+2. Present and **equal** → verify normally (§2.4).
+3. Present and **different** → key substitution (file-replacement attack, or
+   a device that lost its key): **MUST NOT** merge the file's entries,
+   **MUST** warn the user and show both keys; the user **MAY** confirm the new
+   key (then update `trusted_keys.json` and re-verify), otherwise the stored
+   key stays authoritative.
 
 ### 5.3 Scope
 
-`trusted_keys.json` is per-device, local state. It **MUST NOT** be synced,
-**MUST NOT** be shared between vaults, and **MAY** be reset by the user (a
-reset re-arms first-observation trust for all devices).
+Per-device local state: **MUST NOT** be synced or shared between vaults;
+**MAY** be reset by the user (re-arming first-observation trust).
 
 ---
 
 ## 6. Phase 4b — HLC drift validation
 
-### 6.1 Rule
-
-Hybrid Logical Clock timestamps can be spoofed: an attacker who cannot
-forge signatures may still write entries whose `hlc.physicalMs` lies far in
-the future, biasing merge ordering in their favor (the HLC key orders by
-`physicalMs` first).
-
-When reading **other** devices' entries, the implementation **MUST** check:
+HLC timestamps can be spoofed: an attacker may future-date `physicalMs` to
+win merges (HLC orders by `physicalMs` first). When reading **other**
+devices' entries, an implementation **MUST** check:
 
 ```text
 entry.hlc.physicalMs <= localTime + maxDrift
 ```
 
-where `localTime` is the local wall clock in milliseconds since the Unix
-epoch and `maxDrift` **SHOULD** default to 60 000 ms (60 seconds) and **MAY**
-be configured to a larger value.
+`maxDrift` **SHOULD** default to 60 000 ms and **MAY** be configured larger.
 
-- An entry with `physicalMs` within the bound is accepted as normal.
-- An entry with `physicalMs` **greater** than `localTime + maxDrift`
-  **MUST** be treated as suspicious: the implementation **MUST NOT** apply it
-  as a merge result without user awareness, **MUST** report it, and **MAY**
-  reject it outright. A common policy **SHOULD** be: reject entries that
-  outrun the local clock by more than `maxDrift`, and surface them to the
-  user in the sync status.
-- Entries with `physicalMs` far in the *past* are valid (a slow device is
-  not an attack); no lower bound is imposed.
-- The check **MUST** be applied to entries of *other* devices only; a device
-  **MUST NOT** reject its own entries on this check.
-- Suspicious entries **MUST** be logged (via `package:logging`, never
-  `print`) for manual analysis.
+- `physicalMs` within the bound is accepted.
+- `physicalMs > localTime + maxDrift` **MUST** be treated as suspicious: not
+  applied as a merge result without user awareness, **MUST** be reported, and
+  **MAY** be rejected. The common policy **SHOULD** be to reject and surface
+  in sync status.
+- Past timestamps are valid (a slow device is not an attack).
+- The check applies to *other* devices only.
+- Suspicious entries **MUST** be logged (`package:logging`, never `print`).
 
 ---
 
 ## 7. Verification pipeline (normative order)
 
-When building the oplog DAG from a document's device files, the checks of the
-adopted phases **MUST** be applied in the following order; a failure at any
-step stops processing of the affected entries:
+Checks **MUST** run in this order; a failure stops processing of the affected
+entries:
 
-1. **Parse** each file line by line; structurally invalid JSON lines are
-   rejected in place (they do not, by themselves, invalidate later lines
-   that parse cleanly).
-2. **Signature verification** (Phase 1, §2.4): verify each entry; on failure,
-   reject the entry and the rest of that file's chain.
-3. **TOFU check** (Phase 4a, §5.2): pin or reject the device's public key.
-4. **Manifest filter** (Phase 2, §3.3): reject entries from devices not in
-   the manifest (only if a valid manifest exists).
-5. **HLC drift check** (Phase 4b, §6.1): reject or flag entries with
-   physically impossible future timestamps.
-6. **Witness consistency check** (Phase 3, §4.3): detect dangling references
-   and report truncation.
+1. **Parse** lines; invalid JSON lines are rejected in place.
+2. **Signature** (§2.4) — on failure, reject entry + rest of chain.
+3. **TOFU** (§5.2) — pin or reject the device key.
+4. **Manifest filter** (§3.3) — reject non-listed devices (only if a valid
+   manifest exists).
+5. **HLC drift** (§6.1) — reject/flag future timestamps.
+6. **Witness consistency** (§4.3) — report dangling references.
 
-Checks are applied per file and per entry as specified; phases that have not
-been adopted by an implementation are simply absent from the pipeline.
+Phases an implementation has not adopted are simply absent from the pipeline.
 
 ---
 
 ## 8. Backward compatibility
 
-All extensions are additive and **MUST** remain backward compatible so that
-existing unsigned oplog data keeps working:
+All extensions are additive; existing unsigned data **MUST** keep working.
 
 ### 8.1 Phase 1 — unsigned entries
 
-- An entry without a `signature` field is a **legacy entry** and **MUST** be
-  accepted as valid during the migration period.
-- A device file may contain any mix of legacy (unsigned) and signed entries;
-  the first signed entry after a run of legacy entries is verified against
-  the `pubKey` from the file's first entry (or, failing that, from the local
-  trust store / `device.json` if it is the local device).
-- An implementation **SHOULD** display a warning when a document contains
-  legacy entries, and **MAY** be configured (per vault) to reject unsigned
-  entries once all participating devices have migrated. Rejecting unsigned
-  entries is an opt-in hardening mode; the default **MUST** remain
-  acceptance.
-- A device that adopts Phase 1 **MUST** sign every entry it writes from then
-  on; it **MUST NOT** write new unsigned entries.
+- An entry without `signature` is **legacy** and **MUST** be accepted during
+  migration.
+- A file may mix legacy and signed entries; the first signed entry verifies
+  against the file's first-entry `pubKey` (or `device.json`/trust store for
+  the local device).
+- **SHOULD** warn on legacy entries; **MAY** be configured (per vault) to
+  reject unsigned entries once all devices migrate — opt-in hardening, the
+  default **MUST** remain acceptance.
+- A Phase-1 device **MUST** sign every entry it writes from then on.
 
 ### 8.2 Phase 2 — absent manifest
 
-- If `.sync/.manifest.json` does not exist, the document is **public**: any
-  device with a valid key for its file may contribute entries.
-- If the file exists but is invalid (malformed JSON, or a signature that does
-  not verify), it **MUST** be treated as absent (document is public) and the
-  condition **MUST** be reported to the user. A broken manifest **MUST NOT**
-  lock out all devices.
+- No `.sync/.manifest.json` → document is **public**: any device with a valid
+  key may contribute.
+- Present but invalid (malformed or unverifiable) → treated as absent
+  (public) and **MUST** be reported. A broken manifest **MUST NOT** lock out
+  devices.
 
 ### 8.3 Phase 3 — absent `seen`
 
-- An entry without a `seen` field is valid. Witness checks apply only to
-  entries that carry `seen`.
-- Devices that adopt Phase 3 **SHOULD** include `seen` in every new entry.
+An entry without `seen` is valid; witness checks apply only to entries that
+carry it. Phase-3 devices **SHOULD** include `seen` in every new entry.
 
 ### 8.4 Phase 4 — empty TOFU cache and drift
 
-- If `trusted_keys.json` is absent or empty, every first observation is
-  trusted and recorded (no check possible yet).
-- If a deployment does not adopt HLC drift validation, entries are accepted
-  without the §6.1 check; adopting the check later **MUST NOT** invalidate
-  already-merged entries (the check applies to newly observed entries).
+- Empty `trusted_keys.json` → every first observation is trusted and recorded.
+- Not adopting drift validation: entries are accepted without the §6.1 check;
+  adopting it later **MUST NOT** invalidate already-merged entries (it applies
+  only to newly observed entries).
 
 ### 8.5 Serialization compatibility
 
-- New fields (`signature`, `pubKey`, `seen`) are **additional JSON keys** in
-  the entry object. An implementation that does not know a key **MUST**
-  ignore it on read and **MUST** preserve it on round-trip whenever feasible.
-- The entry's `version` field is not changed by these extensions in format
-  version 1; a future, incompatible change to any rule in this document
-  **MUST** bump the entry version and be published as a new version of this
-  specification (mirroring the versioning policy of the page file format
-  spec).
+- New fields are additional JSON keys: an implementation that does not know a
+  key **MUST** ignore it on read and **MUST** preserve it on round-trip
+  whenever feasible.
+- These extensions do not change the entry `version`; a future incompatible
+  change **MUST** bump the version and ship as a new spec version (as in
+  `file-format.md`).
 
 ---
 
 ## 9. Reporting to the user
 
-Implementations **MUST** surface security events rather than failing
-silently:
+Implementations **MUST** surface (and log via `package:logging`) rather than
+silently drop:
 
-1. A signature that failed verification (§2.4).
-2. An entry from a device not in the manifest (§3.3).
-3. A TOFU key mismatch (§5.2) — with both keys shown and a confirmation
-   prompt.
-4. An HLC drift violation (§6.1).
-5. Dangling witness references (§4.3) — naming the file and the referenced
-   HLC key.
-6. Presence of legacy unsigned entries in a migrated document (§8.1).
-
-All of these events **MUST** be recorded in the application log via
-`package:logging`.
+1. Failed signature (§2.4).
+2. Non-manifest device (§3.3).
+3. TOFU key mismatch (§5.2) — show both keys, offer confirmation.
+4. HLC drift violation (§6.1).
+5. Dangling witness reference (§4.3) — name the file and key.
+6. Legacy entries in a migrated document (§8.1).
 
 ---
 
 ## 10. Threat coverage matrix
 
-Coverage of the threat model (§1.3) by phase. Legend: ✅ fully covered,
-⚠️ partially covered, ❌ not covered.
+Coverage of §1.3. Legend: ✅ fully, ⚠️ partially, ❌ not covered.
 
-| # | Threat | Phase 1 | Phase 2 | Phase 3 | Phase 4 |
+| # | Threat | P1 | P2 | P3 | P4 |
 |---|---|---|---|---|---|
-| 1 | Entry forgery (appending entries under a victim's `deviceId`) | ✅ | ✅ | ✅ | ✅ |
-| 2 | Unauthorized device participation (new device injecting entries) | ❌ | ✅ | ✅ | ✅ |
-| 3 | History truncation (rolling back another device's file) | ⚠️ | ⚠️ | ✅ | ✅ |
-| 4 | Replay attack (reusing a valid signature from another document) | ✅ | ✅ | ✅ | ✅ |
-| 5 | HLC spoofing (future-dating `physicalMs` to win merges) | ❌ | ❌ | ❌ | ✅ |
-| 6 | Whole-file replacement (attacker's file under the victim's name) | ❌ | ❌ | ❌ | ✅ |
+| 1 | Entry forgery (append under a victim's `deviceId`) | ✅ | ✅ | ✅ | ✅ |
+| 2 | Unauthorized device participation | ❌ | ✅ | ✅ | ✅ |
+| 3 | History truncation (roll back another device's file) | ⚠️ | ⚠️ | ✅ | ✅ |
+| 4 | Replay (reuse a signature in another document) | ✅ | ✅ | ✅ | ✅ |
+| 5 | HLC spoofing (future-date `physicalMs` to win merges) | ❌ | ❌ | ❌ | ✅ |
+| 6 | Whole-file replacement (attacker's file under victim's name) | ❌ | ❌ | ❌ | ✅ |
 
-Notes:
-
-- Threat 1 is closed by Phase 1 alone: without the private key, an attacker
-  cannot produce a valid `signature` for the victim's file. Phases 2–4 keep
-  it closed.
-- Threat 3 is only partially detected by Phase 1: truncation of the *last*
-  entries may be invisible while the surviving chain still verifies; witness
-  cross-references (Phase 3) make it detectable via dangling references.
-- Threat 4 (cross-document replay) is closed by Phase 1 itself:
-  `documentPath` is part of the signing input (§2.2), so a signature copied
-  from one document does not verify in another. Phase 4 adds nothing specific
-  to replay — TOFU pins a key per *device*, not per document — and is listed
-  ✅ only because a closed threat stays closed in later phases.
-- Threat 6 (whole-file replacement) is closed by TOFU (§5.2): the replaced
-  file's first-entry key does not match the pinned key.
+- Threat 3 is only partially detected by Phase 1 (truncating the last entries
+  can be invisible while the chain verifies); Phase 3's cross-references make
+  it detectable.
+- Threat 4 is closed by Phase 1 itself: `documentPath` is in the signing
+  input (§2.2), so a copied signature does not verify in another document.
+  Phase 4 adds nothing here (TOFU pins a key per *device*, not per document).
 
 ---
 
 ## 11. Performance overhead (estimates)
 
-Estimates on a mid-range mobile device, measured against the baseline
-unsigned pipeline (values are order-of-magnitude guidance, not guarantees):
+Order-of-magnitude guidance on a mid-range mobile device:
 
 | Operation | Without signatures | With signatures (Phase 1) | Overhead |
 |---|---|---|---|
-| Write one entry | ~1 ms | ~5 ms (one Ed25519 sign) | +4 ms per entry |
-| Read/verify 100 entries | ~10 ms | ~50 ms (100 verifications) | +40 ms |
-| Entry size on disk | ~500 bytes | ~700 bytes (`signature`, and `pubKey` in the first entry) | ≈ +40% |
+| Write one entry | ~1 ms | ~5 ms | +4 ms |
+| Read/verify 100 entries | ~10 ms | ~50 ms | +40 ms |
+| Entry size | ~500 B | ~700 B | ≈ +40% |
 
-Guidance for implementations:
+- **Incremental verification (SHOULD):** cache per-entry results (keyed by
+  HLC key) and verify only new lines.
+- **Lazy verification (MAY):** verify only when building the DAG.
+- **Batch signing (MAY, not in v1):** Merkle-root signing is out of scope for
+  v1 and **MUST NOT** be mixed with per-entry signatures.
 
-- **Incremental verification (SHOULD).** Cache verification results per entry
-  (keyed by HLC key) and verify only newly appended lines during sync;
-  re-verifying a whole file on every poll is unnecessary.
-- **Lazy verification (MAY).** Verify only when building the DAG, not on
-  every file read for display purposes.
-- **Batch signing (MAY, not in format version 1).** Signing a batch of
-  entries with a single Merkle-root signature reduces storage but
-  complicates verification and chain rejection; it is out of scope for
-  format version 1 and **MUST NOT** be mixed with per-entry signatures in
-  the same file without a spec change.
-
-The manifest (§3) adds one signature verification per sync cycle per vault,
-which is negligible. The `seen` map (§4) adds at most
-`O(other devices)` string pairs per entry; for a two-device document the
-overhead is one key-value pair per entry.
+The manifest adds one signature verification per sync cycle (negligible);
+`seen` adds at most `O(other devices)` pairs per entry.
 
 ---
 
 ## 12. Out of scope
 
-This specification is a contract for format and verification rules only. The
-following are **out of scope** and are addressed elsewhere:
-
-- ADR-level decision rationale and the rejected alternatives (centralized
-  authentication server, consensus-based collective signing, shared-secret
-  symmetric signing) — see the sync security decision record.
-- Migration plans, rollout sequencing, and test plans — these belong to the
-  implementation tasks.
-- File-access mechanics on specific platforms (macOS secure bookmarks,
-  Android SAF) — these constrain *where* keys may be stored, not *what* the
-  format is.
-- Encryption of entry content. These extensions provide integrity,
-  attribution, and authorization; entries remain readable by anyone with
-  access to the sync folder. Confidentiality is a separate concern.
+- ADR rationale and rejected alternatives (centralized auth, consensus
+  signing, shared-secret signing) — see the decision record.
+- Migration, rollout, and test plans — implementation tasks.
+- Platform file-access mechanics (macOS bookmarks, Android SAF) — they
+  constrain key storage, not the format.
+- Encryption of entry content — these extensions provide integrity,
+  attribution, and authorization only; entries stay readable. Confidentiality
+  is separate.
 
 ---
 
 ## 13. References
 
-- RFC 2119 — Key words for use in RFCs to Indicate Requirement Levels.
-- Ed25519 signature algorithm (Bernstein et al.) — https://ed25519.cr.yp.to/
+- RFC 2119 — Key words for use in RFCs.
+- Ed25519 — https://ed25519.cr.yp.to/
 - Hybrid Logical Clocks (Kulkarni et al.) — https://www.cse.buffalo.edu/tech-reports/2014-04.pdf
-- CRDT theory — https://crdt.tech/
-- Trust-on-first-use — https://en.wikipedia.org/wiki/Trust_on_first_use
-- `docs/specs/file-format.md` — Noetec page file format (style and format reference).
+- `docs/specs/file-format.md` — page file format (style reference).
