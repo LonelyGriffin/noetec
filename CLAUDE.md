@@ -46,8 +46,7 @@ All commands run from the repo root.
 
 - DI: `get_it`, all registrations in `lib/app/configure_di.dart`.
 - Services: `abstract interface class IXxxService` + `XxxServiceImpl` in one file.
-- Tests mirror `lib/` under `test/lib/`; integration scenarios live in
-  `integration_test/`. No tests for trivial logic; no duplicate coverage.
+- Tests mirror `lib/` under `test/lib/` (unit/widget — written by the Developer, who runs the full `flutter test` suite before handoff); integration scenarios live in `integration_test/` (authored by the QA tester for user-facing behavior). No tests for trivial logic; no duplicate coverage.
 - Docs are the contract: specs under `docs/specs/` are normative (RFC 2119),
   decisions under `docs/decisions/` are immutable ADRs (supersede with a new
   ADR, never edit).
