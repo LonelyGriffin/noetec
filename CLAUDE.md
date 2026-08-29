@@ -33,6 +33,14 @@ All commands run from the repo root.
 | `dart run build_runner build` | Code generation (json_serializable etc.) |
 | `dart run build_runner watch` | Code generation in watch mode |
 
+## Git & GitHub PR workflow
+
+- Code flows through GitHub PRs (`https://github.com/LonelyGriffin/noetec.git`). Multica issues track status; **GitHub PRs are the review surface**.
+- Branch per issue: `NOET-XX`. PR title `NOET-XX: <summary>`, body includes `Closes NOET-XX` (auto-closes the issue on merge).
+- Before committing/pushing, run `source $HOME/.config/noetec-gh-app/agent-gh.sh <role>` (roles: `architect` | `developer` | `qa`). It sets your per-agent commit identity and a fresh GitHub App token. Re-run it right before push (the token lives ~60 min).
+- Push: `git push -u origin NOET-XX`. Open PR: `gh pr create --base main --head NOET-XX --title "NOET-XX: ..." --body "…\n\nCloses NOET-XX"`.
+- **Only Павел merges.** Agents NEVER push to `main`, NEVER merge, NEVER `git checkout main`. Branch protection on `main` enforces this physically.
+
 ## Conventions
 
 - DI: `get_it`, all registrations in `lib/app/configure_di.dart`.
