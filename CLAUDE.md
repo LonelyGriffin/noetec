@@ -30,6 +30,7 @@ All commands run from the repo root.
 | `dart run scripts/format.dart` | Format the project (page width 180, from `dart-format.yaml`) |
 | `dart analyze` | Static analysis (`analysis_options.yaml`, flutter_lints + extra rules) |
 | `flutter test` | Run the unit/widget test suite (`test/`) |
+| `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) sequentially — use this instead of `flutter test integration_test/`, which runs files in parallel and flakes under WSLG |
 | `dart run build_runner build` | Code generation (json_serializable etc.) |
 | `dart run build_runner watch` | Code generation in watch mode |
 
