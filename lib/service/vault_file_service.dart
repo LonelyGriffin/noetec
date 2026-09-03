@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:listen_it/listen_it.dart';
 import 'package:noetec/service/file_system_service.dart';
+import 'package:noetec/service/page_file_name_sanitizer.dart';
 import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
@@ -168,7 +169,7 @@ class VaultFileService {
     String oldRelativePath,
     String newFileName,
   ) async {
-    var finalName = newFileName;
+    var finalName = PageFileNameSanitizer.sanitize(newFileName);
     if (!finalName.endsWith('.md')) {
       finalName = '$finalName.md';
     }
