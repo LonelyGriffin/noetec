@@ -12,10 +12,12 @@ import 'common/integration_test_runner.dart';
 ///
 /// Runs each `integration_test/*_test.dart` file in its own `flutter test`
 /// process, one file at a time by default (`--jobs 1`). This is the supported
-/// way to run the integration suite in this environment: a bulk
-/// `flutter test integration_test/` runs files in parallel and flakes under
-/// WSLG ("Failed to load"), and `flutter test --concurrency` is ignored for
-/// integration tests — so sequential per-file runs are required.
+/// way to run the integration suite on the WSL daemon box: under WSLg the
+/// second app launch within a single `flutter test` session fails ("Failed
+/// to load" / "The log reader stopped unexpectedly"), so every file gets its
+/// own `flutter test` process with software rendering forced
+/// (`LIBGL_ALWAYS_SOFTWARE=1`, `GALLIUM_DRIVER=llvmpipe`). See the
+/// "Environment (headless WSL)" section in CLAUDE.md.
 ///
 /// Usage:
 ///   dart run scripts/run_integration_tests.dart
@@ -70,8 +72,8 @@ Future<void> main(List<String> args) async {
   print('🧪 Integration tests — ${files.length} file(s), jobs=$jobs');
   if (jobs > 1) {
     print(
-      '⚠️ jobs>1 can flake under WSLG — use --jobs 1 if you see '
-      '"Failed to load" errors.',
+      'ℹ️ jobs>1 runs files in parallel (separate flutter test processes) — '
+      'supported on the WSL box; retry a failing file with --jobs 1.',
     );
   }
   print('');

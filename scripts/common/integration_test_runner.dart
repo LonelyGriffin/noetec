@@ -54,11 +54,21 @@ class IntegrationTestRunner {
       final stopwatch = Stopwatch()..start();
       Process process;
       try {
+        // WSLg's GPU/EGL path breaks on the second app launch within a single
+        // `flutter test` session ("The log reader stopped unexpectedly, or
+        // never started"). Forcing Mesa software rendering makes launches
+        // reliable on this headless WSL box; the runner injects these into
+        // every child process.
         process = await Process.start('flutter', [
           'test',
           file,
           ...passthroughArgs,
-        ]);
+        ],
+            environment: <String, String>{
+              ...Platform.environment,
+              'LIBGL_ALWAYS_SOFTWARE': '1',
+              'GALLIUM_DRIVER': 'llvmpipe',
+            });
       } catch (e) {
         stopwatch.stop();
         semaphore.release();

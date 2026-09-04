@@ -30,9 +30,25 @@ All commands run from the repo root.
 | `dart run scripts/format.dart` | Format the project (page width 180, from `dart-format.yaml`) |
 | `dart analyze` | Static analysis (`analysis_options.yaml`, flutter_lints + extra rules) |
 | `flutter test` | Run the unit/widget test suite (`test/`) |
-| `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) sequentially — use this instead of `flutter test integration_test/`, which runs files in parallel and flakes under WSLG |
+| `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) — one `flutter test` process per file, software-render env injected (see "Environment (headless WSL)"). Preferred over a raw `flutter test integration_test/` on the WSL daemon box |
 | `dart run build_runner build` | Code generation (json_serializable etc.) |
 | `dart run build_runner watch` | Code generation in watch mode |
+
+## Environment (headless WSL)
+
+Integration tests on the daemon box (WSL2 + WSLg, `DISPLAY=:0`) are sensitive to the GPU/EGL path. The app launches with WSLg's Vulkan/GPU stack, and the **second** app start within a single `flutter test` session fails with `The log reader stopped unexpectedly, or never started` / `Failed to load ...: Unable to start the app` — the first file in the session usually passes.
+
+**Fix:** force Mesa software rendering for the app process:
+
+```sh
+LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe flutter test integration_test/<file>.dart
+```
+
+`scripts/run_integration_tests.dart` injects both variables into every `flutter test` child, so it works without the prefix. Notes:
+
+- `flutter test --concurrency` is **ignored for integration tests** (they run serially per file by design); parallelism is only possible via `--jobs N` in the runner (multiple processes).
+- WSLg's EGL init also prints GPU warnings on first app start; harmless under software rendering.
+- This is an environment workaround for a WSLg/Flutter desktop launch bug, not an app issue.
 
 ## Git & GitHub PR workflow
 
