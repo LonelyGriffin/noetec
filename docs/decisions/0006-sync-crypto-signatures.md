@@ -10,7 +10,7 @@ The storage layer, however, provides no authenticity guarantees. There is no aut
 - Any party with read/write access to the shared folder can open another device's `<deviceId>.oplog.jsonl` and append entries that claim that device's identity, or mint a brand-new `<randomId>.oplog.jsonl` to participate in a document uninvited.
 - Because entries are the sole record of "what changed and who changed it", a forged or replayed entry silently corrupts the merge result and the attribution of edits.
 
-This ADR captures the decision on **which** cryptographic mechanism to use to make OpLog entries tamper-evident and attributable, and **why** the alternatives were rejected. It is extracted from the broader `docs/SYNC_SECURITY_STRATEGY.md`; the normative field names, serializer changes, and the phased rollout live in a separate spec, and the detailed threat taxonomy is tracked there as well.
+This ADR captures the decision on **which** cryptographic mechanism to use to make OpLog entries tamper-evident and attributable, and **why** the alternatives were rejected. It was extracted from a broader sync-security strategy document that has since been split into this ADR and `docs/specs/sync-security.md`; the normative field names, serializer changes, and the phased rollout live in that spec, and the detailed threat taxonomy is tracked there as well.
 
 ## Decision
 
