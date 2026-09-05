@@ -232,6 +232,8 @@ class _RenameFieldState extends State<_RenameField> {
     });
   }
 
+  bool _committed = false;
+
   void _onFocusChange() {
     if (!_focusNode.hasFocus) {
       _commitRename();
@@ -239,6 +241,11 @@ class _RenameFieldState extends State<_RenameField> {
   }
 
   Future<void> _commitRename() async {
+    if (_committed) {
+      return;
+    }
+    _committed = true;
+
     final newName = _controller.text.trim();
     if (newName.isEmpty) {
       widget.onDone();
