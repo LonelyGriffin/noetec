@@ -2,7 +2,7 @@
 
 Entry point for AI coding agents. Keep this file lean: it is auto-injected into
 every session, so it only holds always-true rules and pointers. Details live in
-the docs referenced below — open them only when a task touches their area.
+the docs and skills referenced below — open them only when a task touches their area.
 
 ## Language rules
 
@@ -19,6 +19,8 @@ the docs referenced below — open them only when a task touches their area.
 - No `print()` in production code — use `package:logging`.
 - No `setState()` in view models — use the reactive `it` ecosystem
   (watch_it / listen_it / command_it).
+- **Only Павел approves and merges.** Agents NEVER push to `main`, NEVER merge,
+  NEVER approve, NEVER `git checkout main`. Branch protection on `main` enforces this.
 
 ## Commands
 
@@ -30,40 +32,18 @@ All commands run from the repo root.
 | `dart run scripts/format.dart` | Format the project (page width 180, from `dart-format.yaml`) |
 | `dart analyze` | Static analysis (`analysis_options.yaml`, flutter_lints + extra rules) |
 | `flutter test` | Run the unit/widget test suite (`test/`) |
-| `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) — one `flutter test` process per file, software-render env injected (see "Environment (headless WSL)"). Preferred over a raw `flutter test integration_test/` on the WSL daemon box |
+| `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) — see the `integration-testing` skill |
 | `dart run build_runner build` | Code generation (json_serializable etc.) |
 | `dart run build_runner watch` | Code generation in watch mode |
-
-## Environment (headless WSL)
-
-Integration tests on the daemon box (WSL2 + WSLg, `DISPLAY=:0`) are sensitive to the GPU/EGL path. The app launches with WSLg's Vulkan/GPU stack, and the **second** app start within a single `flutter test` session fails with `The log reader stopped unexpectedly, or never started` / `Failed to load ...: Unable to start the app` — the first file in the session usually passes.
-
-**Fix:** force Mesa software rendering for the app process:
-
-```sh
-LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe flutter test integration_test/<file>.dart
-```
-
-`scripts/run_integration_tests.dart` injects both variables into every `flutter test` child, so it works without the prefix. Notes:
-
-- `flutter test --concurrency` is **ignored for integration tests** (they run serially per file by design); parallelism is only possible via `--jobs N` in the runner (multiple processes).
-- WSLg's EGL init also prints GPU warnings on first app start; harmless under software rendering.
-- This is an environment workaround for a WSLg/Flutter desktop launch bug, not an app issue.
-
-## Git & GitHub PR workflow
-
-- Code flows through GitHub PRs (`https://github.com/LonelyGriffin/noetec.git`). Multica issues track status; **GitHub PRs are the review surface**.
-- Branch per issue: `NOET-XX`. PR title `NOET-XX: <summary>`, body includes `Closes NOET-XX` (auto-closes the issue on merge).
-- Before committing/pushing, run `source $HOME/.config/noetec-gh-app/agent-gh.sh <role>` (roles: `architect` | `developer` | `qa`). It sets your per-agent commit identity, a fresh GitHub App token, and routes all GitHub traffic over HTTPS through the App (never your own SSH key). Re-run it right before push (the token lives ~60 min), and source + push in the SAME shell — the exported `GH_TOKEN` does not survive a new shell.
-- Push: `git push -u origin NOET-XX`. Open PR: `gh pr create --base main --head NOET-XX --title "NOET-XX: ..." --body "…\n\nCloses NOET-XX"`.
-- Review: the Architect posts a verdict with `gh pr review <PR> --comment`. There is NO `gh pr approve` command, and the App cannot approve its own PR (GitHub returns "Can not approve your own pull request") — so the formal approve + merge is done by Павел on GitHub (flow A).
-- **Only Павел approves and merges.** Agents NEVER push to `main`, NEVER merge, NEVER approve, NEVER `git checkout main`. Branch protection on `main` enforces this physically.
 
 ## Conventions
 
 - DI: `get_it`, all registrations in `lib/app/configure_di.dart`.
 - Services: `abstract interface class IXxxService` + `XxxServiceImpl` in one file.
-- Tests mirror `lib/` under `test/lib/` (unit/widget — written by the Developer, who runs the full `flutter test` suite before handoff); integration scenarios live in `integration_test/` (authored by the QA tester for user-facing behavior). No tests for trivial logic; no duplicate coverage.
+- Tests mirror `lib/` under `test/lib/` (unit/widget — Developer, who runs the
+  full `flutter test` suite before handoff); integration scenarios live in
+  `integration_test/` (QA, for user-facing behavior). No tests for trivial
+  logic; no duplicate coverage.
 - Docs are the contract: specs under `docs/specs/` are normative (RFC 2119),
   decisions under `docs/decisions/` are immutable ADRs (supersede with a new
   ADR, never edit).
@@ -72,6 +52,8 @@ LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe flutter test integration_test/<f
 
 | When the task involves… | Read first |
 |---|---|
+| Running integration tests / WSL / GPU-EGL issues | `integration-testing` skill |
+| Committing, pushing, PRs, code review | `git-github-workflow` skill |
 | Markdown parser/serializer, frontmatter, page file format, block IDs | `docs/specs/file-format.md` |
 | Why unidirectional data flow / no setState / command pattern | `docs/decisions/0001-flux-unidirectional-data-flow.md` |
 | Block ID syntax (`::: {#id}` directives) | `docs/decisions/0002-block-ids-via-fenced-directives.md` |

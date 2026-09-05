@@ -12,8 +12,9 @@ All notes are structured as trees of blocks (paragraphs, lists, headings, etc.),
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — system design, data flow, implementation phases
-- [Product Vision](docs/FIRST_VISION.md) — features, sync strategies, future plans
+- [Architecture decisions](docs/decisions/) — ADRs capturing key design choices
+- [Product Vision](docs/product/vision.md) — features, sync strategies, future plans
+- [Specs](docs/specs/) — normative file-format and workflow specs
 
 ## Tech Stack
 
