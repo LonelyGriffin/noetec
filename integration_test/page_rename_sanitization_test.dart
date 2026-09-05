@@ -153,14 +153,12 @@ void main() {
       final pages = await listPages(vaultPath);
       expect(
         pages,
-        containsAll(
-          [
-            'pages/a-b-c.md',
-            'pages/a-b.md',
-            'pages/final.md',
-            'pages/welcome.md',
-          ],
-        ),
+        containsAll([
+          'pages/a-b-c.md',
+          'pages/a-b.md',
+          'pages/final.md',
+          'pages/welcome.md',
+        ]),
       );
       expect(
         await File(p.join(vaultPath, '.noetec', 'session.json')).exists(),

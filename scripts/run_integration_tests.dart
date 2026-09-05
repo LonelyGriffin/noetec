@@ -96,7 +96,9 @@ Future<void> main(List<String> args) async {
 
   final failed = results.where((r) => !r.passed).toList();
   print('');
-  print('🧪 Summary: ${results.length - failed.length}/${results.length} passed');
+  print(
+    '🧪 Summary: ${results.length - failed.length}/${results.length} passed',
+  );
   if (failed.isNotEmpty) {
     print('🛑 Failed:');
     for (final r in failed) {

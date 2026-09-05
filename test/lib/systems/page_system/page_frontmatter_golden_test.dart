@@ -86,8 +86,10 @@ void main() {
 
       test('$name: encode(parse(file)) reproduces the LF-normalized file', () {
         final result = PageFrontmatterCodec.parse(_readFixture(name));
-        final reencoded =
-            PageFrontmatterCodec.encode(result.frontmatter, result.content);
+        final reencoded = PageFrontmatterCodec.encode(
+          result.frontmatter,
+          result.content,
+        );
 
         expect(
           reencoded,
@@ -101,15 +103,17 @@ void main() {
   });
 
   group('PageFrontmatterCodec spec §3.4 edge cases —', () {
-    test('missing frontmatter: synthesizes fresh id, treats whole file as body',
-        () {
-      const input = 'Just some content without frontmatter';
+    test(
+      'missing frontmatter: synthesizes fresh id, treats whole file as body',
+      () {
+        const input = 'Just some content without frontmatter';
 
-      final result = PageFrontmatterCodec.parse(input);
+        final result = PageFrontmatterCodec.parse(input);
 
-      expect(result.frontmatter.id, isNotEmpty);
-      expect(result.content, input);
-    });
+        expect(result.frontmatter.id, isNotEmpty);
+        expect(result.content, input);
+      },
+    );
 
     test('malformed YAML: whole file is content, fresh id is synthesized', () {
       const input = '---\nthis is not: [valid yaml\n---\n\nBody text';
@@ -133,7 +137,8 @@ void main() {
       expect(
         result.frontmatter.contentHash,
         isNot(equals('sha256:')),
-        reason: 'content_hash should be recomputed per §3.4.3, not left as '
+        reason:
+            'content_hash should be recomputed per §3.4.3, not left as '
             'the empty placeholder.',
       );
       expect(result.content, 'Body');
@@ -146,15 +151,17 @@ void main() {
       expect(result.content, '');
     });
 
-    test('whitespace-only file: parses to empty body plus fresh frontmatter',
-        () {
-      final result = PageFrontmatterCodec.parse('   \n\n  \n');
+    test(
+      'whitespace-only file: parses to empty body plus fresh frontmatter',
+      () {
+        final result = PageFrontmatterCodec.parse('   \n\n  \n');
 
-      expect(result.frontmatter.id, isNotEmpty);
-      // Spec §3.4.4: a file containing only whitespace MUST parse to an
-      // empty content body.
-      expect(result.content, '');
-    });
+        expect(result.frontmatter.id, isNotEmpty);
+        // Spec §3.4.4: a file containing only whitespace MUST parse to an
+        // empty content body.
+        expect(result.content, '');
+      },
+    );
 
     test('CRLF line endings are normalized to LF before parsing', () {
       const input =
@@ -169,7 +176,8 @@ void main() {
     });
 
     test('unterminated frontmatter: whole file is content, fresh id', () {
-      const input = '---\nid: abc\ncontent_hash: sha256:xyz\nBody without close';
+      const input =
+          '---\nid: abc\ncontent_hash: sha256:xyz\nBody without close';
 
       final result = PageFrontmatterCodec.parse(input);
 
