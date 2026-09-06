@@ -42,7 +42,8 @@ All commands run from the repo root.
 - Services: `abstract interface class IXxxService` + `XxxServiceImpl` in one file.
 - Tests mirror `lib/` under `test/lib/` (unit/widget — Developer, who runs the
   full `flutter test` suite before handoff); integration scenarios live in
-  `integration_test/` (QA, for user-facing behavior). No tests for trivial
+  `integration_test/` (QA, for user-facing behavior) — QA commits and pushes its
+  `integration_test/` changes to the branch it is testing. No tests for trivial
   logic; no duplicate coverage.
 - Docs are the contract: specs under `docs/specs/` are normative (RFC 2119),
   decisions under `docs/decisions/` are immutable ADRs (supersede with a new
