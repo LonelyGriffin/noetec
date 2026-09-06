@@ -9,6 +9,7 @@ import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/hlc_service.dart';
 import 'package:noetec/service/id_service.dart';
+import 'package:noetec/service/rename_controller.dart';
 import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/service/settings_service.dart';
 import 'package:noetec/service/vault_file_service.dart';
@@ -77,6 +78,13 @@ Future<void> configureDI({
       getIt<IFileSystemService>(),
       getIt<VaultSystem>(),
       getIt<PageSystem>(),
+    ),
+  );
+
+  getIt.registerSingleton<RenameController>(
+    RenameController(
+      getIt<VaultFileService>(),
+      getIt<VaultSystem>(),
     ),
   );
 

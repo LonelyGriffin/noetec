@@ -179,7 +179,9 @@ void main() {
   /// rebuild dropped focus, the focus-loss handler — so `_commitRename` ran
   /// twice. The second `renamePage` call found the target path already
   /// present and threw `PageNameConflictException`, which surfaced as an
-  /// unhandled error. With the `_committed` guard, Enter commits exactly
+  /// unhandled error. With the `RenameController` phase guard (`confirm`
+  /// transitions editing -> committing before calling renamePage, so the
+  /// second call is a no-op), Enter commits exactly
   /// once: file renamed, old path gone, no error surfaced, field cleared.
   ///
   /// Soundness of "exactly once": a second commit would throw (target
@@ -249,9 +251,9 @@ void main() {
     }
   });
 
-  /// AC: Escape still cancels without committing. The `_committed` guard is
-  /// only set inside `_commitRename`; `_cancelRename` never reaches it, so
-  /// the guard cannot affect Escape — but we verify it end-to-end: type a
+  /// AC: Escape still cancels without committing. The `RenameController`
+  /// commit-once invariant only guards `confirm`; `cancel` never reaches it,
+  /// so the guard cannot affect Escape — but we verify it end-to-end: type a
   /// name, press Escape, and confirm the file was NOT renamed and no error
   /// surfaced (the created placeholder page survives).
   testWidgets('Escape cancels rename without committing', (tester) async {

@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:noetec/service/rename_controller.dart';
 import 'package:noetec/service/vault_file_service.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
@@ -70,7 +71,7 @@ class PagesPanel extends WatchingWidget {
     if (vault == null) return;
 
     final relativePath = await vaultFileService.createPage(vault.rootPath);
-    vaultFileService.renamingPath.value = relativePath;
+    di<RenameController>().start(relativePath);
   }
 }
 
@@ -95,16 +96,17 @@ class _TreeNodeState extends State<_TreeNode> {
     final hasChildren = children.isNotEmpty;
     final theme = Theme.of(context);
     final vaultFileService = di<VaultFileService>();
+    final renameController = di<RenameController>();
 
     return ListenableBuilder(
       listenable: Listenable.merge([
-        vaultFileService.renamingPath,
+        renameController.activePath,
         vaultFileService.selectedPagePath,
       ]),
       builder: (context, _) {
         final isRenaming =
             node is PageFileItem &&
-            vaultFileService.renamingPath.value == node.relativePath;
+            renameController.activePath.value == node.relativePath;
         final isSelected =
             node is PageFileItem &&
             vaultFileService.selectedPagePath.value == node.relativePath;
@@ -149,11 +151,7 @@ class _TreeNodeState extends State<_TreeNode> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: isRenaming
-                          ? _RenameField(
-                              node: node,
-                              onDone: () =>
-                                  vaultFileService.renamingPath.value = null,
-                            )
+                          ? _RenameField(node: node)
                           : Text(
                               node.name,
                               style: theme.textTheme.bodyMedium,
@@ -186,7 +184,7 @@ class _TreeNodeState extends State<_TreeNode> {
       vaultFileService.selectedPagePath.value = node.relativePath;
 
       if (isSecondTap) {
-        vaultFileService.renamingPath.value = node.relativePath;
+        di<RenameController>().start(node.relativePath);
       } else {
         _openPage(node);
       }
@@ -201,10 +199,9 @@ class _TreeNodeState extends State<_TreeNode> {
 }
 
 class _RenameField extends StatefulWidget {
-  const _RenameField({required this.node, required this.onDone});
+  const _RenameField({required this.node});
 
   final PageFileItem node;
-  final VoidCallback onDone;
 
   @override
   State<_RenameField> createState() => _RenameFieldState();
@@ -213,10 +210,12 @@ class _RenameField extends StatefulWidget {
 class _RenameFieldState extends State<_RenameField> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
+  late final RenameController _rename;
 
   @override
   void initState() {
     super.initState();
+    _rename = di<RenameController>();
     final nameWithoutExt = widget.node.name.endsWith('.md')
         ? widget.node.name.substring(0, widget.node.name.length - 3)
         : widget.node.name;
@@ -232,47 +231,25 @@ class _RenameFieldState extends State<_RenameField> {
     });
   }
 
-  bool _committed = false;
-
   void _onFocusChange() {
     if (!_focusNode.hasFocus) {
-      _commitRename();
+      _onCommit();
     }
   }
 
-  Future<void> _commitRename() async {
-    if (_committed) {
-      return;
-    }
-    _committed = true;
-
-    final newName = _controller.text.trim();
-    if (newName.isEmpty) {
-      widget.onDone();
-      return;
-    }
-
-    final vaultFileService = di<VaultFileService>();
-    final vault = di<VaultSystem>().currentVault.value;
-    if (vault == null) {
-      widget.onDone();
-      return;
-    }
-
-    try {
-      await vaultFileService.renamePage(
-        vault.rootPath,
-        widget.node.relativePath,
-        newName,
-      );
-    } finally {
-      vaultFileService.renamingPath.value = null;
-    }
+  /// Reports the "commit" intent to the [RenameController].
+  ///
+  /// Both Enter ([TextField.onSubmitted]) and focus-loss funnel through here,
+  /// and the controller guarantees the rename runs at most once per session —
+  /// the second call observes a non-`editing` phase and is a no-op. This view
+  /// no longer calls `renamePage` or touches `renamingPath` itself.
+  void _onCommit() {
+    _rename.confirm(_controller.text);
   }
 
-  void _cancelRename() {
-    final vaultFileService = di<VaultFileService>();
-    vaultFileService.renamingPath.value = null;
+  /// Reports the "cancel" intent (Escape) to the [RenameController].
+  void _onCancel() {
+    _rename.cancel();
   }
 
   @override
@@ -289,7 +266,7 @@ class _RenameFieldState extends State<_RenameField> {
       focusNode: FocusNode(),
       onKeyEvent: (event) {
         if (event.logicalKey == LogicalKeyboardKey.escape) {
-          _cancelRename();
+          _onCancel();
         }
       },
       child: TextField(
@@ -302,7 +279,7 @@ class _RenameFieldState extends State<_RenameField> {
           border: InputBorder.none,
         ),
         style: Theme.of(context).textTheme.bodyMedium,
-        onSubmitted: (_) => _commitRename(),
+        onSubmitted: (_) => _onCommit(),
       ),
     );
   }
