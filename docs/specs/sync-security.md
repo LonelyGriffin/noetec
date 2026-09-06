@@ -11,10 +11,12 @@ document.
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY**
 are interpreted as described in RFC 2119.
 
-The base entry format (`version`, `hlc`, `parent`, `parentB`, `type`,
-`blockOps`, `fileOp`, `fileHash`, `deviceId`), the HLC key format, and the
-on-disk layout of device files are defined by the existing codebase; this
-document extends that format. `docs/specs/file-format.md` is the style and
+The base entry format (wire keys `v`, `hlc`, `parent`, `parent_b`, `type`,
+`device`, `block_ops`, `file_op`, `file_hash`), the HLC key format, and the
+on-disk layout of device files are defined by the existing codebase
+(`lib/systems/oplog_system/oplog_serializer.dart`); this document extends that
+format. Where the signing input references an entry (§2.2), it is the **wire
+representation** (snake_case keys) that is serialized and signed. `docs/specs/file-format.md` is the style and
 format reference; where the two documents overlap, this document is
 authoritative for the sync security extensions.
 
@@ -121,7 +123,9 @@ signingInput = canonicalJson(entryWithoutSignature) + documentPath
 ```
 
 - `entryWithoutSignature` is the entry object **without** `signature`; all
-  other keys (including `pubKey`) **MUST** be present exactly as serialized.
+  other keys (including `pubKey`) **MUST** be present exactly as serialized —
+  i.e. the wire representation with snake_case keys (`v`, `hlc`, `parent`,
+  `parent_b`, `type`, `device`, `block_ops`, `file_op`, `file_hash`).
 - `documentPath` is the page path relative to the vault root, no extension,
   `/` separators (e.g. `notes/ideas`), appended with no separator.
 

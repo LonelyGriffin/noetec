@@ -63,7 +63,7 @@ All commands run from the repo root.
 | DI container choice, get_it/watch_it/listen_it ecosystem | `docs/decisions/0005-get-it-di-ecosystem.md` |
 | Product capabilities, roadmap, what/why of the project | `docs/product/vision.md` |
 | Vault user workflow end-to-end | `docs/specs/01-vault-user-workflow.spec` |
-| Sync security format & verification rules (signatures, manifest, witnesses, TOFU) | `docs/specs/sync-security.md` |
+| Sync security format & verification rules (signatures, registries, witnesses, TOFU) | `docs/specs/sync-security.md` |
 | Why Ed25519 signatures for sync OpLog security | `docs/decisions/0006-sync-crypto-signatures.md` |
 
 If a referenced doc and the code disagree, the spec is right and the code has a
