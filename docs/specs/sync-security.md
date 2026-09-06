@@ -3,7 +3,7 @@
 **Format version: 1 (draft)**
 
 This document is the normative specification of the security extensions to the
-Noetec sync operation log (OpLog) entry format: signatures, device
+Noetec sync operation log (OpLog) entry format: signatures, user & device
 authorization, witness references, and key-trust validation. Implementations
 **MUST** conform to it; divergence is a bug in the implementation, not in this
 document.
@@ -23,7 +23,8 @@ unsigned legacy data (§8):
 
 - **Phase 1 — Signatures** (mandatory): every entry is signed with the
   authoring device's Ed25519 key.
-- **Phase 2 — Device authorization manifest**: an allow-list of devices.
+- **Phase 2 — User & device registries**: per-user device registries and an
+  owner-signed user registry.
 - **Phase 3 — Witness fields** (`seen`): each entry records the latest entries
   it observed from other devices, making truncation detectable.
 - **Phase 4 — TOFU and HLC drift validation**: trust-on-first-use key pinning
@@ -47,8 +48,9 @@ One append-only JSONL file per device per page:
   keys). Extensions **MUST NOT** change this.
 - The local device identity, including its public key, lives in
   `.noetec/device.json`.
-- This document defines two more files: `.sync/.manifest.json` (Phase 2) and
-  `.noetec/trusted_keys.json` (Phase 4).
+- This document defines more files: `.sync/users.json` and
+  `.sync/devices/<userId>.json` (Phase 2) and `.noetec/trusted_keys.json`
+  (Phase 4).
 
 ### 1.2 Entry format, extended
 
@@ -66,8 +68,8 @@ legacy and accepted during migration (§8.1).
 ### 1.3 Threat model
 
 The adversary has **read/write access to the shared sync folder** — able to
-read, append, truncate, or replace oplog files and the manifest — but does
-**not** possess any device's private key. Out of scope: an adversary with
+read, append, truncate, or replace oplog files and the registry files — but
+does **not** possess any device's private key. Out of scope: an adversary with
 access to a device's secure key storage, and one able to tamper with *all*
 devices at once (the first legitimate observation of a key is always trusted,
 §5.2).
@@ -79,23 +81,34 @@ devices at once (the first legitimate observation of a key is always trusted,
 ### 2.1 Keys
 
 - The signature algorithm **MUST** be Ed25519.
-- Each device holds exactly one key pair per vault, generated at first device
-  registration (**SHOULD**).
-- The **public key** is the 32-byte Ed25519 key, **MUST** be base64url-encoded
-  (RFC 4648 §5, no padding), and **MUST** be stored:
-  - in `device.json` (`public_key` JSON key) for the local device, and
-  - in the **first entry** of the device's oplog file (`pubKey` field), so
-    other devices can obtain it during sync.
+- There are **two** key kinds (see ADR-0007 for the derivation rationale):
+  - a **user identity key** — an Ed25519 key pair shared by every device of
+    one user, derived deterministically from a seed; and
+  - a **device key** — an independent Ed25519 key pair, one per machine,
+    generated at first device registration (**SHOULD**), **not** derived from
+    the seed.
+  A device is bound to its user by a **certificate** signed by the user's
+  identity key (§3).
+- Every **public key** is the 32-byte Ed25519 key, **MUST** be base64url-
+  encoded (RFC 4648 §5, no padding), and **MUST** be stored:
+  - the **device** public key — in `device.json` (`public_key` JSON key) for
+    the local device, and in the **first entry** of the device's oplog file
+    (`pubKey` field), so other devices can obtain it during sync;
+  - the **identity** public key — in the user registry `users.json`
+    (`publicKey` field, §3).
 - **Encoding migration.** Legacy `device.json` files encode `public_key` as
-  standard base64 **with** padding (RFC 4648 §4). On first Phase-1 read, an
-  implementation **MUST** detect the legacy form (the value contains `+`,
-  `/`, or `=`), decode it, and re-encode as base64url; it **MAY** rewrite the
-  file on first write. All wire formats defined here (entries, manifest,
-  `trusted_keys.json`) **MUST** use base64url exclusively.
-- The **private key** **MUST NOT** be stored in the sync folder or any plain
-  file; it **MUST** live in platform secure storage
-  (`flutter_secure_storage`). Only the authoring device may produce signatures
-  for its `deviceUuid`.
+  standard base64 **with** padding (RFC 4648 §4); the current device-key
+  generator (`lib/service/crypto_service.dart`) still emits this padded form
+  via `base64Encode`. On first Phase-1 read, an implementation **MUST** detect
+  the legacy form (the value contains `+`, `/`, or `=`), decode it, and
+  re-encode as base64url; it **MAY** rewrite the file on first write. All wire
+  formats defined here (entries, registry files, `trusted_keys.json`) **MUST**
+  use base64url exclusively.
+- **Private keys and the seed** **MUST NOT** be stored in the sync folder or
+  any plain file; the seed, the identity private key, and the device private
+  key **MUST** live in platform secure storage (`flutter_secure_storage`).
+  Only the authoring device may produce signatures for its `deviceUuid`; only
+  a user's devices may produce signatures for that user's `userId`.
 - `deviceUuid` **MUST** remain the identity in HLC keys, `deviceId`, and file
   names.
 
@@ -146,77 +159,185 @@ Processing each device file from first to last entry:
 
 ---
 
-## 3. Phase 2 — Device authorization manifest
+## 3. Phase 2 — User & device registries
 
 ### 3.1 Purpose
 
-Phase 1 binds entries to a key but not to a set of devices. Phase 2 adds an
-explicit allow-list.
+Phase 1 binds each entry to a **device key** (§2.4). Phase 2 binds that device
+to a **user** and restricts which users may contribute. Two registry files in
+the synced `.sync/` area define the authorization model:
 
-### 3.2 Manifest file
+- `.sync/users.json` — the **user registry**, one per vault, signed by the
+  owner's identity key.
+- `.sync/devices/<userId>.json` — a **device registry** per user, signed by
+  that user's identity key.
 
-Stored at `.sync/.manifest.json` (one per vault). **MUST** be a single JSON
-object:
+The attribution chain is:
+
+```text
+entry → device (device key, §2) → user (certificate) → authorized (registry)
+```
+
+### 3.2 User registry (`users.json`)
+
+`.sync/users.json` (one per vault) **MUST** be a single JSON object:
 
 ```json
 {
-  "owner_device_uuid": "<owner device uuid>",
-  "authorized_devices": [
+  "version": 1,
+  "revision": "<HLC key>",
+  "parent": "<HLC key of the previous revision, or null>",
+  "owner_user_id": "<userId of the owner>",
+  "users": [
     {
-      "uuid": "<device uuid>",
-      "public_key": "<base64url Ed25519 public key>",
-      "added_by": "<uuid of the device that authorized this device>",
+      "userId": "<user id>",
+      "name": "<display name>",
+      "publicKey": "<base64url Ed25519 identity public key>",
+      "role": "owner | member",
+      "addedBy": "<userId whose identity key signs this record>",
+      "updatedAt": "<HLC key>",
+      "removedAt": "<HLC key or null>",
       "signature": "<base64url Ed25519 signature>"
     }
   ],
-  "manifest_signature": "<base64url Ed25519 signature>"
+  "signature": "<base64url Ed25519 signature over the whole file>"
 }
 ```
 
-All keys **MUST** be snake_case (a reader **MUST** reject any other key name
-as invalid). Field semantics:
+Field semantics:
 
-- `owner_device_uuid` — the owning device's `deviceUuid` (**MUST** be
-  present).
-- `authorized_devices` — the allow-list (**MUST** be present; empty is
-  valid). The owner **MAY** be listed; if absent it is implicitly authorized.
-  Each record:
-  - `uuid` — the authorized `deviceUuid` (**MUST** be unique).
-  - `public_key` — its base64url Ed25519 key (§2.1).
-  - `added_by` — the `deviceUuid` whose key signs this record; for
-    owner-added devices **MUST** equal `owner_device_uuid`.
-  - `signature` — Ed25519 over `canonicalJson(recordWithoutSignature)`
-    (§2.2), by the `added_by` device.
-- `manifest_signature` — Ed25519 over
-  `canonicalJson(manifestWithoutSignature)` (§2.2), by the **owner**.
+- `version` — **MUST** be the integer `1`.
+- `revision` / `parent` — HLC keys. `revision` stamps this file version;
+  `parent` is the previous `revision` (or `null` on the first). Together they
+  form the merge history (§3.7).
+- `owner_user_id` — **MUST** be present; the `userId` that administers this
+  registry.
+- `users` — **MUST** be present (empty is valid). Each record:
+  - `userId` — **MUST** be unique (a UUID).
+  - `name` — display name.
+  - `publicKey` — the user's base64url identity key (§2.1).
+  - `role` — `owner` or `member`. The owner's record **MUST** carry `owner`.
+    Only `owner` is enforced in v1: the owner administers `users.json`.
+  - `addedBy` — the `userId` whose identity key signs this record.
+  - `updatedAt` — the HLC key of the last change to this record.
+  - `removedAt` — the HLC key at which the user was removed, or `null`
+    (tombstone; §3.6).
+  - `signature` — Ed25519 over `canonicalJson(recordWithoutSignature)` (§2.2),
+    by `addedBy`'s identity key.
+- `signature` — whole-file Ed25519 over
+  `canonicalJson(fileWithoutSignature)` (§2.2), by the **owner's** identity
+  key.
 
-**Key resolution.** The verifier takes the owner's key from the TOFU trust
-store (§5.1), i.e. the `pubKey` pinned when the owner's file was first
-observed (TOFU runs before the manifest filter, §7). If the owner's key cannot
-be resolved, the manifest **MUST** be treated as absent (public, §8.2) — never
-a rejection. `added_by` keys resolve the same way (pinned key, or the first
-entry of that device's file).
+### 3.3 Device registry (`devices/<userId>.json`)
 
-A writer **MUST** produce all signatures; a reader **MUST NOT** accept a
-manifest whose `manifest_signature` fails under the owner's key, or a record
-whose `signature` fails under its `added_by` key. An invalid manifest
-**MUST** be treated as absent (§8.2) and reported.
+`.sync/devices/<userId>.json` (one per user) **MUST** be a single JSON object:
 
-### 3.3 Authorization check
+```json
+{
+  "version": 1,
+  "revision": "<HLC key>",
+  "parent": "<HLC key of the previous revision, or null>",
+  "userId": "<user id this file belongs to>",
+  "devices": [
+    {
+      "deviceUuid": "<device uuid>",
+      "devicePublicKey": "<base64url Ed25519 device public key>",
+      "userId": "<user id>",
+      "deviceName": "<display name>",
+      "issuedAt": "<HLC key>",
+      "updatedAt": "<HLC key>",
+      "removedAt": "<HLC key or null>",
+      "signature": "<base64url Ed25519 signature>"
+    }
+  ],
+  "signature": "<base64url Ed25519 signature over the whole file>"
+}
+```
 
-With a valid manifest, reject every entry whose `deviceId` is not in
-`authorized_devices` and is not `owner_device_uuid`. A rejected device's key
-**MUST NOT** be added to the trust store (§5.1).
+Field semantics:
 
-### 3.4 Adding and revoking devices
+- `version`, `revision`, `parent` — as in §3.2.
+- `userId` — **MUST** equal the `userId` in the file name.
+- `devices` — **MUST** be present (empty is valid). Each record is a device
+  **certificate** (§2.1) plus merge fields:
+  - `deviceUuid` — the device's `deviceUuid` (**MUST** be unique).
+  - `devicePublicKey` — its base64url device key (§2.1).
+  - `userId` — the owning user (**MUST** equal the file's `userId`).
+  - `deviceName` — display name.
+  - `issuedAt` — the HLC key at which the device was bound to the user.
+  - `updatedAt` — the HLC key of the last change to this record.
+  - `removedAt` — the HLC key at which the device was revoked, or `null`
+    (tombstone; §3.6).
+  - `signature` — Ed25519 over `canonicalJson(recordWithoutSignature)`, by the
+    user's identity key.
+- `signature` — whole-file Ed25519 over
+  `canonicalJson(fileWithoutSignature)`, by the **user's** identity key.
 
-- **Add**: the owner (or, for future extensions, an already-authorized
-  device) signs a new record, appends it, and re-signs the manifest.
-- **Revoke**: the owner removes the record and re-signs. Revocation is not
-  retroactive — already-signed entries remain in the DAG; the device just
-  stops adding new ones.
-- The manifest **MAY** be updated while devices are online; each update is an
-  atomic file replacement.
+The unique file name makes the device registry conflict-free by construction:
+each user manages only their own file, so two users adding devices never
+conflict. Two devices of the *same* user can still race; the same merge rules
+apply (§3.7).
+
+### 3.4 Signing and key resolution
+
+- A writer **MUST** produce every whole-file and per-record signature above.
+- A reader **MUST NOT** accept a registry file whose whole-file `signature`
+  fails under the file's signing key (owner for `users.json`, the user for
+  their `devices/<userId>.json`), or a record whose `signature` fails under
+  its `addedBy`/user key.
+- **Key resolution.** The owner's identity key is the root of trust: it is
+  TOFU-pinned on first observation of `users.json` (§5). Other users' identity
+  keys resolve from their `users.json` record. A device key resolves from the
+  first entry's `pubKey` (§2.1) and is cross-checked against the certificate's
+  `devicePublicKey`. An invalid registry **MUST** be treated as absent (§8.2)
+  and reported.
+
+### 3.5 Authorization check
+
+With valid registries, an entry is **authorized** only if:
+
+1. its `deviceId` is listed (and not `removedAt`) in some user's
+   `devices/<userId>.json`, whose certificate verifies under that user's
+   identity key and whose `devicePublicKey` equals the key that signed the
+   entry; **and**
+2. that user's `userId` is listed (and not `removedAt`) in `users.json`.
+
+Any other entry is rejected; a rejected device's key **MUST NOT** be added to
+the trust store (§5.1).
+
+### 3.6 Adding and revoking
+
+- **Add a user**: the owner signs a new `users` record (`addedBy` =
+  `owner_user_id`), appends it, and re-signs `users.json`.
+- **Remove a user**: the owner sets the record's `removedAt` (tombstone) and
+  re-signs.
+- **Add a device**: the user signs a new `devices` record in their own
+  `devices/<userId>.json` and re-signs the file.
+- **Revoke a device**: the user sets the record's `removedAt` and re-signs.
+- Revocation is not retroactive — already-signed entries remain in the DAG;
+  the revoked user/device just stops contributing new ones.
+- Each update is an atomic file replacement; `revision`/`parent` advance
+  (§3.7).
+
+### 3.7 Registry merge (LWW, HLC)
+
+Both registries are versioned documents merged with **last-write-wins per
+record**, **not** per file:
+
+- `revision` / `parent` are HLC keys forming a version chain (like OpLog
+  entries). A 3-way merge uses `parent` as the common ancestor.
+- For each record (keyed by `userId` in `users.json`, `deviceUuid` in
+  `devices/<userId>.json`), compare `updatedAt` / `removedAt` by
+  **component-wise HLC order** (§4.1) — `physicalMs`, then `counter`, then
+  `deviceId`, never lexicographic.
+- The record with the latest HLC wins. Identical HLC ties **MUST** be broken
+  deterministically by `canonicalJson` (§2.2).
+- A record with `removedAt` set is a **tombstone**: it removes the user/device
+  regardless of `updatedAt` ordering, unless a newer record (later HLC)
+  re-adds it.
+- **File-level LWW** (larger `revision` wins) is only a fallback when no common
+  ancestor exists; it **MUST** report the dropped side rather than silently
+  discarding it.
 
 ---
 
@@ -267,8 +388,9 @@ of *another* device's file becomes detectable:
 
 ### 5.1 Trusted keys file
 
-`.noetec/trusted_keys.json` (outside the syncable `.sync` area) maps
-`deviceUuid` to the base64url key first observed:
+`.noetec/trusted_keys.json` (outside the syncable `.sync` area) maps an
+identifier to the base64url key first observed — a `deviceUuid` to its device
+key, and a `userId` to its identity key:
 
 ```json
 {
@@ -278,23 +400,27 @@ of *another* device's file becomes detectable:
 
 (the value is a base64url 32-byte key — 43 chars, no padding)
 
+The owner's identity key is pinned on first observation of `users.json` and is
+the root of trust for the registries (§3.4).
+
 ### 5.2 TOFU rules
 
-On first observing a device's `pubKey`:
+On first observing a key — a device's `pubKey`, or a user's identity key from
+`users.json`:
 
 1. Not in `trusted_keys.json` → **MUST** record it (first observation is
    trusted).
 2. Present and **equal** → verify normally (§2.4).
 3. Present and **different** → key substitution (file-replacement attack, or
-   a device that lost its key): **MUST NOT** merge the file's entries,
+   a device/user that lost its key): **MUST NOT** merge the file's entries,
    **MUST** warn the user and show both keys; the user **MAY** confirm the new
    key (then update `trusted_keys.json` and re-verify), otherwise the stored
    key stays authoritative.
 
 ### 5.3 Scope
 
-Per-device local state: **MUST NOT** be synced or shared between vaults;
-**MAY** be reset by the user (re-arming first-observation trust).
+Per-device/per-user local state: **MUST NOT** be synced or shared between
+vaults; **MAY** be reset by the user (re-arming first-observation trust).
 
 ---
 
@@ -327,12 +453,17 @@ Checks **MUST** run in this order; a failure stops processing of the affected
 entries:
 
 1. **Parse** lines; invalid JSON lines are rejected in place.
-2. **Signature** (§2.4) — on failure, reject entry + rest of chain.
-3. **TOFU** (§5.2) — pin or reject the device key.
-4. **Manifest filter** (§3.3) — reject non-listed devices (only if a valid
-   manifest exists).
-5. **HLC drift** (§6) — reject/flag future timestamps.
-6. **Witness consistency** (§4.3) — report dangling references.
+2. **Signature** (§2.4) — verify the entry under its device key; on failure,
+   reject entry + rest of chain.
+3. **TOFU** (§5.2) — pin or reject the device key. TOFU runs **before** the
+   registry filter so a new device's key is pinned before its authorization is
+   judged.
+4. **Certificate** (§3.3) — resolve the device to its user via
+   `devices/<userId>.json` and verify the certificate.
+5. **Registry filter** (§3.5) — reject devices whose user is not authorized in
+   `users.json`.
+6. **HLC drift** (§6) — reject/flag future timestamps.
+7. **Witness consistency** (§4.3) — report dangling references.
 
 Phases an implementation has not adopted are simply absent from the pipeline.
 
@@ -354,13 +485,15 @@ All extensions are additive; existing unsigned data **MUST** keep working.
   default **MUST** remain acceptance.
 - A Phase-1 device **MUST** sign every entry it writes from then on.
 
-### 8.2 Phase 2 — absent manifest
+### 8.2 Phase 2 — absent registry
 
-- No `.sync/.manifest.json` → document is **public**: any device with a valid
-  key may contribute.
+- No `.sync/users.json` → document is **public**: any device with a valid key
+  may contribute.
 - Present but invalid (malformed or unverifiable) → treated as absent
-  (public) and **MUST** be reported. A broken manifest **MUST NOT** lock out
+  (public) and **MUST** be reported. A broken registry **MUST NOT** lock out
   devices.
+- With a valid `users.json`, a device whose user is absent or `removedAt`, or
+  whose certificate is missing or `removedAt`, is rejected per §3.5.
 
 ### 8.3 Phase 3 — absent `seen`
 
@@ -391,7 +524,7 @@ Implementations **MUST** surface (and log via `package:logging`) rather than
 silently drop:
 
 1. Failed signature (§2.4).
-2. Non-manifest device (§3.3).
+2. Non-registry device or user (§3.5).
 3. TOFU key mismatch (§5.2) — show both keys, offer confirmation.
 4. HLC drift violation (§6).
 5. Dangling witness reference (§4.3) — name the file and key.
@@ -437,8 +570,9 @@ Order-of-magnitude guidance on a mid-range mobile device:
 - **Batch signing (MAY, not in v1):** Merkle-root signing is out of scope for
   v1 and **MUST NOT** be mixed with per-entry signatures.
 
-The manifest adds one signature verification per sync cycle (negligible);
-`seen` adds at most `O(other devices)` pairs per entry.
+The registries add a small, constant number of signature verifications per
+sync cycle (negligible); `seen` adds at most `O(other devices)` pairs per
+entry.
 
 ---
 
@@ -458,6 +592,9 @@ The manifest adds one signature verification per sync cycle (negligible);
 ## 13. References
 
 - RFC 2119 — Key words for use in RFCs.
+- RFC 4648 — The Base16, Base32, and Base64 Data Encodings.
 - Ed25519 — https://ed25519.cr.yp.to/
 - Hybrid Logical Clocks (Kulkarni et al.) — https://www.cse.buffalo.edu/tech-reports/2014-04.pdf
 - `docs/specs/file-format.md` — page file format (style reference).
+- `docs/decisions/0007-user-device-identity-and-registry.md` — multi-user
+  identity and registry model.
