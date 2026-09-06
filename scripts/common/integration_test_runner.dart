@@ -59,16 +59,15 @@ class IntegrationTestRunner {
         // never started"). Forcing Mesa software rendering makes launches
         // reliable on this headless WSL box; the runner injects these into
         // every child process.
-        process = await Process.start('flutter', [
-          'test',
-          file,
-          ...passthroughArgs,
-        ],
-            environment: <String, String>{
-              ...Platform.environment,
-              'LIBGL_ALWAYS_SOFTWARE': '1',
-              'GALLIUM_DRIVER': 'llvmpipe',
-            });
+        process = await Process.start(
+          'flutter',
+          ['test', file, ...passthroughArgs],
+          environment: <String, String>{
+            ...Platform.environment,
+            'LIBGL_ALWAYS_SOFTWARE': '1',
+            'GALLIUM_DRIVER': 'llvmpipe',
+          },
+        );
       } catch (e) {
         stopwatch.stop();
         semaphore.release();
