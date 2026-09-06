@@ -21,6 +21,12 @@ the docs and skills referenced below — open them only when a task touches thei
   (watch_it / listen_it / command_it).
 - **Only Павел approves and merges.** Agents NEVER push to `main`, NEVER merge,
   NEVER approve, NEVER `git checkout main`. Branch protection on `main` enforces this.
+- **Work in an isolated worktree, never a shared clone.** All agents share one
+  machine, so a shared `git checkout` moves the branch under the others and strands
+  their uncommitted work. Start every task with
+  `multica repo checkout https://github.com/LonelyGriffin/noetec.git` (an isolated
+  linked worktree), then branch `NOET-XX` inside it — see the `git-github-workflow`
+  skill. Never `git checkout`/`reset`/`rebase` in a shared directory.
 
 ## Commands
 
