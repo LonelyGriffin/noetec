@@ -58,7 +58,7 @@ All commands run from the repo root.
 | Markdown parser/serializer, frontmatter, page file format, block IDs | `docs/specs/file-format.md` |
 | Why unidirectional data flow / no setState / command pattern | `docs/decisions/0001-flux-unidirectional-data-flow.md` |
 | Block ID syntax (`::: {#id}` directives) | `docs/decisions/0002-block-ids-via-fenced-directives.md` |
-| Frontmatter fields, device identity, `modified_by` | `docs/decisions/0003-no-device-identity-until-sync.md` |
+| Device identity & attribution, `modified_by` (deferred) | `docs/decisions/0007-user-device-identity-and-registry.md` |
 | Storage layout, why plain `.md` files, local-first | `docs/decisions/0004-local-first-markdown-file-storage.md` |
 | DI container choice, get_it/watch_it/listen_it ecosystem | `docs/decisions/0005-get-it-di-ecosystem.md` |
 | Product capabilities, roadmap, what/why of the project | `docs/product/vision.md` |
