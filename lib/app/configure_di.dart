@@ -12,6 +12,7 @@ import 'package:noetec/service/id_service.dart';
 import 'package:noetec/service/rename_controller.dart';
 import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/service/settings_service.dart';
+import 'package:noetec/service/user_service.dart';
 import 'package:noetec/service/vault_file_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
 import 'package:noetec/systems/oplog_system/oplog_system.dart';
@@ -50,6 +51,14 @@ Future<void> configureDI({
       getIt<ISecureKeyStore>(),
     ),
   );
+  getIt.registerSingleton<IUserService>(
+    UserServiceImpl(
+      getIt<IFileSystemService>(),
+      getIt<IIdService>(),
+      getIt<ICryptoService>(),
+      getIt<ISecureKeyStore>(),
+    ),
+  );
   getIt.registerSingleton<IVaultRepository>(
     VaultRepositoryImpl(getIt<ISettingsService>()),
   );
@@ -82,10 +91,7 @@ Future<void> configureDI({
   );
 
   getIt.registerSingleton<RenameController>(
-    RenameController(
-      getIt<VaultFileService>(),
-      getIt<VaultSystem>(),
-    ),
+    RenameController(getIt<VaultFileService>(), getIt<VaultSystem>()),
   );
 
   getIt.registerSingleton<HlcService>(

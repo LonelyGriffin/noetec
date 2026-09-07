@@ -55,6 +55,14 @@ class FakeCryptoService implements ICryptoService {
       privateKeyBase64: 'fake-private-key-base64',
     );
   }
+
+  @override
+  Future<IdentityKeyPair> deriveIdentityKeyPair(List<int> entropy32) async {
+    return const IdentityKeyPair(
+      publicKeyBase64Url: 'fake-identity-public-b64url',
+      privateKeyBase64Url: 'fake-identity-private-b64url',
+    );
+  }
 }
 
 class FakeSecureKeyStore implements ISecureKeyStore {
@@ -78,6 +86,31 @@ class FakeSecureKeyStore implements ISecureKeyStore {
   @override
   Future<void> deleteDevicePrivateKey(String vaultId) async =>
       _store.remove(vaultId);
+
+  @override
+  Future<void> storeIdentitySeed(String vaultId, String seedBase64Url) async {
+    _store['identity_seed.$vaultId'] = seedBase64Url;
+  }
+
+  @override
+  Future<String?> readIdentitySeed(String vaultId) async =>
+      _store['identity_seed.$vaultId'];
+
+  @override
+  Future<bool> hasIdentitySeed(String vaultId) async =>
+      _store.containsKey('identity_seed.$vaultId');
+
+  @override
+  Future<void> storeIdentityPrivateKey(
+    String vaultId,
+    String identityPrivateKeyBase64Url,
+  ) async {
+    _store['identity_private.$vaultId'] = identityPrivateKeyBase64Url;
+  }
+
+  @override
+  Future<String?> readIdentityPrivateKey(String vaultId) async =>
+      _store['identity_private.$vaultId'];
 }
 
 void main() {
