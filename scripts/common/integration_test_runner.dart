@@ -6,6 +6,7 @@
 // ignore_for_file: avoid_print
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 
 class TestResult {
@@ -65,9 +66,22 @@ class IntegrationTestRunner {
         // the shell. `dart` works without this because it's `dart.exe`.
         // The Mesa software-rendering vars are Linux-only (WSL); on Windows
         // they're meaningless, so only inject them off-Windows.
+        //
+        // On Windows `flutter test` needs an explicit device: Windows desktop,
+        // Chrome and Edge all count as "connected", so the tool refuses to
+        // guess. Default to the Windows desktop app; override via `-- -d X`.
+        final hasDeviceFlag = passthroughArgs.any(
+          (a) => a == '-d' || a == '--device',
+        );
+        final testArgs = <String>[
+          'test',
+          file,
+          if (Platform.isWindows && !hasDeviceFlag) ...['-d', 'windows'],
+          ...passthroughArgs,
+        ];
         process = await Process.start(
           'flutter',
-          ['test', file, ...passthroughArgs],
+          testArgs,
           runInShell: Platform.isWindows,
           environment: <String, String>{
             ...Platform.environment,
@@ -97,8 +111,10 @@ class IntegrationTestRunner {
       final stdoutBuffer = StringBuffer();
       final stderrBuffer = StringBuffer();
 
-      process.stdout.listen((data) => stdoutBuffer.write(data));
-      process.stderr.listen((data) => stderrBuffer.write(data));
+      // Decode process output to UTF-8; writing the raw List<int> to a
+      // StringBuffer would render as `[77, 111, 114, ...]` byte codes.
+      process.stdout.transform(utf8.decoder).listen(stdoutBuffer.write);
+      process.stderr.transform(utf8.decoder).listen(stderrBuffer.write);
 
       final exitCode = await process.exitCode;
       stopwatch.stop();
