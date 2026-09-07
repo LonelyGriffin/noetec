@@ -117,7 +117,7 @@ void main() {
         // The original page must be intact: not renamed, not deleted
         expect(await File(p.join(vaultPath, relative)).exists(), isTrue);
         // No bogus file may have appeared
-        expect(await listPages(vaultPath), isNot(contains('pages/.md')));
+        expect(await listPages(vaultPath), isNot(contains(p.join('pages', '.md'))));
       });
 
       // Act 4: reject a rename that collides with an existing page
@@ -155,10 +155,10 @@ void main() {
       expect(
         pages,
         containsAll([
-          'pages/a-b-c.md',
-          'pages/a-b.md',
-          'pages/final.md',
-          'pages/welcome.md',
+          p.join('pages', 'a-b-c.md'),
+          p.join('pages', 'a-b.md'),
+          p.join('pages', 'final.md'),
+          p.join('pages', 'welcome.md'),
         ]),
       );
       expect(
@@ -235,7 +235,7 @@ void main() {
       // AC: renamed exactly once — new path present, no duplicate, and the
       // panel now shows the page name (rename field cleared, commit done).
       final pages = await listPages(vaultPath);
-      expect(pages, contains('pages/entered.md'));
+      expect(pages, contains(p.join('pages', 'entered.md')));
       expect(
         pages.where((e) => e.contains('untitled')).isEmpty,
         isTrue,
