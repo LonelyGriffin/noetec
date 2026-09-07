@@ -59,13 +59,22 @@ class IntegrationTestRunner {
         // never started"). Forcing Mesa software rendering makes launches
         // reliable on this headless WSL box; the runner injects these into
         // every child process.
+        // On Windows `flutter` is `flutter.bat` (a batch script), which
+        // CreateProcess can't execute directly — Dart's Process.start throws
+        // "The system cannot find the file specified" unless we go through
+        // the shell. `dart` works without this because it's `dart.exe`.
+        // The Mesa software-rendering vars are Linux-only (WSL); on Windows
+        // they're meaningless, so only inject them off-Windows.
         process = await Process.start(
           'flutter',
           ['test', file, ...passthroughArgs],
+          runInShell: Platform.isWindows,
           environment: <String, String>{
             ...Platform.environment,
-            'LIBGL_ALWAYS_SOFTWARE': '1',
-            'GALLIUM_DRIVER': 'llvmpipe',
+            if (!Platform.isWindows) ...{
+              'LIBGL_ALWAYS_SOFTWARE': '1',
+              'GALLIUM_DRIVER': 'llvmpipe',
+            },
           },
         );
       } catch (e) {
