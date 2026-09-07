@@ -63,7 +63,6 @@ class VaultFileService {
   final VaultSystem _vaultSystem;
   final PageSystem _pageSystem;
   final fileTree = ListNotifier<PageFileNode>();
-  final renamingPath = ValueNotifier<String?>(null);
   final selectedPagePath = ValueNotifier<String?>(null);
 
   static const _uuid = Uuid();
@@ -75,12 +74,10 @@ class VaultFileService {
   void _onVaultChanged() {
     final vault = _vaultSystem.currentVault.value;
     if (vault != null) {
-      renamingPath.value = null;
       selectedPagePath.value = null;
       unawaited(scanFileTree(vault.rootPath));
     } else {
       fileTree.clear();
-      renamingPath.value = null;
       selectedPagePath.value = null;
     }
   }
@@ -213,7 +210,6 @@ class VaultFileService {
   void dispose() {
     _vaultSystem.currentVault.removeListener(_onVaultChanged);
     _pageSystem.activePageId.removeListener(_onActivePageChanged);
-    renamingPath.dispose();
     selectedPagePath.dispose();
     fileTree.dispose();
   }

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:integration_test/integration_test.dart';
@@ -163,6 +164,151 @@ void main() {
       expect(
         await File(p.join(vaultPath, '.noetec', 'session.json')).exists(),
         isTrue,
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await GetIt.instance.reset();
+      await parentDir.dispose();
+    }
+  });
+
+  /// E2E Scenario: the exact NOET-17 bug. Committing a rename by pressing
+  /// Enter previously fired `onSubmitted` and, after the `finally`-driven
+  /// rebuild dropped focus, the focus-loss handler — so `_commitRename` ran
+  /// twice. The second `renamePage` call found the target path already
+  /// present and threw `PageNameConflictException`, which surfaced as an
+  /// unhandled error. With the `RenameController` phase guard (`confirm`
+  /// transitions editing -> committing before calling renamePage, so the
+  /// second call is a no-op), Enter commits exactly
+  /// once: file renamed, old path gone, no error surfaced, field cleared.
+  ///
+  /// Soundness of "exactly once": a second commit would throw (target
+  /// exists) -> takeException() non-null; zero commits -> file not renamed
+  /// -> contains('entered.md') fails. Only exactly-once satisfies all.
+  testWidgets('Enter commit renames exactly once (no double-commit error)',
+      (tester) async {
+    final fileSystem = TestFileSystemService();
+    final settings = InMemorySettingsService();
+    final secureKeyStore = InMemorySecureKeyStore();
+    final parentDir = await VaultFolderFixture.createEmpty();
+    fileSystem.nextPickPath = parentDir.rootPath;
+
+    await configureDI(
+      fileSystem: fileSystem,
+      settings: settings,
+      secureKeyStore: secureKeyStore,
+    );
+
+    try {
+      await tester.pumpWidget(const MainApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(findCreateVaultButton());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(findVaultNameField(), 'EnterVault');
+      await tester.tap(findDialogCreateButton());
+      await tester.pumpAndSettle();
+
+      final vaultPath = p.join(parentDir.rootPath, 'EnterVault');
+
+      // Create a fresh page; the panel auto-enters rename with the
+      // suggested name selected.
+      await tester.tap(findNewPageButton());
+      await tester.pumpAndSettle();
+      expect(findPageRenameField(), findsOneWidget);
+
+      // Type the new name, then commit with Enter (done action) — NOT by
+      // tapping away, so the onSubmitted path is exercised directly.
+      await tester.enterText(findPageRenameField(), 'entered');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      // AC: no error surfaced (the second commit used to throw
+      // PageNameConflictException / PathNotFoundException).
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Enter commit must not surface a double-commit error',
+      );
+
+      // AC: renamed exactly once — new path present, no duplicate, and the
+      // panel now shows the page name (rename field cleared, commit done).
+      final pages = await listPages(vaultPath);
+      expect(pages, contains('pages/entered.md'));
+      expect(
+        pages.where((e) => e.contains('untitled')).isEmpty,
+        isTrue,
+        reason: 'the suggested-name placeholder must be gone, not duplicated',
+      );
+      expect(findPageInPanel('entered.md'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await GetIt.instance.reset();
+      await parentDir.dispose();
+    }
+  });
+
+  /// AC: Escape still cancels without committing. The `RenameController`
+  /// commit-once invariant only guards `confirm`; `cancel` never reaches it,
+  /// so the guard cannot affect Escape — but we verify it end-to-end: type a
+  /// name, press Escape, and confirm the file was NOT renamed and no error
+  /// surfaced (the created placeholder page survives).
+  testWidgets('Escape cancels rename without committing', (tester) async {
+    final fileSystem = TestFileSystemService();
+    final settings = InMemorySettingsService();
+    final secureKeyStore = InMemorySecureKeyStore();
+    final parentDir = await VaultFolderFixture.createEmpty();
+    fileSystem.nextPickPath = parentDir.rootPath;
+
+    await configureDI(
+      fileSystem: fileSystem,
+      settings: settings,
+      secureKeyStore: secureKeyStore,
+    );
+
+    try {
+      await tester.pumpWidget(const MainApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(findCreateVaultButton());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(findVaultNameField(), 'EscapeVault');
+      await tester.tap(findDialogCreateButton());
+      await tester.pumpAndSettle();
+
+      final vaultPath = p.join(parentDir.rootPath, 'EscapeVault');
+
+      // Create a fresh page; the panel auto-enters rename.
+      await tester.tap(findNewPageButton());
+      await tester.pumpAndSettle();
+      expect(findPageRenameField(), findsOneWidget);
+
+      // Type a name, then press Escape to cancel.
+      await tester.enterText(findPageRenameField(), 'canceled');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // AC: no error surfaced.
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Escape cancel must not surface an error',
+      );
+
+      // AC: NOT committed — typed name absent, placeholder (untitled*) remains.
+      final pages = await listPages(vaultPath);
+      expect(
+        pages.where((e) => e.contains('canceled')).isEmpty,
+        isTrue,
+        reason: 'Escape must cancel — the typed name must not be written',
+      );
+      expect(
+        pages.where((e) => e.contains('untitled')).isNotEmpty,
+        isTrue,
+        reason: 'the created placeholder page must survive the cancel',
       );
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
