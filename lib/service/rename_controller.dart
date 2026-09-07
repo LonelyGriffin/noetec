@@ -5,7 +5,7 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:command_it/command_it.dart';
 import 'package:noetec/service/vault_file_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 
@@ -17,8 +17,9 @@ enum _RenamePhase {
   /// A node is in rename mode and the user is editing its name.
   editing,
 
-  /// [RenameController.confirm] is running [VaultFileService.renamePage];
-  /// any further confirm/cancel calls are ignored.
+  /// [RenameController.confirmCommand] is running
+  /// [VaultFileService.renamePage]; any further begin/confirm/cancel intents
+  /// are ignored until the rename settles.
   committing,
 }
 
@@ -30,17 +31,18 @@ enum _RenamePhase {
 /// left the field") both reached `_commitRename`, and the widget's own
 /// teardown (removing the field) re-entered through the focus-loss path.
 ///
-/// Here the guarantee is an invariant of this state machine: [confirm]
+/// Here the guarantee is an invariant of this state machine: [confirmCommand]
 /// transitions `editing -> committing` *before* it calls
-/// [VaultFileService.renamePage], so a second [confirm] (Enter racing the
+/// [VaultFileService.renamePage], so a second confirm (Enter racing the
 /// focus-loss handler, a repeated Enter, or the field being torn down) observes
 /// `committing` and is a no-op. The widget no longer calls
 /// [VaultFileService.renamePage] at all and no longer tracks "has it
 /// committed?" itself.
 ///
 /// Real rename errors ([PageNameConflictException], [PageNameInvalidException])
-/// are intentionally *not* caught here: they still propagate to the caller
-/// exactly as before. The guard deduplicates; it does not swallow errors.
+/// are intentionally *not* caught here: they propagate to [confirmCommand]'s
+/// error surface (`.errors`), exactly like other commands in the app. The
+/// state machine only deduplicates; it does not swallow errors.
 final class RenameController {
   RenameController(this._vaultFileService, this._vaultSystem) {
     // Mirror the previous `VaultFileService` behavior of clearing the active
@@ -56,38 +58,55 @@ final class RenameController {
   ///
   /// Single source of truth for the tree (replaces the former
   /// `VaultFileService.renamingPath` notifier).
-  final ValueNotifier<String?> activePath = ValueNotifier<String?>(null);
+  final CustomValueNotifier<String?> activePath = CustomValueNotifier<String?>(
+    null,
+  );
 
   _RenamePhase _phase = _RenamePhase.idle;
   String? _target;
 
-  /// Begins a rename session for [relativePath] and makes it the active node.
+  /// Arms a rename session for [relativePath] and makes it the active node.
   ///
-  /// A no-op while a commit is in flight, so a new session can never be armed
-  /// in the middle of an in-progress rename.
-  void start(String relativePath) {
+  /// A no-op while a commit is in flight: a new session is never armed in the
+  /// middle of an in-progress rename.
+  late final beginCommand = Command.createAsyncNoResult<String>(
+    _begin,
+    debugName: 'renameBegin',
+  );
+
+  /// Commits the rename with [newName], running
+  /// [VaultFileService.renamePage] at most once per session.
+  ///
+  /// An empty [newName], no active vault, or no armed session closes the
+  /// session without renaming. A real rename error is allowed to propagate to
+  /// the command's `.errors`; the session is still closed afterward.
+  late final confirmCommand = Command.createAsyncNoResult<String>(
+    _confirm,
+    debugName: 'renameConfirm',
+  );
+
+  /// Abandons the current session without renaming.
+  ///
+  /// A no-op while a commit is in flight (cancelling mid-rename would leave
+  /// the tree inconsistent with an in-flight file rename).
+  late final cancelCommand = Command.createAsyncNoParamNoResult(
+    _cancel,
+    debugName: 'renameCancel',
+  );
+
+  Future<void> _begin(String relativePath) async {
     if (_phase == _RenamePhase.committing) return;
     _target = relativePath;
     _phase = _RenamePhase.editing;
     activePath.value = relativePath;
   }
 
-  /// Abandons the current session without renaming.
-  ///
-  /// A no-op while a commit is in flight (cancelling mid-rename would leave
-  /// the tree inconsistent with an in-flight file rename).
-  void cancel() {
+  Future<void> _cancel() async {
     if (_phase == _RenamePhase.committing) return;
     _close();
   }
 
-  /// Commits the rename with [newName], running
-  /// [VaultFileService.renamePage] at most once per session.
-  ///
-  /// An empty [newName], no active vault, or no armed session closes the
-  /// session without renaming. A real rename error is allowed to propagate;
-  /// the session is still closed afterward.
-  Future<void> confirm(String newName) async {
+  Future<void> _confirm(String newName) async {
     if (_phase != _RenamePhase.editing) return;
     final name = newName.trim();
     final target = _target;
@@ -115,12 +134,16 @@ final class RenameController {
 
   void _close() {
     _phase = _RenamePhase.idle;
+    _target = null;
     activePath.value = null;
   }
 
   /// Releases [activePath] and detaches from [VaultSystem.currentVault].
   void dispose() {
     _vaultSystem.currentVault.removeListener(_onVaultChanged);
+    beginCommand.dispose();
+    confirmCommand.dispose();
+    cancelCommand.dispose();
     activePath.dispose();
   }
 }

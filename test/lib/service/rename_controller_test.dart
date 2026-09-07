@@ -18,8 +18,11 @@ import '../../helpers/test_fakes.dart';
 /// be scripted to fail, so the tests can assert exactly how many times the
 /// rename is invoked regardless of the (fake) file system.
 class _RecordingVaultFileService extends VaultFileService {
-  _RecordingVaultFileService(super.fileSystem, super.vaultSystem,
-      super.pageSystem);
+  _RecordingVaultFileService(
+    super.fileSystem,
+    super.vaultSystem,
+    super.pageSystem,
+  );
 
   final List<List<String>> renameCalls = [];
   Exception Function()? _onRename;
@@ -76,64 +79,66 @@ void main() {
   });
 
   group('RenameController — commit-once invariant (NOET-17)', () {
-    test('confirm() renames exactly once (Enter + focus-loss both fire it)',
-        () async {
-      controller.start(oldPath);
-      await controller.confirm('renamed');
-      // A second confirm (the focus-loss re-entry) must be a no-op.
-      await controller.confirm('renamed');
-      expect(vfs.renameCalls, hasLength(1));
-    });
+    test(
+      'confirmCommand renames exactly once (Enter + focus-loss both fire it)',
+      () async {
+        await controller.beginCommand.runAsync(oldPath);
+        await controller.confirmCommand.runAsync('renamed');
+        // A second confirm (the focus-loss re-entry) must be a no-op.
+        await controller.confirmCommand.runAsync('renamed');
+        expect(vfs.renameCalls, hasLength(1));
+      },
+    );
 
-    test('two concurrent confirms() still rename exactly once', () async {
-      controller.start(oldPath);
-      // Simulate Enter (onSubmitted) racing the focus-loss handler: both call
-      // confirm() before either has settled.
+    test('two concurrent confirmCommands still rename exactly once', () async {
+      await controller.beginCommand.runAsync(oldPath);
+      // Simulate Enter (onSubmitted) racing the focus-loss handler: both
+      // confirm before either has settled.
       await Future.wait([
-        controller.confirm('renamed'),
-        controller.confirm('renamed'),
+        controller.confirmCommand.runAsync('renamed'),
+        controller.confirmCommand.runAsync('renamed'),
       ]);
       expect(vfs.renameCalls, hasLength(1));
     });
 
     test('a confirm after the session is closed is a no-op', () async {
-      controller.start(oldPath);
-      controller.cancel();
-      await controller.confirm('renamed');
+      await controller.beginCommand.runAsync(oldPath);
+      await controller.cancelCommand.runAsync();
+      await controller.confirmCommand.runAsync('renamed');
       expect(vfs.renameCalls, isEmpty);
       expect(controller.activePath.value, isNull);
     });
 
-    test('cancel() abandons the session without renaming', () async {
-      controller.start(oldPath);
+    test('cancelCommand abandons the session without renaming', () async {
+      await controller.beginCommand.runAsync(oldPath);
       expect(controller.activePath.value, oldPath);
 
-      controller.cancel();
+      await controller.cancelCommand.runAsync();
 
       expect(vfs.renameCalls, isEmpty);
       expect(controller.activePath.value, isNull);
     });
 
     test('an empty name closes the session without renaming', () async {
-      controller.start(oldPath);
-      await controller.confirm('   ');
+      await controller.beginCommand.runAsync(oldPath);
+      await controller.confirmCommand.runAsync('   ');
 
       expect(vfs.renameCalls, isEmpty);
       expect(controller.activePath.value, isNull);
     });
 
     test('confirming with no active vault closes without renaming', () async {
-      controller.start(oldPath);
+      await controller.beginCommand.runAsync(oldPath);
       vaultSystem.currentVault.value = null;
 
-      await controller.confirm('renamed');
+      await controller.confirmCommand.runAsync('renamed');
 
       expect(vfs.renameCalls, isEmpty);
       expect(controller.activePath.value, isNull);
     });
 
-    test('opening/closing the vault clears an armed session', () {
-      controller.start(oldPath);
+    test('opening/closing the vault clears an armed session', () async {
+      await controller.beginCommand.runAsync(oldPath);
       expect(controller.activePath.value, oldPath);
 
       vaultSystem.currentVault.value = null;
@@ -142,42 +147,47 @@ void main() {
     });
 
     test('confirming when no session is armed is a no-op', () async {
-      await controller.confirm('renamed');
+      await controller.confirmCommand.runAsync('renamed');
       expect(vfs.renameCalls, isEmpty);
       expect(controller.activePath.value, isNull);
     });
   });
 
   group('RenameController — real rename errors still propagate', () {
-    test('PageNameConflictException propagates and closes the session',
-        () async {
-      vfs.whenRename(() => const PageNameConflictException('renamed.md'));
-      controller.start(oldPath);
+    test(
+      'PageNameConflictException propagates and closes the session',
+      () async {
+        vfs.whenRename(() => const PageNameConflictException('renamed.md'));
+        await controller.beginCommand.runAsync(oldPath);
+        // Local listener mirrors how the app consumes command errors (via
+        // `.errors`); it also satisfies command_it's local-handler routing.
+        controller.confirmCommand.errors.addListener(() {});
 
-      Object? caught;
-      try {
-        await controller.confirm('renamed');
-      } on Exception catch (e) {
-        caught = e;
-      }
-      expect(caught, isA<PageNameConflictException>());
-      expect(controller.activePath.value, isNull);
-      expect(vfs.renameCalls, hasLength(1));
-    });
+        await expectLater(
+          controller.confirmCommand.runAsync('renamed'),
+          throwsA(isA<PageNameConflictException>()),
+        );
 
-    test('PageNameInvalidException propagates and closes the session', () async {
-      vfs.whenRename(() => const PageNameInvalidException('..'));
-      controller.start(oldPath);
+        expect(controller.activePath.value, isNull);
+        expect(vfs.renameCalls, hasLength(1));
+      },
+    );
 
-      Object? caught;
-      try {
-        await controller.confirm('..');
-      } on Exception catch (e) {
-        caught = e;
-      }
-      expect(caught, isA<PageNameInvalidException>());
-      expect(controller.activePath.value, isNull);
-      expect(vfs.renameCalls, hasLength(1));
-    });
+    test(
+      'PageNameInvalidException propagates and closes the session',
+      () async {
+        vfs.whenRename(() => const PageNameInvalidException('..'));
+        await controller.beginCommand.runAsync(oldPath);
+        controller.confirmCommand.errors.addListener(() {});
+
+        await expectLater(
+          controller.confirmCommand.runAsync('..'),
+          throwsA(isA<PageNameInvalidException>()),
+        );
+
+        expect(controller.activePath.value, isNull);
+        expect(vfs.renameCalls, hasLength(1));
+      },
+    );
   });
 }

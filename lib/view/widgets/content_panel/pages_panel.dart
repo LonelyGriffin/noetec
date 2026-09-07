@@ -71,7 +71,7 @@ class PagesPanel extends WatchingWidget {
     if (vault == null) return;
 
     final relativePath = await vaultFileService.createPage(vault.rootPath);
-    di<RenameController>().start(relativePath);
+    di<RenameController>().beginCommand.run(relativePath);
   }
 }
 
@@ -184,7 +184,7 @@ class _TreeNodeState extends State<_TreeNode> {
       vaultFileService.selectedPagePath.value = node.relativePath;
 
       if (isSecondTap) {
-        di<RenameController>().start(node.relativePath);
+        di<RenameController>().beginCommand.run(node.relativePath);
       } else {
         _openPage(node);
       }
@@ -244,12 +244,12 @@ class _RenameFieldState extends State<_RenameField> {
   /// the second call observes a non-`editing` phase and is a no-op. This view
   /// no longer calls `renamePage` or touches `renamingPath` itself.
   void _onCommit() {
-    _rename.confirm(_controller.text);
+    _rename.confirmCommand.run(_controller.text);
   }
 
   /// Reports the "cancel" intent (Escape) to the [RenameController].
   void _onCancel() {
-    _rename.cancel();
+    _rename.cancelCommand.run();
   }
 
   @override
