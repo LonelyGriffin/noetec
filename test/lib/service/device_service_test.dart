@@ -6,7 +6,7 @@ import 'package:noetec/service/crypto_service.dart';
 import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
-import 'package:noetec/service/secure_key_store.dart';
+import '../../helpers/test_fakes.dart';
 
 class FakeFileSystemService implements IFileSystemService {
   final Map<String, String> files = {};
@@ -63,54 +63,6 @@ class FakeCryptoService implements ICryptoService {
       privateKeyBase64Url: 'fake-identity-private-b64url',
     );
   }
-}
-
-class FakeSecureKeyStore implements ISecureKeyStore {
-  final Map<String, String> _store = {};
-
-  @override
-  Future<void> storeDevicePrivateKey(
-    String vaultId,
-    String devicePrivateKeyBase64,
-  ) async {
-    _store[vaultId] = devicePrivateKeyBase64;
-  }
-
-  @override
-  Future<String?> readDevicePrivateKey(String vaultId) async => _store[vaultId];
-
-  @override
-  Future<bool> hasDevicePrivateKey(String vaultId) async =>
-      _store.containsKey(vaultId);
-
-  @override
-  Future<void> deleteDevicePrivateKey(String vaultId) async =>
-      _store.remove(vaultId);
-
-  @override
-  Future<void> storeIdentitySeed(String vaultId, String seedBase64Url) async {
-    _store['identity_seed.$vaultId'] = seedBase64Url;
-  }
-
-  @override
-  Future<String?> readIdentitySeed(String vaultId) async =>
-      _store['identity_seed.$vaultId'];
-
-  @override
-  Future<bool> hasIdentitySeed(String vaultId) async =>
-      _store.containsKey('identity_seed.$vaultId');
-
-  @override
-  Future<void> storeIdentityPrivateKey(
-    String vaultId,
-    String identityPrivateKeyBase64Url,
-  ) async {
-    _store['identity_private.$vaultId'] = identityPrivateKeyBase64Url;
-  }
-
-  @override
-  Future<String?> readIdentityPrivateKey(String vaultId) async =>
-      _store['identity_private.$vaultId'];
 }
 
 void main() {

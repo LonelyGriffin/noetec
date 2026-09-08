@@ -91,7 +91,10 @@ Future<void> configureDI({
   );
 
   getIt.registerSingleton<RenameController>(
-    RenameController(getIt<VaultFileService>(), getIt<VaultSystem>()),
+    RenameController(
+      getIt<VaultFileService>(),
+      getIt<VaultSystem>(),
+    ),
   );
 
   getIt.registerSingleton<HlcService>(

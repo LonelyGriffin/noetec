@@ -8,59 +8,8 @@ import 'dart:convert';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/service/crypto_service.dart';
-import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/service/user_service.dart';
 import '../../helpers/test_fakes.dart';
-
-class FakeSecureKeyStore implements ISecureKeyStore {
-  final Map<String, String> _store = {};
-
-  @override
-  Future<void> storeDevicePrivateKey(
-    String vaultId,
-    String devicePrivateKeyBase64,
-  ) async {
-    _store['device.$vaultId'] = devicePrivateKeyBase64;
-  }
-
-  @override
-  Future<String?> readDevicePrivateKey(String vaultId) async =>
-      _store['device.$vaultId'];
-
-  @override
-  Future<bool> hasDevicePrivateKey(String vaultId) async =>
-      _store.containsKey('device.$vaultId');
-
-  @override
-  Future<void> deleteDevicePrivateKey(String vaultId) async {
-    _store.remove('device.$vaultId');
-  }
-
-  @override
-  Future<void> storeIdentitySeed(String vaultId, String seedBase64Url) async {
-    _store['seed.$vaultId'] = seedBase64Url;
-  }
-
-  @override
-  Future<String?> readIdentitySeed(String vaultId) async =>
-      _store['seed.$vaultId'];
-
-  @override
-  Future<bool> hasIdentitySeed(String vaultId) async =>
-      _store.containsKey('seed.$vaultId');
-
-  @override
-  Future<void> storeIdentityPrivateKey(
-    String vaultId,
-    String identityPrivateKeyBase64Url,
-  ) async {
-    _store['private.$vaultId'] = identityPrivateKeyBase64Url;
-  }
-
-  @override
-  Future<String?> readIdentityPrivateKey(String vaultId) async =>
-      _store['private.$vaultId'];
-}
 
 void main() {
   late FakeFileSystemService fs;
@@ -170,6 +119,21 @@ void main() {
       expect(loaded!.name, 'Bob');
       expect(loaded.role, 'owner');
       expect(service.currentIdentity, isNotNull);
+    });
+
+    test('loadIdentity sets currentIdentity from a clean state', () async {
+      // Write identity.json with one service instance.
+      await service.createIdentity(vaultRoot, vaultId, name: 'Carol');
+
+      // A brand-new service (no prior create) starts with null state.
+      final fresh = buildService(fs, keyStore);
+      expect(fresh.currentIdentity, isNull);
+
+      final loaded = await fresh.loadIdentity(vaultRoot);
+      expect(loaded, isNotNull);
+      expect(loaded!.name, 'Carol');
+      expect(fresh.currentIdentity, isNotNull);
+      expect(fresh.currentIdentity!.publicKey, loaded.publicKey);
     });
 
     test('clear() drops the in-memory identity', () async {

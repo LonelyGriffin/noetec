@@ -18,8 +18,9 @@ import 'secure_key_store.dart';
 /// A freshly created user identity.
 ///
 /// [mnemonic] is the 24-word BIP39 backup of the 32-byte entropy seed. It is
-/// shown once at creation for backup (ADR-0007 §2) and is also persisted in
-/// secure storage so the identity can be restored on other devices.
+/// shown once at creation for backup (ADR-0007 §2). The 32-byte entropy seed
+/// from which it is derived — not the mnemonic itself — is persisted in secure
+/// storage so the identity can be restored on other devices.
 final class CreatedIdentity {
   const CreatedIdentity({required this.identity, required this.mnemonic});
 
@@ -55,9 +56,12 @@ abstract interface class IUserService {
 
   /// Restores an identity from a 24-word BIP39 [mnemonic].
   ///
-  /// Deterministic: the same mnemonic always yields the same identity key.
-  /// [userId] (when omitted) is read from an existing `identity.json`, else
-  /// a fresh UUID is generated.
+  /// Deterministic: the same mnemonic always yields the same identity **key**
+  /// (public/private). [userId] (when omitted) is read from an existing
+  /// `identity.json`, else a fresh UUID is generated — i.e. on a clean device
+  /// only `publicKey` is deterministic, while `userId`/`name` are not. The
+  /// authoritative source of `userId` on restore (e.g. lookup by `publicKey` in
+  /// the `users.json` registry) is pinned down in NOET-29.
   Future<UserIdentity> restoreIdentity(
     String vaultRootPath,
     String vaultId,
@@ -202,7 +206,11 @@ class UserServiceImpl implements IUserService {
     final path = _identityPath(vaultRootPath);
     if (!await _fileSystem.fileExists(path)) return null;
     final content = await _fileSystem.readFile(path);
-    return UserIdentity.fromJson(jsonDecode(content) as Map<String, dynamic>);
+    final identity = UserIdentity.fromJson(
+      jsonDecode(content) as Map<String, dynamic>,
+    );
+    _currentIdentity = identity;
+    return identity;
   }
 
   @override
