@@ -5,6 +5,7 @@ import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
+import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 
@@ -104,4 +105,58 @@ VaultSystem createTestVaultSystem({
     idService ?? FakeIdService(),
     deviceService ?? FakeDeviceService(),
   );
+}
+
+/// In-memory [ISecureKeyStore] shared by the device- and user-service unit
+/// tests (replaces the per-file copies that previously drifted apart).
+class FakeSecureKeyStore implements ISecureKeyStore {
+  final Map<String, String> _store = {};
+
+  String _key(String prefix, String vaultId) => '$prefix.$vaultId';
+
+  @override
+  Future<void> storeDevicePrivateKey(
+    String vaultId,
+    String devicePrivateKeyBase64,
+  ) async {
+    _store[_key('device', vaultId)] = devicePrivateKeyBase64;
+  }
+
+  @override
+  Future<String?> readDevicePrivateKey(String vaultId) async =>
+      _store[_key('device', vaultId)];
+
+  @override
+  Future<bool> hasDevicePrivateKey(String vaultId) async =>
+      _store.containsKey(_key('device', vaultId));
+
+  @override
+  Future<void> deleteDevicePrivateKey(String vaultId) async {
+    _store.remove(_key('device', vaultId));
+  }
+
+  @override
+  Future<void> storeIdentitySeed(String vaultId, String seedBase64Url) async {
+    _store[_key('seed', vaultId)] = seedBase64Url;
+  }
+
+  @override
+  Future<String?> readIdentitySeed(String vaultId) async =>
+      _store[_key('seed', vaultId)];
+
+  @override
+  Future<bool> hasIdentitySeed(String vaultId) async =>
+      _store.containsKey(_key('seed', vaultId));
+
+  @override
+  Future<void> storeIdentityPrivateKey(
+    String vaultId,
+    String identityPrivateKeyBase64Url,
+  ) async {
+    _store[_key('private', vaultId)] = identityPrivateKeyBase64Url;
+  }
+
+  @override
+  Future<String?> readIdentityPrivateKey(String vaultId) async =>
+      _store[_key('private', vaultId)];
 }

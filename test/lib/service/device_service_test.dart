@@ -6,7 +6,7 @@ import 'package:noetec/service/crypto_service.dart';
 import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
-import 'package:noetec/service/secure_key_store.dart';
+import '../../helpers/test_fakes.dart';
 
 class FakeFileSystemService implements IFileSystemService {
   final Map<String, String> files = {};
@@ -55,29 +55,14 @@ class FakeCryptoService implements ICryptoService {
       privateKeyBase64: 'fake-private-key-base64',
     );
   }
-}
-
-class FakeSecureKeyStore implements ISecureKeyStore {
-  final Map<String, String> _store = {};
 
   @override
-  Future<void> storeDevicePrivateKey(
-    String vaultId,
-    String devicePrivateKeyBase64,
-  ) async {
-    _store[vaultId] = devicePrivateKeyBase64;
+  Future<IdentityKeyPair> deriveIdentityKeyPair(List<int> entropy32) async {
+    return const IdentityKeyPair(
+      publicKeyBase64Url: 'fake-identity-public-b64url',
+      privateKeyBase64Url: 'fake-identity-private-b64url',
+    );
   }
-
-  @override
-  Future<String?> readDevicePrivateKey(String vaultId) async => _store[vaultId];
-
-  @override
-  Future<bool> hasDevicePrivateKey(String vaultId) async =>
-      _store.containsKey(vaultId);
-
-  @override
-  Future<void> deleteDevicePrivateKey(String vaultId) async =>
-      _store.remove(vaultId);
 }
 
 void main() {

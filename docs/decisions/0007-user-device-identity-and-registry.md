@@ -26,8 +26,8 @@ The chosen model is hierarchical cryptographic identity with seed recovery.
   user's identity key.
 - The identity key is derived from the seed with **HKDF-SHA256** (RFC 5869):
   `salt = "noetec.identity.v1"`, `info = "noetec-identity-key"`, 32-byte output
-  used as the Ed25519 secret seed. The seed is produced from the BIP39 mnemonic
-  via PBKDF2-HMAC-SHA512 (2048 iterations), per BIP39.
+  used as the Ed25519 secret seed. The mnemonic is only a human-readable backup
+  of the seed (restored via `mnemonicToEntropy`); PBKDF2 is not used.
 
 Attribution chain: `entry → device (device key) → user (certificate) →
 authorized (registry)`.
@@ -69,6 +69,11 @@ than silently dropping.
 ## Status
 
 Accepted.
+
+Revised 2026-09-08: withdrew the PBKDF2 clause in §1 (it contradicted the first
+bullet and the HKDF clause). The identity key derives from the 32-byte entropy
+seed via HKDF-SHA256; the mnemonic is only a backup. PBKDF2 is not part of
+derivation.
 
 Supersedes ADR-0003 (device identity deferred): device identity is now
 implemented (`lib/entity/device/device_identity.dart`,
