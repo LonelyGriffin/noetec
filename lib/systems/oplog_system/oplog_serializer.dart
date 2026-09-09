@@ -4,6 +4,7 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 import 'dart:convert';
 
+import 'package:canonical_json/canonical_json.dart' as cj;
 import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/entity/page/block/text/text_format.dart';
 import 'package:noetec/entity/page/block/text/text_segment.dart';
@@ -12,22 +13,31 @@ import 'package:noetec/systems/oplog_system/oplog_models.dart';
 class OpLogSerializer {
   const OpLogSerializer();
 
+  /// Builds the Phase-1 signing input per sync-security.md §2.2:
+  ///
+  /// ```text
+  /// signingInput = canonicalJson(entryWithoutSignature) + documentPath
+  /// ```
+  ///
+  /// [entryWithoutSignature] is the entry's wire representation (snake_case
+  /// keys) **without** the `signature` field — i.e. [OpLogEntry.toWireMap],
+  /// which already includes `pubKey` when present — canonicalized with the
+  /// OLPC Canonical JSON encoding. [documentPath] is the page path relative
+  /// to the vault root, no extension, `/` separators (e.g. `notes/ideas`),
+  /// appended with no separator.
+  ///
+  /// The result is a [List<int>] (UTF-8 bytes) ready to be passed to
+  /// `ICryptoService.sign` / `ICryptoService.verify`.
+  List<int> signingInput(OpLogEntry entryWithoutSignature, String documentPath) {
+    final canonical = cj.canonicalJson.encode(entryWithoutSignature.toWireMap());
+    return [...canonical, ...utf8.encode(documentPath)];
+  }
+
   String encode(OpLogEntry entry) {
-    final map = <String, dynamic>{'v': entry.version, 'hlc': entry.hlc.toKey(), 'parent': entry.parent?.toKey(), 'type': entry.type.wireValue, 'device': entry.deviceId};
-
-    if (entry.parentB != null) {
-      map['parent_b'] = entry.parentB!.toKey();
+    final map = entry.toWireMap();
+    if (entry.signature != null) {
+      map['signature'] = entry.signature;
     }
-    if (entry.blockOps != null) {
-      map['block_ops'] = entry.blockOps!.map((op) => op.toJson()).toList();
-    }
-    if (entry.fileOp != null) {
-      map['file_op'] = entry.fileOp!.toJson();
-    }
-    if (entry.fileHash != null) {
-      map['file_hash'] = entry.fileHash;
-    }
-
     return jsonEncode(map);
   }
 
@@ -83,6 +93,8 @@ class OpLogSerializer {
       fileOp: fileOp,
       fileHash: decoded['file_hash'] as String?,
       deviceId: deviceRaw,
+      signature: decoded['signature'] as String?,
+      pubKey: decoded['pubKey'] as String?,
     );
   }
 

@@ -219,6 +219,16 @@ final class OpLogEntry {
   final String? fileHash;
   final String deviceId;
 
+  /// Base64url Ed25519 signature over `canonicalJson(entry) + documentPath`
+  /// (sync-security.md §2.2). `null` for legacy (pre-Phase-1) entries, which
+  /// are accepted during migration (§8.1).
+  final String? signature;
+
+  /// Base64url Ed25519 public key of the authoring device. Present **only** on
+  /// the first entry (the entry with no `parent`) per sync-security.md §2.3;
+  /// `null` on all later entries and on legacy entries.
+  final String? pubKey;
+
   const OpLogEntry({
     required this.version,
     required this.hlc,
@@ -229,9 +239,57 @@ final class OpLogEntry {
     required this.fileOp,
     required this.fileHash,
     required this.deviceId,
+    this.signature,
+    this.pubKey,
   });
 
+  /// Returns a copy of this entry with [signature] and [pubKey] overridden.
+  /// Used by the signer to produce the signed wire form.
+  OpLogEntry withSignature({required String? signature, required String? pubKey}) {
+    return OpLogEntry(
+      version: version,
+      hlc: hlc,
+      parent: parent,
+      parentB: parentB,
+      type: type,
+      blockOps: blockOps,
+      fileOp: fileOp,
+      fileHash: fileHash,
+      deviceId: deviceId,
+      signature: signature,
+      pubKey: pubKey,
+    );
+  }
+
   String get hlcKey => hlc.toKey();
+
+  /// The wire representation of this entry (snake_case keys, sync-security.md
+  /// §1.2) **without** the `signature` field.
+  ///
+  /// `pubKey` is included when present, so this is exactly the
+  /// `entryWithoutSignature` object that the Phase-1 signing input is
+  /// canonicalized over (§2.2). Both the on-disk serializer and the signer
+  /// derive from this single map so the signed bytes are byte-identical to the
+  /// stored bytes.
+  Map<String, dynamic> toWireMap() {
+    final map = <String, dynamic>{'v': version, 'hlc': hlc.toKey(), 'parent': parent?.toKey(), 'type': type.wireValue, 'device': deviceId};
+    if (parentB != null) {
+      map['parent_b'] = parentB!.toKey();
+    }
+    if (blockOps != null) {
+      map['block_ops'] = blockOps!.map((op) => op.toJson()).toList();
+    }
+    if (fileOp != null) {
+      map['file_op'] = fileOp!.toJson();
+    }
+    if (fileHash != null) {
+      map['file_hash'] = fileHash;
+    }
+    if (pubKey != null) {
+      map['pubKey'] = pubKey;
+    }
+    return map;
+  }
 
   Map<String, dynamic> toJson() => {
     'version': version,
@@ -243,6 +301,8 @@ final class OpLogEntry {
     if (fileOp != null) 'fileOp': fileOp!.toJson(),
     if (fileHash != null) 'fileHash': fileHash,
     'deviceId': deviceId,
+    if (signature != null) 'signature': signature,
+    if (pubKey != null) 'pubKey': pubKey,
   };
 
   factory OpLogEntry.fromJson(Map<String, dynamic> json) {
@@ -256,6 +316,8 @@ final class OpLogEntry {
       fileOp: json['fileOp'] != null ? FileOp.fromJson(json['fileOp'] as Map<String, dynamic>) : null,
       fileHash: json['fileHash'] as String?,
       deviceId: json['deviceId'] as String,
+      signature: json['signature'] as String?,
+      pubKey: json['pubKey'] as String?,
     );
   }
 }
