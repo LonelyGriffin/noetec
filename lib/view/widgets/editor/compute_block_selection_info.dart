@@ -23,9 +23,7 @@ BlockSelectionInfo computeBlockSelectionInfo({
       return const BlockNotSelected();
     }
 
-    return cursorPos.blockId == blockId
-        ? BlockWithCursor(cursorPos: cursorPos)
-        : const BlockNotSelected();
+    return cursorPos.blockId == blockId ? BlockWithCursor(cursorPos: cursorPos) : const BlockNotSelected();
   }
 
   if (state is RangeSelectionEntity) {
@@ -36,18 +34,11 @@ BlockSelectionInfo computeBlockSelectionInfo({
         extentCursorPos is CursorPositionInTextBlock &&
         anchorCursorPos.blockId == extentCursorPos.blockId &&
         anchorCursorPos.blockId == blockId) {
-      return BlockWithRange(
-        anchorCursorPos: anchorCursorPos,
-        extentCursorPos: extentCursorPos,
-      );
+      return BlockWithRange(anchorCursorPos: anchorCursorPos, extentCursorPos: extentCursorPos);
     }
 
-    final anchorIsInThisBlock =
-        anchorCursorPos is CursorPositionInTextBlock &&
-        anchorCursorPos.blockId == blockId;
-    final extentIsInThisBlock =
-        extentCursorPos is CursorPositionInTextBlock &&
-        extentCursorPos.blockId == blockId;
+    final anchorIsInThisBlock = anchorCursorPos is CursorPositionInTextBlock && anchorCursorPos.blockId == blockId;
+    final extentIsInThisBlock = extentCursorPos is CursorPositionInTextBlock && extentCursorPos.blockId == blockId;
 
     if (anchorIsInThisBlock || extentIsInThisBlock) {
       final blockIds = flatBlockIds();
@@ -56,15 +47,11 @@ BlockSelectionInfo computeBlockSelectionInfo({
       final anchorIsFirst = anchorIdx <= extentIdx;
 
       if (anchorIsInThisBlock) {
-        return anchorIsFirst
-            ? BlockSelectedToEnd(cursorPos: anchorCursorPos)
-            : BlockSelectedFromStart(cursorPos: anchorCursorPos);
+        return anchorIsFirst ? BlockSelectedToEnd(cursorPos: anchorCursorPos) : BlockSelectedFromStart(cursorPos: anchorCursorPos);
       }
 
       if (extentIsInThisBlock) {
-        return anchorIsFirst
-            ? BlockSelectedFromStart(cursorPos: extentCursorPos)
-            : BlockSelectedToEnd(cursorPos: extentCursorPos);
+        return anchorIsFirst ? BlockSelectedFromStart(cursorPos: extentCursorPos) : BlockSelectedToEnd(cursorPos: extentCursorPos);
       }
     }
 

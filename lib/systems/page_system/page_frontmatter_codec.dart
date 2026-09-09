@@ -15,42 +15,22 @@ final class PageFrontmatter {
   final DateTime modified;
   final String? modifiedBy;
 
-  const PageFrontmatter({
-    required this.id,
-    required this.contentHash,
-    required this.modified,
-    this.modifiedBy,
-  });
+  const PageFrontmatter({required this.id, required this.contentHash, required this.modified, this.modifiedBy});
 
-  PageFrontmatter copyWith({
-    String? id,
-    String? contentHash,
-    DateTime? modified,
-    String? modifiedBy,
-  }) => PageFrontmatter(
-    id: id ?? this.id,
-    contentHash: contentHash ?? this.contentHash,
-    modified: modified ?? this.modified,
-    modifiedBy: modifiedBy ?? this.modifiedBy,
-  );
+  PageFrontmatter copyWith({String? id, String? contentHash, DateTime? modified, String? modifiedBy}) =>
+      PageFrontmatter(id: id ?? this.id, contentHash: contentHash ?? this.contentHash, modified: modified ?? this.modified, modifiedBy: modifiedBy ?? this.modifiedBy);
 
   factory PageFrontmatter.fromYamlMap(YamlMap map) {
     return PageFrontmatter(
       id: map['id'] as String? ?? const Uuid().v4(),
       contentHash: map['content_hash'] as String? ?? '',
-      modified: map['modified'] != null
-          ? DateTime.parse(map['modified'] as String)
-          : DateTime.now().toUtc(),
+      modified: map['modified'] != null ? DateTime.parse(map['modified'] as String) : DateTime.now().toUtc(),
       modifiedBy: map['modified_by'] as String?,
     );
   }
 
   Map<String, dynamic> toYamlMap() {
-    final map = <String, dynamic>{
-      'id': id,
-      'content_hash': contentHash,
-      'modified': modified.toIso8601String(),
-    };
+    final map = <String, dynamic>{'id': id, 'content_hash': contentHash, 'modified': modified.toIso8601String()};
     if (modifiedBy != null) {
       map['modified_by'] = modifiedBy;
     }
@@ -63,14 +43,9 @@ class PageFrontmatterCodec {
 
   static const _uuid = Uuid();
 
-  static final _frontmatterPattern = RegExp(
-    r'^---\r?\n(.*?)\r?\n---\r?\n?',
-    dotAll: true,
-  );
+  static final _frontmatterPattern = RegExp(r'^---\r?\n(.*?)\r?\n---\r?\n?', dotAll: true);
 
-  static ({PageFrontmatter frontmatter, String content}) parse(
-    String fileContent,
-  ) {
+  static ({PageFrontmatter frontmatter, String content}) parse(String fileContent) {
     // Spec §2: on read the parser MUST normalize CRLF and lone CR line
     // endings to LF before any further processing (frontmatter detection,
     // hash computation, block parsing). The LF-only form is canonical.
@@ -88,9 +63,7 @@ class PageFrontmatterCodec {
           var frontmatter = PageFrontmatter.fromYamlMap(yamlMap);
           // Spec §3.4.3: a missing content_hash MUST be recomputed per §5.
           if (frontmatter.contentHash.isEmpty) {
-            frontmatter = frontmatter.copyWith(
-              contentHash: 'sha256:${computeContentHash(content)}',
-            );
+            frontmatter = frontmatter.copyWith(contentHash: 'sha256:${computeContentHash(content)}');
           }
           return (frontmatter: frontmatter, content: content);
         }
@@ -102,10 +75,7 @@ class PageFrontmatterCodec {
     // is synthesized.
     // Spec §3.4.4: an empty or whitespace-only file parses to an empty
     // content body.
-    return (
-      frontmatter: _freshFrontmatter(),
-      content: _emptyIfWhitespaceOnly(normalized),
-    );
+    return (frontmatter: _freshFrontmatter(), content: _emptyIfWhitespaceOnly(normalized));
   }
 
   static String encode(PageFrontmatter frontmatter, String content) {
@@ -128,11 +98,7 @@ class PageFrontmatterCodec {
     return sha256.convert(bytes).toString();
   }
 
-  static PageFrontmatter _freshFrontmatter() => PageFrontmatter(
-    id: _uuid.v4(),
-    contentHash: 'sha256:',
-    modified: DateTime.now().toUtc(),
-  );
+  static PageFrontmatter _freshFrontmatter() => PageFrontmatter(id: _uuid.v4(), contentHash: 'sha256:', modified: DateTime.now().toUtc());
 
   static String _normalizeContent(String content) {
     if (content.startsWith('\r\n')) return content.substring(2);
@@ -141,11 +107,9 @@ class PageFrontmatterCodec {
   }
 
   /// Spec §2: normalizes CRLF and lone CR line endings to LF.
-  static String _normalizeLineEndings(String content) =>
-      content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  static String _normalizeLineEndings(String content) => content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
   /// Spec §3.4.4: an empty or whitespace-only file parses to an empty
   /// content body.
-  static String _emptyIfWhitespaceOnly(String content) =>
-      content.trim().isEmpty ? '' : content;
+  static String _emptyIfWhitespaceOnly(String content) => content.trim().isEmpty ? '' : content;
 }

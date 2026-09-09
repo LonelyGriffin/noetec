@@ -25,111 +25,44 @@ import 'package:noetec/systems/user_input_system/user_input_service.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 
-Future<void> configureDI({
-  IFileSystemService? fileSystem,
-  ISettingsService? settings,
-  ISecureKeyStore? secureKeyStore,
-}) async {
+Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? settings, ISecureKeyStore? secureKeyStore}) async {
   final getIt = GetIt.instance;
 
   getIt.debugEventsEnabled = true;
 
   getIt.registerSingleton<IIdService>(IdService());
-  getIt.registerSingleton<IFileSystemService>(
-    fileSystem ?? FileSystemServiceImpl(),
-  );
+  getIt.registerSingleton<IFileSystemService>(fileSystem ?? FileSystemServiceImpl());
   getIt.registerSingleton<ISettingsService>(settings ?? SettingsServiceImpl());
-  getIt.registerSingleton<ISecureKeyStore>(
-    secureKeyStore ?? SecureKeyStoreImpl(),
-  );
+  getIt.registerSingleton<ISecureKeyStore>(secureKeyStore ?? SecureKeyStoreImpl());
   getIt.registerSingleton<ICryptoService>(CryptoServiceImpl());
-  getIt.registerSingleton<IDeviceService>(
-    DeviceServiceImpl(
-      getIt<IFileSystemService>(),
-      getIt<IIdService>(),
-      getIt<ICryptoService>(),
-      getIt<ISecureKeyStore>(),
-    ),
-  );
-  getIt.registerSingleton<IUserService>(
-    UserServiceImpl(
-      getIt<IFileSystemService>(),
-      getIt<IIdService>(),
-      getIt<ICryptoService>(),
-      getIt<ISecureKeyStore>(),
-    ),
-  );
-  getIt.registerSingleton<IVaultRepository>(
-    VaultRepositoryImpl(getIt<ISettingsService>()),
-  );
-  getIt.registerSingleton<VaultSystem>(
-    VaultSystem(
-      getIt<IFileSystemService>(),
-      getIt<IVaultRepository>(),
-      getIt<IIdService>(),
-      getIt<IDeviceService>(),
-    ),
-  );
+  getIt.registerSingleton<IDeviceService>(DeviceServiceImpl(getIt<IFileSystemService>(), getIt<IIdService>(), getIt<ICryptoService>(), getIt<ISecureKeyStore>()));
+  getIt.registerSingleton<IUserService>(UserServiceImpl(getIt<IFileSystemService>(), getIt<IIdService>(), getIt<ICryptoService>(), getIt<ISecureKeyStore>()));
+  getIt.registerSingleton<IVaultRepository>(VaultRepositoryImpl(getIt<ISettingsService>()));
+  getIt.registerSingleton<VaultSystem>(VaultSystem(getIt<IFileSystemService>(), getIt<IVaultRepository>(), getIt<IIdService>(), getIt<IDeviceService>()));
 
   getIt.registerSingleton<MarkdownSystem>(MarkdownSystem(getIt<IIdService>()));
 
-  getIt.registerSingleton<PageSystem>(
-    PageSystem(
-      getIt<IIdService>(),
-      getIt<MarkdownSystem>(),
-      getIt<IFileSystemService>(),
-      getIt<VaultSystem>(),
-    ),
-  );
+  getIt.registerSingleton<PageSystem>(PageSystem(getIt<IIdService>(), getIt<MarkdownSystem>(), getIt<IFileSystemService>(), getIt<VaultSystem>()));
 
-  getIt.registerSingleton<VaultFileService>(
-    VaultFileService(
-      getIt<IFileSystemService>(),
-      getIt<VaultSystem>(),
-      getIt<PageSystem>(),
-    ),
-  );
+  getIt.registerSingleton<VaultFileService>(VaultFileService(getIt<IFileSystemService>(), getIt<VaultSystem>(), getIt<PageSystem>()));
 
-  getIt.registerSingleton<RenameController>(
-    RenameController(
-      getIt<VaultFileService>(),
-      getIt<VaultSystem>(),
-    ),
-  );
+  getIt.registerSingleton<RenameController>(RenameController(getIt<VaultFileService>(), getIt<VaultSystem>()));
 
-  getIt.registerSingleton<HlcService>(
-    HlcService(getIt<VaultSystem>(), getIt<IDeviceService>()),
-  );
+  getIt.registerSingleton<HlcService>(HlcService(getIt<VaultSystem>(), getIt<IDeviceService>()));
 
-  getIt.registerSingleton<WalService>(
-    WalService(getIt<IFileSystemService>(), getIt<VaultSystem>()),
-  );
+  getIt.registerSingleton<WalService>(WalService(getIt<IFileSystemService>(), getIt<VaultSystem>()));
 
   getIt.registerSingleton<OpLogSystem>(
-    OpLogSystem(
-      fileSystem: getIt<IFileSystemService>(),
-      hlcService: getIt<HlcService>(),
-      vaultSystem: getIt<VaultSystem>(),
-      deviceService: getIt<IDeviceService>(),
-    ),
+    OpLogSystem(fileSystem: getIt<IFileSystemService>(), hlcService: getIt<HlcService>(), vaultSystem: getIt<VaultSystem>(), deviceService: getIt<IDeviceService>()),
   );
 
   getIt.registerSingleton<PersistenceSystem>(
-    PersistenceSystem(
-      wal: getIt<WalService>(),
-      oplog: getIt<OpLogSystem>(),
-      pageSystem: getIt<PageSystem>(),
-      vaultSystem: getIt<VaultSystem>(),
-    ),
+    PersistenceSystem(wal: getIt<WalService>(), oplog: getIt<OpLogSystem>(), pageSystem: getIt<PageSystem>(), vaultSystem: getIt<VaultSystem>()),
   );
 
-  getIt.registerSingleton<CrashRecoveryService>(
-    CrashRecoveryService(getIt<WalService>()),
-  );
+  getIt.registerSingleton<CrashRecoveryService>(CrashRecoveryService(getIt<WalService>()));
 
-  getIt.registerSingleton<UserInputService>(
-    UserInputService(getIt<PageSystem>(), getIt<PersistenceSystem>()),
-  );
+  getIt.registerSingleton<UserInputService>(UserInputService(getIt<PageSystem>(), getIt<PersistenceSystem>()));
 
   getIt.registerSingleton<SyncSystem>(
     SyncSystem(

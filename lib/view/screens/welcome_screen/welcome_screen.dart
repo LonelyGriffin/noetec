@@ -15,23 +15,15 @@ class WelcomeScreen extends WatchingWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vaults = watchValue<VaultSystem, List<VaultEntity>>(
-      (s) => s.recentVaults,
-    );
-    final isCreating = watchValue<VaultSystem, bool>(
-      (s) => s.createVaultCommand.isRunning,
-    );
-    final isOpening = watchValue<VaultSystem, bool>(
-      (s) => s.openVaultCommand.isRunning,
-    );
+    final vaults = watchValue<VaultSystem, List<VaultEntity>>((s) => s.recentVaults);
+    final isCreating = watchValue<VaultSystem, bool>((s) => s.createVaultCommand.isRunning);
+    final isOpening = watchValue<VaultSystem, bool>((s) => s.openVaultCommand.isRunning);
 
     registerHandler<VaultSystem, CommandError?>(
       select: (s) => s.createVaultCommand.errors,
       handler: (context, error, cancel) {
         if (error != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(error.error.toString())));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.error.toString())));
         }
       },
     );
@@ -40,9 +32,7 @@ class WelcomeScreen extends WatchingWidget {
       select: (s) => s.openVaultCommand.errors,
       handler: (context, error, cancel) {
         if (error != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(error.error.toString())));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.error.toString())));
         }
       },
     );
@@ -61,11 +51,7 @@ class WelcomeScreen extends WatchingWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
-                'Your local-first note vault',
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
+              Text('Your local-first note vault', style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
               const SizedBox(height: 32),
               Expanded(
                 child: vaults.isEmpty
@@ -78,9 +64,7 @@ class WelcomeScreen extends WatchingWidget {
                             leading: const Icon(Icons.folder_outlined),
                             title: Text(vault.name),
                             subtitle: Text(vault.rootPath),
-                            onTap: () => di<VaultSystem>().openVaultCommand.run(
-                              vault.rootPath,
-                            ),
+                            onTap: () => di<VaultSystem>().openVaultCommand.run(vault.rootPath),
                           );
                         },
                       ),
@@ -89,21 +73,11 @@ class WelcomeScreen extends WatchingWidget {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: isOpening ? null : _pickAndOpen,
-                      icon: const Icon(Icons.folder_open),
-                      label: const Text('Open Vault'),
-                    ),
+                    child: OutlinedButton.icon(onPressed: isOpening ? null : _pickAndOpen, icon: const Icon(Icons.folder_open), label: const Text('Open Vault')),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: isCreating
-                          ? null
-                          : () => _handleCreate(context),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Create Vault'),
-                    ),
+                    child: FilledButton.icon(onPressed: isCreating ? null : () => _handleCreate(context), icon: const Icon(Icons.add), label: const Text('Create Vault')),
                   ),
                 ],
               ),
@@ -120,16 +94,10 @@ class WelcomeScreen extends WatchingWidget {
     // ignore: use_build_context_synchronously
     final vaultName = await _showVaultNameDialog(context, pickedPath);
     if (vaultName == null || vaultName.trim().isEmpty) return;
-    di<VaultSystem>().createVaultCommand.run((
-      parentPath: pickedPath,
-      vaultName: vaultName.trim(),
-    ));
+    di<VaultSystem>().createVaultCommand.run((parentPath: pickedPath, vaultName: vaultName.trim()));
   }
 
-  Future<String?> _showVaultNameDialog(
-    BuildContext context,
-    String parentPath,
-  ) async {
+  Future<String?> _showVaultNameDialog(BuildContext context, String parentPath) async {
     final controller = TextEditingController();
     return showDialog<String>(
       context: context,
@@ -139,23 +107,14 @@ class WelcomeScreen extends WatchingWidget {
           content: TextField(
             controller: controller,
             autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Vault name',
-              hintText: 'My Vault',
-            ),
+            decoration: const InputDecoration(labelText: 'Vault name', hintText: 'My Vault'),
             onSubmitted: (value) {
               Navigator.of(dialogContext).pop(value);
             },
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(null),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('Create'),
-            ),
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(null), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(controller.text), child: const Text('Create')),
           ],
         );
       },

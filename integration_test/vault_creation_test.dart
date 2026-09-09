@@ -33,11 +33,7 @@ void main() {
     final parentDir = await VaultFolderFixture.createEmpty();
     fileSystem.nextPickPath = parentDir.rootPath;
 
-    await configureDI(
-      fileSystem: fileSystem,
-      settings: settings,
-      secureKeyStore: secureKeyStore,
-    );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
       /* Arrange: launch the app shell */
@@ -64,10 +60,7 @@ void main() {
       expect(devicePrivateKey, isNotNull);
       expect(devicePrivateKey, isNotEmpty);
 
-      expect(
-        await File(p.join(vaultPath, 'pages', 'welcome.md')).exists(),
-        isTrue,
-      );
+      expect(await File(p.join(vaultPath, 'pages', 'welcome.md')).exists(), isTrue);
 
       await expectPageFileValid(vaultPath, 'pages/welcome.md');
 
@@ -75,24 +68,12 @@ void main() {
       final recentRaw = await settings.getString('noetec.recent_vaults');
       expect(recentRaw, isNotNull);
       final recentVaults = json.decode(recentRaw!) as List<dynamic>;
-      expect(
-        recentVaults.any(
-          (item) => (item as Map<String, dynamic>)['rootPath'] == vaultPath,
-        ),
-        isTrue,
-      );
+      expect(recentVaults.any((item) => (item as Map<String, dynamic>)['rootPath'] == vaultPath), isTrue);
 
       // Assert: session state tracks welcome page as open and active
-      await expectSessionJsonValid(
-        vaultPath,
-        expectedOpenPagePaths: ['pages/welcome.md'],
-        expectedActivePagePath: 'pages/welcome.md',
-      );
+      await expectSessionJsonValid(vaultPath, expectedOpenPagePaths: ['pages/welcome.md'], expectedActivePagePath: 'pages/welcome.md');
 
-      expect(
-        await Directory(p.join(vaultPath, '.sync', 'pages')).exists(),
-        isTrue,
-      );
+      expect(await Directory(p.join(vaultPath, '.sync', 'pages')).exists(), isTrue);
 
       await expectOpLogExists(vaultPath, 'pages/welcome.md');
 
@@ -117,23 +98,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Assert: session.json still valid after reopen
-      await expectSessionJsonValid(
-        vaultPath,
-        expectedOpenPagePaths: ['pages/welcome.md'],
-        expectedActivePagePath: 'pages/welcome.md',
-      );
+      await expectSessionJsonValid(vaultPath, expectedOpenPagePaths: ['pages/welcome.md'], expectedActivePagePath: 'pages/welcome.md');
 
       // Assert: pages were restored in PageSystem
       expect(pageSystem.openPages.length, equals(1));
-      final restoredPaths = pageSystem.openPages.values
-          .map((e) => e.relativePath)
-          .toSet();
+      final restoredPaths = pageSystem.openPages.values.map((e) => e.relativePath).toSet();
       expect(restoredPaths, contains('pages/welcome.md'));
 
-      expect(
-        pageSystem.getActivePage()!.relativePath,
-        equals('pages/welcome.md'),
-      );
+      expect(pageSystem.getActivePage()!.relativePath, equals('pages/welcome.md'));
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await GetIt.instance.reset();

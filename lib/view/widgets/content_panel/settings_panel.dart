@@ -19,18 +19,9 @@ class SettingsPanel extends WatchingWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Settings',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text('Settings', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () => di<VaultSystem>().closeVaultCommand.run(),
-            icon: const Icon(Icons.folder_open),
-            label: const Text('Open Another Vault'),
-          ),
+          OutlinedButton.icon(onPressed: () => di<VaultSystem>().closeVaultCommand.run(), icon: const Icon(Icons.folder_open), label: const Text('Open Another Vault')),
         ],
       ),
     );

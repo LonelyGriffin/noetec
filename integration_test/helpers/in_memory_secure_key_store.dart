@@ -4,10 +4,7 @@ class InMemorySecureKeyStore implements ISecureKeyStore {
   final _store = <String, String>{};
 
   @override
-  Future<void> storeDevicePrivateKey(
-    String vaultId,
-    String devicePrivateKeyBase64,
-  ) async {
+  Future<void> storeDevicePrivateKey(String vaultId, String devicePrivateKeyBase64) async {
     _store[vaultId] = devicePrivateKeyBase64;
   }
 
@@ -42,10 +39,7 @@ class InMemorySecureKeyStore implements ISecureKeyStore {
   }
 
   @override
-  Future<void> storeIdentityPrivateKey(
-    String vaultId,
-    String identityPrivateKeyBase64Url,
-  ) async {
+  Future<void> storeIdentityPrivateKey(String vaultId, String identityPrivateKeyBase64Url) async {
     _store['identity_private.$vaultId'] = identityPrivateKeyBase64Url;
   }
 

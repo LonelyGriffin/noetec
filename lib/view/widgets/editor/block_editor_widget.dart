@@ -48,12 +48,7 @@ class _BlockEditorWidgetState extends State<BlockEditorWidget> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final selectionInfo = computeBlockSelectionInfo(
-      blockId: widget.block.id,
-      state: widget.page.selection.value,
-      flatBlockIds: widget.page.flatBlockIds,
-      selectedBlockIds: {},
-    );
+    final selectionInfo = computeBlockSelectionInfo(blockId: widget.block.id, state: widget.page.selection.value, flatBlockIds: widget.page.flatBlockIds, selectedBlockIds: {});
 
     return TextBlockRenderWidget(
       key: Key(widget.block.id),

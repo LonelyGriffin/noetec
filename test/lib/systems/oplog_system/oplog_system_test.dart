@@ -22,8 +22,7 @@ class _FakeFs implements IFileSystemService {
   @override
   Future<String> readFile(String path) async => files[path] ?? '';
   @override
-  Future<void> writeFile(String path, String content) async =>
-      files[path] = content;
+  Future<void> writeFile(String path, String content) async => files[path] = content;
   @override
   Future<void> appendToFile(String path, String content) async {
     files[path] = (files[path] ?? '') + content;
@@ -46,14 +45,7 @@ class _FakeFs implements IFileSystemService {
       if (normKey.startsWith('$normalized/')) {
         final relative = normKey.substring(normalized.length + 1);
         if (!relative.contains('/')) {
-          entries.add(
-            FileEntry(
-              name: relative,
-              path: key,
-              isDirectory: false,
-              lastModified: DateTime.now(),
-            ),
-          );
+          entries.add(FileEntry(name: relative, path: key, isDirectory: false, lastModified: DateTime.now()));
         }
       }
     }
@@ -63,10 +55,7 @@ class _FakeFs implements IFileSystemService {
   @override
   Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
   @override
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  }) => const Stream.empty();
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) => const Stream.empty();
 }
 
 TextBlockEntity _block(String id, String text) => TextBlockEntity(
@@ -85,30 +74,12 @@ void main() {
     setUp(() {
       fs = _FakeFs();
       deviceService = FakeDeviceService();
-      deviceService.setDevice(
-        DeviceIdentity(
-          uuid: 'dev1-uuid-here-xxxx-xxxxxxxxxxxx',
-          name: 'Test Device',
-          createdAt: DateTime(2026),
-          lastHlc: null,
-          publicKey: 'test-key',
-        ),
-      );
+      deviceService.setDevice(DeviceIdentity(uuid: 'dev1-uuid-here-xxxx-xxxxxxxxxxxx', name: 'Test Device', createdAt: DateTime(2026), lastHlc: null, publicKey: 'test-key'));
       vaultSystem = createTestVaultSystem(deviceService: deviceService);
       hlcService = HlcService(vaultSystem, deviceService);
-      opLog = OpLogSystem(
-        fileSystem: fs,
-        hlcService: hlcService,
-        vaultSystem: vaultSystem,
-        deviceService: deviceService,
-      );
+      opLog = OpLogSystem(fileSystem: fs, hlcService: hlcService, vaultSystem: vaultSystem, deviceService: deviceService);
 
-      vaultSystem.currentVault.value = VaultEntity(
-        id: 'vault-1',
-        name: 'TestVault',
-        rootPath: '/vault',
-        createdAt: DateTime(2026),
-      );
+      vaultSystem.currentVault.value = VaultEntity(id: 'vault-1', name: 'TestVault', rootPath: '/vault', createdAt: DateTime(2026));
     });
 
     tearDown(() {
@@ -132,12 +103,7 @@ void main() {
       opLog.initLastKnownState('page1', initial);
 
       final updated = [_block('b1', 'Hello World')];
-      await opLog.recordSave(
-        'pages/welcome.md',
-        'page1',
-        updated,
-        'sha256:abc',
-      );
+      await opLog.recordSave('pages/welcome.md', 'page1', updated, 'sha256:abc');
 
       final dag = await opLog.buildDag('pages/welcome.md');
       final entries = dag.sortedEntries;
@@ -187,12 +153,7 @@ void main() {
       opLog.initLastKnownState('page1', initial);
 
       final edited = [_block('b1', 'Hello Modified')];
-      await opLog.recordExternalEdit(
-        'pages/welcome.md',
-        edited,
-        'sha256:def',
-        pageId: 'page1',
-      );
+      await opLog.recordExternalEdit('pages/welcome.md', edited, 'sha256:def', pageId: 'page1');
 
       final dag = await opLog.buildDag('pages/welcome.md');
       final entries = dag.sortedEntries;
@@ -207,12 +168,7 @@ void main() {
       const parentA = Hlc(physicalMs: 100, counter: 0, deviceId: 'dev1');
       const parentB = Hlc(physicalMs: 200, counter: 0, deviceId: 'dev2');
 
-      await opLog.recordMerge(
-        'pages/welcome.md',
-        parentA,
-        parentB,
-        'sha256:merged',
-      );
+      await opLog.recordMerge('pages/welcome.md', parentA, parentB, 'sha256:merged');
 
       final dag = await opLog.buildDag('pages/welcome.md');
       final entries = dag.sortedEntries;

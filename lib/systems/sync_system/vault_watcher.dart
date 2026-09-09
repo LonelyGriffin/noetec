@@ -13,29 +13,21 @@ final class ExternalEditEvent {
   final String currentHash;
   final String knownHash;
 
-  const ExternalEditEvent({
-    required this.relativePath,
-    required this.currentHash,
-    required this.knownHash,
-  });
+  const ExternalEditEvent({required this.relativePath, required this.currentHash, required this.knownHash});
 }
 
 class VaultWatcher {
-  VaultWatcher({
-    required IFileSystemService fileSystem,
-    required String vaultRootPath,
-    this.pollInterval = const Duration(seconds: 30),
-  }) : _fileSystem = fileSystem,
-       _pagesPath = p.join(vaultRootPath, 'pages'),
-       _vaultRootPath = vaultRootPath;
+  VaultWatcher({required IFileSystemService fileSystem, required String vaultRootPath, this.pollInterval = const Duration(seconds: 30)})
+    : _fileSystem = fileSystem,
+      _pagesPath = p.join(vaultRootPath, 'pages'),
+      _vaultRootPath = vaultRootPath;
 
   final IFileSystemService _fileSystem;
   final String _pagesPath;
   final String _vaultRootPath;
   final Duration pollInterval;
 
-  final StreamController<ExternalEditEvent> _controller =
-      StreamController<ExternalEditEvent>.broadcast();
+  final StreamController<ExternalEditEvent> _controller = StreamController<ExternalEditEvent>.broadcast();
   StreamSubscription<FileEntry>? _subscription;
   final Set<String> _acknowledged = {};
 
@@ -45,10 +37,7 @@ class VaultWatcher {
 
   void start() {
     if (_subscription != null) return;
-    _subscription = _fileSystem
-        .watchDirectory(_pagesPath, pollInterval: pollInterval)
-        .where((entry) => !entry.isDirectory && entry.name.endsWith('.md'))
-        .listen(_onFileChanged);
+    _subscription = _fileSystem.watchDirectory(_pagesPath, pollInterval: pollInterval).where((entry) => !entry.isDirectory && entry.name.endsWith('.md')).listen(_onFileChanged);
   }
 
   void stop() {
@@ -65,22 +54,13 @@ class VaultWatcher {
 
     final raw = await _fileSystem.readFile(entry.path);
     final (:frontmatter, :content) = PageFrontmatterCodec.parse(raw);
-    final currentHash =
-        'sha256:${PageFrontmatterCodec.computeContentHash(content)}';
+    final currentHash = 'sha256:${PageFrontmatterCodec.computeContentHash(content)}';
     final knownHash = frontmatter.contentHash;
 
     if (currentHash == knownHash) return;
 
-    final relativePath = p
-        .relative(entry.path, from: _vaultRootPath)
-        .replaceAll('\\', '/');
-    _controller.add(
-      ExternalEditEvent(
-        relativePath: relativePath,
-        currentHash: currentHash,
-        knownHash: knownHash,
-      ),
-    );
+    final relativePath = p.relative(entry.path, from: _vaultRootPath).replaceAll('\\', '/');
+    _controller.add(ExternalEditEvent(relativePath: relativePath, currentHash: currentHash, knownHash: knownHash));
   }
 
   void dispose() {

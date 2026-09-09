@@ -13,13 +13,7 @@ class OpLogSerializer {
   const OpLogSerializer();
 
   String encode(OpLogEntry entry) {
-    final map = <String, dynamic>{
-      'v': entry.version,
-      'hlc': entry.hlc.toKey(),
-      'parent': entry.parent?.toKey(),
-      'type': entry.type.wireValue,
-      'device': entry.deviceId,
-    };
+    final map = <String, dynamic>{'v': entry.version, 'hlc': entry.hlc.toKey(), 'parent': entry.parent?.toKey(), 'type': entry.type.wireValue, 'device': entry.deviceId};
 
     if (entry.parentB != null) {
       map['parent_b'] = entry.parentB!.toKey();
@@ -70,9 +64,7 @@ class OpLogSerializer {
     List<BlockOp>? blockOps;
     final rawBlockOps = decoded['block_ops'];
     if (rawBlockOps is List) {
-      blockOps = rawBlockOps
-          .map((e) => BlockOp.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList();
+      blockOps = rawBlockOps.map((e) => BlockOp.fromJson(Map<String, dynamic>.from(e as Map))).toList();
     }
 
     FileOp? fileOp;

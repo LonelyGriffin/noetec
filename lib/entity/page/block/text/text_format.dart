@@ -23,14 +23,12 @@ class TextFormat {
 
   bool has(TextFormat flag) => (_flags & flag._flags) == flag._flags;
 
-  TextFormat operator |(TextFormat other) =>
-      TextFormat._(_flags | other._flags);
+  TextFormat operator |(TextFormat other) => TextFormat._(_flags | other._flags);
 
   TextFormat without(TextFormat other) => TextFormat._(_flags & ~other._flags);
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) || (other is TextFormat && other._flags == _flags);
+  bool operator ==(Object other) => identical(this, other) || (other is TextFormat && other._flags == _flags);
 
   @override
   int get hashCode => _flags.hashCode;

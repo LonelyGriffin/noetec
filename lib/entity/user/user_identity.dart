@@ -18,24 +18,10 @@ final class UserIdentity {
   final String publicKey;
   final String role;
 
-  const UserIdentity({
-    required this.userId,
-    required this.name,
-    required this.publicKey,
-    required this.role,
-  });
+  const UserIdentity({required this.userId, required this.name, required this.publicKey, required this.role});
 
-  Map<String, dynamic> toJson() => {
-    'userId': userId,
-    'name': name,
-    'publicKey': publicKey,
-    'role': role,
-  };
+  Map<String, dynamic> toJson() => {'userId': userId, 'name': name, 'publicKey': publicKey, 'role': role};
 
-  factory UserIdentity.fromJson(Map<String, dynamic> json) => UserIdentity(
-    userId: json['userId'] as String,
-    name: json['name'] as String,
-    publicKey: json['publicKey'] as String,
-    role: json['role'] as String,
-  );
+  factory UserIdentity.fromJson(Map<String, dynamic> json) =>
+      UserIdentity(userId: json['userId'] as String, name: json['name'] as String, publicKey: json['publicKey'] as String, role: json['role'] as String);
 }

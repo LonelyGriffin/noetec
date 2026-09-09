@@ -13,9 +13,7 @@ class PageEntity {
   final String relativePath;
   final Map<String, BlockEntity> blocks = {};
   final List<BlockEntity> rootBlocks = [];
-  final ValueNotifier<SelectionEntity> selection = ValueNotifier(
-    const NoSelectionEntity(),
-  );
+  final ValueNotifier<SelectionEntity> selection = ValueNotifier(const NoSelectionEntity());
 
   PageEntity({required this.id, required this.relativePath});
 
@@ -56,16 +54,12 @@ class PageEntity {
     } else {
       final parentBlock = blocks[block.parentId];
       if (parentBlock == null) {
-        throw ArgumentError(
-          'Parent block with id ${block.parentId} does not exist',
-        );
+        throw ArgumentError('Parent block with id ${block.parentId} does not exist');
       }
       if (afterBlockId == null) {
         parentBlock.children.insert(0, block);
       } else {
-        final index = parentBlock.children.indexWhere(
-          (b) => b.id == afterBlockId,
-        );
+        final index = parentBlock.children.indexWhere((b) => b.id == afterBlockId);
         if (index != -1) {
           parentBlock.children.insert(index + 1, block);
         } else {
@@ -83,9 +77,7 @@ class PageEntity {
     } else {
       final parentBlock = blocks[block.parentId];
       if (parentBlock == null) {
-        throw ArgumentError(
-          'Parent block with id ${block.parentId} does not exist',
-        );
+        throw ArgumentError('Parent block with id ${block.parentId} does not exist');
       }
       final clamped = index.clamp(0, parentBlock.children.length);
       parentBlock.children.insert(clamped, block);

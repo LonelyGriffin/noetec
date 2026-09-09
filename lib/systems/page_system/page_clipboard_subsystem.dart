@@ -17,11 +17,7 @@ class PageClipboardSubsystem {
   final MarkdownSystem _markdownSystem;
   final IIdService _idService;
 
-  PageClipboardSubsystem(
-    this._pageSystem,
-    this._markdownSystem,
-    this._idService,
-  );
+  PageClipboardSubsystem(this._pageSystem, this._markdownSystem, this._idService);
 
   String? copy() {
     final page = _pageSystem.getActivePage();
@@ -78,8 +74,7 @@ class PageClipboardSubsystem {
 
     final anchor = selection.anchor;
     final extent = selection.extent;
-    if (anchor is! CursorPositionInTextBlock ||
-        extent is! CursorPositionInTextBlock) {
+    if (anchor is! CursorPositionInTextBlock || extent is! CursorPositionInTextBlock) {
       return null;
     }
 
@@ -90,19 +85,10 @@ class PageClipboardSubsystem {
       final block = page.getBlockById(first.blockId);
       if (block is! TextBlockEntity) return null;
 
-      final firstFlat = block.flatOffsetFromCursor(
-        first.segmentIndex,
-        first.offset,
-      );
-      final lastFlat = block.flatOffsetFromCursor(
-        last.segmentIndex,
-        last.offset,
-      );
+      final firstFlat = block.flatOffsetFromCursor(first.segmentIndex, first.offset);
+      final lastFlat = block.flatOffsetFromCursor(last.segmentIndex, last.offset);
 
-      return _markdownSystem.serializeBlocks(
-        [block],
-        ranges: [(firstFlat, lastFlat)],
-      );
+      return _markdownSystem.serializeBlocks([block], ranges: [(firstFlat, lastFlat)]);
     }
 
     final ids = page.flatBlockIds();
@@ -117,17 +103,11 @@ class PageClipboardSubsystem {
       if (block is! TextBlockEntity) continue;
 
       if (i == firstIdx) {
-        final firstFlat = block.flatOffsetFromCursor(
-          first.segmentIndex,
-          first.offset,
-        );
+        final firstFlat = block.flatOffsetFromCursor(first.segmentIndex, first.offset);
         blocks.add(block);
         ranges.add((firstFlat, block.computeAllSegmentsText().length));
       } else if (i == lastIdx) {
-        final lastFlat = block.flatOffsetFromCursor(
-          last.segmentIndex,
-          last.offset,
-        );
+        final lastFlat = block.flatOffsetFromCursor(last.segmentIndex, last.offset);
         blocks.add(block);
         ranges.add((0, lastFlat));
       } else {
@@ -139,18 +119,11 @@ class PageClipboardSubsystem {
     return _markdownSystem.serializeBlocks(blocks, ranges: ranges);
   }
 
-  void _insertSegmentsAtCursor(
-    PageEntity page,
-    CursorPositionInTextBlock cursor,
-    List<TextSegment> pasteSegments,
-  ) {
+  void _insertSegmentsAtCursor(PageEntity page, CursorPositionInTextBlock cursor, List<TextSegment> pasteSegments) {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
+    final flatOffset = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
     final segs = List.of(block.segments);
 
     final (before, after) = splitSegmentsAt(segs, flatOffset);
@@ -160,29 +133,17 @@ class PageClipboardSubsystem {
 
     block.segments.replaceRange(0, block.segments.length, normalized);
 
-    final pastedLength = pasteSegments.fold<int>(
-      0,
-      (sum, s) => sum + s.text.length,
-    );
+    final pastedLength = pasteSegments.fold<int>(0, (sum, s) => sum + s.text.length);
     final newCursorFlat = flatOffset + pastedLength;
 
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: block.cursorPosFromFlatOffset(newCursorFlat),
-    );
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: block.cursorPosFromFlatOffset(newCursorFlat));
   }
 
-  void _insertBlocksAtCursor(
-    PageEntity page,
-    CursorPositionInTextBlock cursor,
-    List<TextBlockEntity> pasteBlocks,
-  ) {
+  void _insertBlocksAtCursor(PageEntity page, CursorPositionInTextBlock cursor, List<TextBlockEntity> pasteBlocks) {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
+    final flatOffset = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
     final segs = List.of(block.segments);
 
     final (before, after) = splitSegmentsAt(segs, flatOffset);
@@ -192,9 +153,7 @@ class PageClipboardSubsystem {
     final currentNormalized = normalizeSegments(currentBlockNewSegs);
     block.segments.replaceRange(0, block.segments.length, currentNormalized);
 
-    final siblings = block.parentId == null
-        ? page.rootBlocks
-        : (page.getBlockById(block.parentId!)?.children ?? page.rootBlocks);
+    final siblings = block.parentId == null ? page.rootBlocks : (page.getBlockById(block.parentId!)?.children ?? page.rootBlocks);
     var insertIdx = siblings.indexOf(block) + 1;
 
     for (var i = 1; i < pasteBlocks.length - 1; i++) {
@@ -207,19 +166,10 @@ class PageClipboardSubsystem {
     final afterBlockSegs = [...lastPasteSegs, ...after];
     final afterNormalized = normalizeSegments(afterBlockSegs);
 
-    final newBlock = TextBlockEntity(
-      id: _idService.generateId(),
-      parentId: block.parentId,
-      segments: afterNormalized,
-    );
+    final newBlock = TextBlockEntity(id: _idService.generateId(), parentId: block.parentId, segments: afterNormalized);
     page.addBlockAt(newBlock, insertIdx);
 
-    final lastPastedLen = lastPasteSegs.fold<int>(
-      0,
-      (sum, s) => sum + s.text.length,
-    );
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: newBlock.cursorPosFromFlatOffset(lastPastedLen),
-    );
+    final lastPastedLen = lastPasteSegs.fold<int>(0, (sum, s) => sum + s.text.length);
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: newBlock.cursorPosFromFlatOffset(lastPastedLen));
   }
 }

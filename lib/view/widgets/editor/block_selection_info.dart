@@ -35,8 +35,7 @@ class BlockWithCursor extends BlockSelectionInfo {
   const BlockWithCursor({required this.cursorPos});
 
   @override
-  bool operator ==(Object other) =>
-      other is BlockWithCursor && other.cursorPos == cursorPos;
+  bool operator ==(Object other) => other is BlockWithCursor && other.cursorPos == cursorPos;
 
   @override
   int get hashCode => cursorPos.hashCode;
@@ -48,8 +47,7 @@ class BlockSelectedFromStart extends BlockSelectionInfo {
   const BlockSelectedFromStart({required this.cursorPos});
 
   @override
-  bool operator ==(Object other) =>
-      other is BlockSelectedFromStart && other.cursorPos == cursorPos;
+  bool operator ==(Object other) => other is BlockSelectedFromStart && other.cursorPos == cursorPos;
 
   @override
   int get hashCode => cursorPos.hashCode;
@@ -61,8 +59,7 @@ class BlockSelectedToEnd extends BlockSelectionInfo {
   const BlockSelectedToEnd({required this.cursorPos});
 
   @override
-  bool operator ==(Object other) =>
-      other is BlockSelectedToEnd && other.cursorPos == cursorPos;
+  bool operator ==(Object other) => other is BlockSelectedToEnd && other.cursorPos == cursorPos;
 
   @override
   int get hashCode => cursorPos.hashCode;
@@ -72,16 +69,10 @@ class BlockWithRange extends BlockSelectionInfo {
   final CursorPositionInTextBlock anchorCursorPos;
   final CursorPositionInTextBlock extentCursorPos;
 
-  const BlockWithRange({
-    required this.anchorCursorPos,
-    required this.extentCursorPos,
-  });
+  const BlockWithRange({required this.anchorCursorPos, required this.extentCursorPos});
 
   @override
-  bool operator ==(Object other) =>
-      other is BlockWithRange &&
-      other.anchorCursorPos == anchorCursorPos &&
-      other.extentCursorPos == extentCursorPos;
+  bool operator ==(Object other) => other is BlockWithRange && other.anchorCursorPos == anchorCursorPos && other.extentCursorPos == extentCursorPos;
 
   @override
   int get hashCode => Object.hash(anchorCursorPos, extentCursorPos);

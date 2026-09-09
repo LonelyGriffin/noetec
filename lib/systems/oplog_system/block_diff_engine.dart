@@ -9,10 +9,7 @@ import 'package:noetec/systems/oplog_system/oplog_models.dart';
 class BlockDiffEngine {
   const BlockDiffEngine._();
 
-  static List<BlockOp> compute(
-    List<TextBlockEntity> previous,
-    List<TextBlockEntity> current,
-  ) {
+  static List<BlockOp> compute(List<TextBlockEntity> previous, List<TextBlockEntity> current) {
     final prevMap = {for (final b in previous) b.id: b};
     final currMap = {for (final b in current) b.id: b};
 
@@ -37,13 +34,7 @@ class BlockDiffEngine {
     for (var i = 0; i < current.length; i++) {
       final block = current[i];
       if (insertedIds.contains(block.id)) {
-        ops.add(
-          BlockInsert(
-            blockId: block.id,
-            afterBlockId: afterIdInCurrent(i),
-            segments: List.of(block.segments),
-          ),
-        );
+        ops.add(BlockInsert(blockId: block.id, afterBlockId: afterIdInCurrent(i), segments: List.of(block.segments)));
       }
     }
 
@@ -56,9 +47,7 @@ class BlockDiffEngine {
     for (var i = 0; i < current.length; i++) {
       final block = current[i];
       if (updatedIds.contains(block.id)) {
-        ops.add(
-          BlockUpdate(blockId: block.id, segments: List.of(block.segments)),
-        );
+        ops.add(BlockUpdate(blockId: block.id, segments: List.of(block.segments)));
       }
     }
 
@@ -66,20 +55,14 @@ class BlockDiffEngine {
     for (var i = 0; i < current.length; i++) {
       final block = current[i];
       if (movedIds.contains(block.id)) {
-        ops.add(
-          BlockMove(blockId: block.id, afterBlockId: afterIdInCurrent(i)),
-        );
+        ops.add(BlockMove(blockId: block.id, afterBlockId: afterIdInCurrent(i)));
       }
     }
 
     return ops;
   }
 
-  static Set<String> _detectMoves(
-    List<TextBlockEntity> previous,
-    List<TextBlockEntity> current,
-    Set<String> commonIds,
-  ) {
+  static Set<String> _detectMoves(List<TextBlockEntity> previous, List<TextBlockEntity> current, Set<String> commonIds) {
     final prevOrder = [
       for (final b in previous)
         if (commonIds.contains(b.id)) b.id,
@@ -91,9 +74,7 @@ class BlockDiffEngine {
 
     if (_listEquals(prevOrder, currOrder)) return const {};
 
-    final prevIndexOf = {
-      for (var i = 0; i < prevOrder.length; i++) prevOrder[i]: i,
-    };
+    final prevIndexOf = {for (var i = 0; i < prevOrder.length; i++) prevOrder[i]: i};
 
     final indices = [for (final id in currOrder) prevIndexOf[id]!];
 
@@ -153,11 +134,9 @@ class BlockDiffEngine {
     return true;
   }
 
-  static int _formatFlagsOf(TextSegment segment) =>
-      segment is FormattedSegment ? segment.format.flags : 0;
+  static int _formatFlagsOf(TextSegment segment) => segment is FormattedSegment ? segment.format.flags : 0;
 
-  static String? _urlOf(TextSegment segment) =>
-      segment is LinkSegment ? segment.url : null;
+  static String? _urlOf(TextSegment segment) => segment is LinkSegment ? segment.url : null;
 
   static bool _listEquals(List<String> a, List<String> b) {
     if (a.length != b.length) return false;

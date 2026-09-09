@@ -6,10 +6,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 abstract interface class ISecureKeyStore {
-  Future<void> storeDevicePrivateKey(
-    String vaultId,
-    String devicePrivateKeyBase64,
-  );
+  Future<void> storeDevicePrivateKey(String vaultId, String devicePrivateKeyBase64);
   Future<String?> readDevicePrivateKey(String vaultId);
   Future<bool> hasDevicePrivateKey(String vaultId);
   Future<void> deleteDevicePrivateKey(String vaultId);
@@ -23,16 +20,12 @@ abstract interface class ISecureKeyStore {
   Future<bool> hasIdentitySeed(String vaultId);
 
   /// Stores the 32-byte Ed25519 identity secret seed (base64url) for [vaultId].
-  Future<void> storeIdentityPrivateKey(
-    String vaultId,
-    String identityPrivateKeyBase64Url,
-  );
+  Future<void> storeIdentityPrivateKey(String vaultId, String identityPrivateKeyBase64Url);
   Future<String?> readIdentityPrivateKey(String vaultId);
 }
 
 class SecureKeyStoreImpl implements ISecureKeyStore {
-  SecureKeyStoreImpl({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+  SecureKeyStoreImpl({FlutterSecureStorage? storage}) : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
 
@@ -41,14 +34,8 @@ class SecureKeyStoreImpl implements ISecureKeyStore {
   }
 
   @override
-  Future<void> storeDevicePrivateKey(
-    String vaultId,
-    String devicePrivateKeyBase64,
-  ) async {
-    await _storage.write(
-      key: _storageKey(vaultId),
-      value: devicePrivateKeyBase64,
-    );
+  Future<void> storeDevicePrivateKey(String vaultId, String devicePrivateKeyBase64) async {
+    await _storage.write(key: _storageKey(vaultId), value: devicePrivateKeyBase64);
   }
 
   @override
@@ -69,10 +56,7 @@ class SecureKeyStoreImpl implements ISecureKeyStore {
 
   @override
   Future<void> storeIdentitySeed(String vaultId, String seedBase64Url) async {
-    await _storage.write(
-      key: 'noetec.identity_seed.$vaultId',
-      value: seedBase64Url,
-    );
+    await _storage.write(key: 'noetec.identity_seed.$vaultId', value: seedBase64Url);
   }
 
   @override
@@ -87,14 +71,8 @@ class SecureKeyStoreImpl implements ISecureKeyStore {
   }
 
   @override
-  Future<void> storeIdentityPrivateKey(
-    String vaultId,
-    String identityPrivateKeyBase64Url,
-  ) async {
-    await _storage.write(
-      key: 'noetec.identity_private_key.$vaultId',
-      value: identityPrivateKeyBase64Url,
-    );
+  Future<void> storeIdentityPrivateKey(String vaultId, String identityPrivateKeyBase64Url) async {
+    await _storage.write(key: 'noetec.identity_private_key.$vaultId', value: identityPrivateKeyBase64Url);
   }
 
   @override

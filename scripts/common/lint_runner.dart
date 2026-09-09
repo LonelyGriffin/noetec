@@ -17,7 +17,8 @@ import 'run_process.dart';
 /// including the gitignored Multica/Hermes task artifacts under `noetec-ai-*/`
 /// (12k+ files, node_modules, …). On the WSL→Windows (9p) filesystem mount that
 /// scan is pathologically slow and used to hang the analyzer, so we scope it.
-const analyzeDirectories = ['lib', 'test', 'integration_test', 'scripts'];
+/// Reuses the same list as the format step (`format_runner.dart`).
+const analyzeDirectories = sourceDirectories;
 
 Future<bool> runLint({required bool stagedOnly}) async {
   final failures = <String>[];
@@ -31,17 +32,10 @@ Future<bool> runLint({required bool stagedOnly}) async {
 
   print('');
   print('🔄 Copyright check');
-  final files = stagedOnly
-      ? fetchStagedSourceFiles()
-      : fetchChangedSourceFiles();
+  final files = stagedOnly ? fetchStagedSourceFiles() : fetchChangedSourceFiles();
   if (!checkCopyrightInFiles(files)) failures.add('copyright');
 
   return failures.isEmpty;
 }
 
-Future<bool> runAnalyze() => runProcess(
-  'dart',
-  ['analyze', ...analyzeDirectories],
-  failMessage: 'Static analysis found issues.',
-  successMessage: 'No analysis issues.',
-);
+Future<bool> runAnalyze() => runProcess('dart', ['analyze', ...analyzeDirectories], failMessage: 'Static analysis found issues.', successMessage: 'No analysis issues.');

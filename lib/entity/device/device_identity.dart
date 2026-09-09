@@ -10,31 +10,13 @@ final class DeviceIdentity {
   final String? lastHlc;
   final String? publicKey;
 
-  const DeviceIdentity({
-    required this.uuid,
-    required this.name,
-    required this.createdAt,
-    required this.lastHlc,
-    this.publicKey,
-  });
+  const DeviceIdentity({required this.uuid, required this.name, required this.createdAt, required this.lastHlc, this.publicKey});
 
   String get truncatedDeviceId => uuid.replaceAll('-', '').substring(0, 8);
 
-  DeviceIdentity withLastHlc(String hlcKey) => DeviceIdentity(
-    uuid: uuid,
-    name: name,
-    createdAt: createdAt,
-    lastHlc: hlcKey,
-    publicKey: publicKey,
-  );
+  DeviceIdentity withLastHlc(String hlcKey) => DeviceIdentity(uuid: uuid, name: name, createdAt: createdAt, lastHlc: hlcKey, publicKey: publicKey);
 
-  Map<String, dynamic> toJson() => {
-    'uuid': uuid,
-    'name': name,
-    'created_at': createdAt.toIso8601String(),
-    'last_hlc': lastHlc,
-    'public_key': publicKey,
-  };
+  Map<String, dynamic> toJson() => {'uuid': uuid, 'name': name, 'created_at': createdAt.toIso8601String(), 'last_hlc': lastHlc, 'public_key': publicKey};
 
   factory DeviceIdentity.fromJson(Map<String, dynamic> json) => DeviceIdentity(
     uuid: json['uuid'] as String,

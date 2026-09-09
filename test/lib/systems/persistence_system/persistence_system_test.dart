@@ -21,11 +21,9 @@ class _FakeFs implements IFileSystemService {
   @override
   Future<String> readFile(String path) async => files[path] ?? '';
   @override
-  Future<void> writeFile(String path, String content) async =>
-      files[path] = content;
+  Future<void> writeFile(String path, String content) async => files[path] = content;
   @override
-  Future<void> appendToFile(String path, String content) async =>
-      files[path] = (files[path] ?? '') + content;
+  Future<void> appendToFile(String path, String content) async => files[path] = (files[path] ?? '') + content;
   @override
   Future<void> deleteFile(String path) async => files.remove(path);
   @override
@@ -39,10 +37,7 @@ class _FakeFs implements IFileSystemService {
   @override
   Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
   @override
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  }) => const Stream.empty();
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) => const Stream.empty();
 }
 
 void main() {
@@ -64,35 +59,15 @@ modified: 2026-01-01T00:00:00.000Z
 ---
 Hello world''';
       vaultSystem = createTestVaultSystem();
-      pageSystem = PageSystem(
-        FakeIdService(),
-        MarkdownSystem(FakeIdService()),
-        fs,
-        vaultSystem,
-      );
+      pageSystem = PageSystem(FakeIdService(), MarkdownSystem(FakeIdService()), fs, vaultSystem);
       walService = WalService(fs, vaultSystem);
 
       final hlcService = HlcService(vaultSystem, FakeDeviceService());
-      final realOplog = OpLogSystem(
-        fileSystem: fs,
-        hlcService: hlcService,
-        vaultSystem: vaultSystem,
-        deviceService: FakeDeviceService(),
-      );
+      final realOplog = OpLogSystem(fileSystem: fs, hlcService: hlcService, vaultSystem: vaultSystem, deviceService: FakeDeviceService());
 
-      persistenceSystem = PersistenceSystem(
-        wal: walService,
-        oplog: realOplog,
-        pageSystem: pageSystem,
-        vaultSystem: vaultSystem,
-      );
+      persistenceSystem = PersistenceSystem(wal: walService, oplog: realOplog, pageSystem: pageSystem, vaultSystem: vaultSystem);
 
-      vaultSystem.currentVault.value = VaultEntity(
-        id: 'vault-1',
-        name: 'TestVault',
-        rootPath: '/vault',
-        createdAt: DateTime(2026),
-      );
+      vaultSystem.currentVault.value = VaultEntity(id: 'vault-1', name: 'TestVault', rootPath: '/vault', createdAt: DateTime(2026));
 
       await pageSystem.loadPage('pages/welcome.md');
       testPageId = pageSystem.openPages.keys.first;
@@ -107,73 +82,45 @@ Hello world''';
 
     test('page load creates clean state', () {
       expect(pageSystem.openPages.keys.toList(), contains(testPageId));
-      expect(
-        persistenceSystem.saveStateOf(testPageId).value.state,
-        PageSaveState.clean,
-      );
+      expect(persistenceSystem.saveStateOf(testPageId).value.state, PageSaveState.clean);
     });
 
     test('action dispatch marks page dirty', () {
       pageSystem.activePageId.value = testPageId;
 
-      pageSystem.actionDispatcher.dispatch(
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'),
-      );
+      pageSystem.actionDispatcher.dispatch(const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'));
 
-      expect(
-        persistenceSystem.saveStateOf(testPageId).value.state,
-        PageSaveState.dirty,
-      );
+      expect(persistenceSystem.saveStateOf(testPageId).value.state, PageSaveState.dirty);
     });
 
     test('savePage transitions dirty → saving → clean', () async {
       pageSystem.activePageId.value = testPageId;
 
-      pageSystem.actionDispatcher.dispatch(
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'),
-      );
-      expect(
-        persistenceSystem.saveStateOf(testPageId).value.state,
-        PageSaveState.dirty,
-      );
+      pageSystem.actionDispatcher.dispatch(const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'));
+      expect(persistenceSystem.saveStateOf(testPageId).value.state, PageSaveState.dirty);
 
       await persistenceSystem.savePage(testPageId);
 
-      expect(
-        persistenceSystem.saveStateOf(testPageId).value.state,
-        PageSaveState.clean,
-      );
-      expect(
-        persistenceSystem.saveStateOf(testPageId).value.lastSaved,
-        isNotNull,
-      );
+      expect(persistenceSystem.saveStateOf(testPageId).value.state, PageSaveState.clean);
+      expect(persistenceSystem.saveStateOf(testPageId).value.lastSaved, isNotNull);
     });
 
     test('savePage on clean page is no-op', () async {
       await persistenceSystem.savePage(testPageId);
 
-      expect(
-        persistenceSystem.saveStateOf(testPageId).value.state,
-        PageSaveState.clean,
-      );
+      expect(persistenceSystem.saveStateOf(testPageId).value.state, PageSaveState.clean);
     });
 
     test('closePage removes state notifier', () async {
       pageSystem.closePage(testPageId);
 
-      expect(
-        persistenceSystem.saveStateOf(testPageId).value.state,
-        PageSaveState.clean,
-      );
+      expect(persistenceSystem.saveStateOf(testPageId).value.state, PageSaveState.clean);
     });
 
     test('markDirty explicitly sets dirty state', () {
       persistenceSystem.markDirty(testPageId);
 
-      expect(
-        persistenceSystem.saveStateOf(testPageId).value.state,
-        PageSaveState.dirty,
-      );
+      expect(persistenceSystem.saveStateOf(testPageId).value.state, PageSaveState.dirty);
     });
   });
 
@@ -187,10 +134,7 @@ Hello world''';
 
     test('copyWith creates new instance', () {
       const info = PageSaveInfo();
-      final updated = info.copyWith(
-        state: PageSaveState.dirty,
-        lastSaved: DateTime(2026, 1, 1),
-      );
+      final updated = info.copyWith(state: PageSaveState.dirty, lastSaved: DateTime(2026, 1, 1));
       expect(updated.state, PageSaveState.dirty);
       expect(updated.lastSaved, DateTime(2026, 1, 1));
       expect(info.state, PageSaveState.clean);

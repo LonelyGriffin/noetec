@@ -23,117 +23,81 @@ void main() {
   /// recovery log captures the edit, then saves with Ctrl+S. After save, the
   /// recovery log is cleared, the on-disk file is updated, and the op log
   /// records the save operation.
-  testWidgets(
-    'User types text into welcome page and saves — files updated correctly',
-    (tester) async {
-      final fileSystem = TestFileSystemService();
-      final settings = InMemorySettingsService();
-      final secureKeyStore = InMemorySecureKeyStore();
-      final parentDir = await VaultFolderFixture.createEmpty();
-      fileSystem.nextPickPath = parentDir.rootPath;
+  testWidgets('User types text into welcome page and saves — files updated correctly', (tester) async {
+    final fileSystem = TestFileSystemService();
+    final settings = InMemorySettingsService();
+    final secureKeyStore = InMemorySecureKeyStore();
+    final parentDir = await VaultFolderFixture.createEmpty();
+    fileSystem.nextPickPath = parentDir.rootPath;
 
-      await configureDI(
-        fileSystem: fileSystem,
-        settings: settings,
-        secureKeyStore: secureKeyStore,
-      );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
-      try {
-        /* Arrange: launch the app shell */
-        await tester.pumpWidget(const MainApp());
-        await tester.pumpAndSettle();
+    try {
+      /* Arrange: launch the app shell */
+      await tester.pumpWidget(const MainApp());
+      await tester.pumpAndSettle();
 
-        // Act: create vault
-        await tester.tap(findCreateVaultButton());
-        await tester.pumpAndSettle();
+      // Act: create vault
+      await tester.tap(findCreateVaultButton());
+      await tester.pumpAndSettle();
 
-        await tester.enterText(findVaultNameField(), 'EditVault');
-        await tester.tap(findDialogCreateButton());
-        await tester.pumpAndSettle();
+      await tester.enterText(findVaultNameField(), 'EditVault');
+      await tester.tap(findDialogCreateButton());
+      await tester.pumpAndSettle();
 
-        final vaultPath = p.join(parentDir.rootPath, 'EditVault');
+      final vaultPath = p.join(parentDir.rootPath, 'EditVault');
 
-        // Arrange: capture hash before editing
-        final oldHash = await readContentHash(vaultPath, 'pages/welcome.md');
+      // Arrange: capture hash before editing
+      final oldHash = await readContentHash(vaultPath, 'pages/welcome.md');
 
-        // Act: focus editor and type "hello"
-        await tester.tap(findEditorBlock());
-        await tester.pumpAndSettle();
+      // Act: focus editor and type "hello"
+      await tester.tap(findEditorBlock());
+      await tester.pumpAndSettle();
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
 
-        // Assert: in-memory text block contains typed text
-        final pageSystem = GetIt.instance<PageSystem>();
-        final textBlock = pageSystem
-            .getActivePage()!
-            .rootBlocks
-            .whereType<TextBlockEntity>()
-            .first;
-        expect(textBlock.computeAllSegmentsText(), contains('hello'));
+      // Assert: in-memory text block contains typed text
+      final pageSystem = GetIt.instance<PageSystem>();
+      final textBlock = pageSystem.getActivePage()!.rootBlocks.whereType<TextBlockEntity>().first;
+      expect(textBlock.computeAllSegmentsText(), contains('hello'));
 
-        // Allow auto-save / crash-recovery debounce to flush
-        await tester.pump(const Duration(milliseconds: 500));
+      // Allow auto-save / crash-recovery debounce to flush
+      await tester.pump(const Duration(milliseconds: 500));
 
-        // Assert: tab shows unsaved indicator (circle icon) after editing
-        expect(
-          findTabUnsavedIndicator('welcome'),
-          findsOneWidget,
-          reason: 'Tab should show unsaved indicator before Ctrl+S',
-        );
+      // Assert: tab shows unsaved indicator (circle icon) after editing
+      expect(findTabUnsavedIndicator('welcome'), findsOneWidget, reason: 'Tab should show unsaved indicator before Ctrl+S');
 
-        // Assert: crash recovery log has the edit entry
-        await expectCrashRecoveryLogContains(
-          vaultPath,
-          'pages/welcome.md',
-          actionType: 'insert_text',
-          text: 'hello',
-        );
+      // Assert: crash recovery log has the edit entry
+      await expectCrashRecoveryLogContains(vaultPath, 'pages/welcome.md', actionType: 'insert_text', text: 'hello');
 
-        // Act: save with Ctrl+S
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-        await tester.pumpAndSettle();
+      // Act: save with Ctrl+S
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
 
-        // Assert: unsaved indicator (circle) disappears after save
-        expect(
-          findTabUnsavedIndicator('welcome'),
-          findsNothing,
-          reason: 'Tab should not show unsaved indicator after Ctrl+S',
-        );
+      // Assert: unsaved indicator (circle) disappears after save
+      expect(findTabUnsavedIndicator('welcome'), findsNothing, reason: 'Tab should not show unsaved indicator after Ctrl+S');
 
-        // Assert: crash recovery log cleared after save
-        await expectCrashRecoveryLogAbsent(vaultPath, 'pages/welcome.md');
+      // Assert: crash recovery log cleared after save
+      await expectCrashRecoveryLogAbsent(vaultPath, 'pages/welcome.md');
 
-        // Assert: file content hash changed
-        await expectPageFileContentHashChanged(
-          vaultPath,
-          'pages/welcome.md',
-          oldHash,
-        );
+      // Assert: file content hash changed
+      await expectPageFileContentHashChanged(vaultPath, 'pages/welcome.md', oldHash);
 
-        // Assert: saved file contains the typed text
-        await expectPageFileValid(
-          vaultPath,
-          'pages/welcome.md',
-          containsText: 'hello',
-        );
+      // Assert: saved file contains the typed text
+      await expectPageFileValid(vaultPath, 'pages/welcome.md', containsText: 'hello');
 
-        // Assert: op log records the save
-        await expectOpLogContains(
-          vaultPath,
-          'pages/welcome.md',
-          entryType: 'save',
-        );
-      } finally {
-        await tester.pumpWidget(const SizedBox.shrink());
-        await GetIt.instance.reset();
-        await parentDir.dispose();
-      }
-    },
-  );
+      // Assert: op log records the save
+      await expectOpLogContains(vaultPath, 'pages/welcome.md', entryType: 'save');
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await GetIt.instance.reset();
+      await parentDir.dispose();
+    }
+  });
 }

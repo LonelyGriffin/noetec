@@ -18,23 +18,13 @@ class JournalPanel extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            'Journal',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: Text('Journal', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
         ),
         _MiniCalendar(currentDate: today),
         const Divider(height: 1),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text(
-            'Agenda',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: Text('Agenda', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
         ),
         Expanded(
           child: ListView(
@@ -71,24 +61,14 @@ class _MiniCalendar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         children: [
-          Text(
-            '$monthName $year',
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text('$monthName $year', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Row(
             children: [
               for (final day in ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'])
                 Expanded(
                   child: Center(
-                    child: Text(
-                      day,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+                    child: Text(day, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                   ),
                 ),
             ],
@@ -109,18 +89,11 @@ class _MiniCalendar extends StatelessWidget {
                         return Container(
                           height: 32,
                           alignment: Alignment.center,
-                          decoration: isToday
-                              ? BoxDecoration(
-                                  color: theme.colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(8),
-                                )
-                              : null,
+                          decoration: isToday ? BoxDecoration(color: theme.colorScheme.primary, borderRadius: BorderRadius.circular(8)) : null,
                           child: Text(
                             '$dayNum',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: isToday
-                                  ? theme.colorScheme.onPrimary
-                                  : theme.colorScheme.onSurface,
+                              color: isToday ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
                               fontWeight: isToday ? FontWeight.w600 : null,
                             ),
                           ),
@@ -137,20 +110,7 @@ class _MiniCalendar extends StatelessWidget {
   }
 }
 
-const _monthNames = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+const _monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 class _AgendaItem extends StatelessWidget {
   const _AgendaItem({required this.title, required this.time});
@@ -166,10 +126,7 @@ class _AgendaItem extends StatelessWidget {
       dense: true,
       leading: Text(
         time,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.primary,
-          fontWeight: FontWeight.w600,
-        ),
+        style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
       ),
       title: Text(title, style: theme.textTheme.bodyMedium),
     );

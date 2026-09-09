@@ -38,38 +38,23 @@ void main() {
       });
 
       test('throws FormatException for invalid JSON', () {
-        expect(
-          () => serializer.decode('not json'),
-          throwsA(isA<FormatException>()),
-        );
+        expect(() => serializer.decode('not json'), throwsA(isA<FormatException>()));
       });
 
       test('throws FormatException for missing hlc', () {
-        expect(
-          () => serializer.decode('{"type":"edit","device":"d"}'),
-          throwsA(isA<FormatException>()),
-        );
+        expect(() => serializer.decode('{"type":"edit","device":"d"}'), throwsA(isA<FormatException>()));
       });
 
       test('throws FormatException for missing type', () {
-        expect(
-          () => serializer.decode('{"hlc":"1000-0000-d","device":"d"}'),
-          throwsA(isA<FormatException>()),
-        );
+        expect(() => serializer.decode('{"hlc":"1000-0000-d","device":"d"}'), throwsA(isA<FormatException>()));
       });
 
       test('throws FormatException for missing device', () {
-        expect(
-          () => serializer.decode('{"hlc":"1000-0000-d","type":"edit"}'),
-          throwsA(isA<FormatException>()),
-        );
+        expect(() => serializer.decode('{"hlc":"1000-0000-d","type":"edit"}'), throwsA(isA<FormatException>()));
       });
 
       test('throws FormatException for non-object JSON', () {
-        expect(
-          () => serializer.decode('"string"'),
-          throwsA(isA<FormatException>()),
-        );
+        expect(() => serializer.decode('"string"'), throwsA(isA<FormatException>()));
       });
     });
 

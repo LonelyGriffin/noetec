@@ -23,17 +23,11 @@ class EditorArea extends WatchingWidget {
 
     return Column(
       children: [
-        if (pages.isNotEmpty)
-          _EditorTabBar(pages: pages, activePageId: activePageId),
+        if (pages.isNotEmpty) _EditorTabBar(pages: pages, activePageId: activePageId),
         Expanded(
           child: pages.isEmpty
               ? Center(
-                  child: Text(
-                    'Open a page to start editing',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                  child: Text('Open a page to start editing', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 )
               : _EditorContent(activePageId: activePageId, pages: pages),
         ),
@@ -69,9 +63,7 @@ class _EditorTabBar extends StatelessWidget {
             key: Key('tab-${page.title}'),
             decoration: BoxDecoration(
               border: Border(right: BorderSide(color: theme.dividerColor)),
-              color: isActive
-                  ? theme.colorScheme.surface
-                  : theme.colorScheme.surfaceContainerLowest,
+              color: isActive ? theme.colorScheme.surface : theme.colorScheme.surfaceContainerLowest,
             ),
             child: Row(
               children: [
@@ -84,9 +76,7 @@ class _EditorTabBar extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontWeight: isActive ? FontWeight.w600 : null,
-                        color: isActive
-                            ? theme.colorScheme.onSurface
-                            : theme.colorScheme.onSurfaceVariant,
+                        color: isActive ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -151,17 +141,7 @@ class _TabCloseButtonState extends State<_TabCloseButton> {
         onTap: () => di<PageSystem>().closePage(widget.pageId),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: showClose
-              ? Icon(
-                  Icons.close,
-                  size: 14,
-                  color: theme.colorScheme.onSurfaceVariant,
-                )
-              : Icon(
-                  Icons.circle,
-                  size: 8,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+          child: showClose ? Icon(Icons.close, size: 14, color: theme.colorScheme.onSurfaceVariant) : Icon(Icons.circle, size: 8, color: theme.colorScheme.onSurfaceVariant),
         ),
       ),
     );

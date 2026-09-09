@@ -23,8 +23,7 @@ class PageSelectionSubsystem {
     if (selection is RangeSelectionEntity) {
       final anchor = selection.anchor;
       final extent = selection.extent;
-      if (anchor is! CursorPositionInTextBlock ||
-          extent is! CursorPositionInTextBlock) {
+      if (anchor is! CursorPositionInTextBlock || extent is! CursorPositionInTextBlock) {
         return;
       }
 
@@ -48,27 +47,20 @@ class PageSelectionSubsystem {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
+    final flatOffset = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
     final totalLength = block.computeAllSegmentsText().length;
 
     switch (direction) {
       case CursorMoveDirection.left:
         if (flatOffset > 0) {
-          page.selection.value = SingleCursorSelectionEntity(
-            cursorPos: block.cursorPosFromFlatOffset(flatOffset - 1),
-          );
+          page.selection.value = SingleCursorSelectionEntity(cursorPos: block.cursorPosFromFlatOffset(flatOffset - 1));
         } else {
           _moveToPreviousBlock(page, cursor.blockId);
         }
 
       case CursorMoveDirection.right:
         if (flatOffset < totalLength) {
-          page.selection.value = SingleCursorSelectionEntity(
-            cursorPos: block.cursorPosFromFlatOffset(flatOffset + 1),
-          );
+          page.selection.value = SingleCursorSelectionEntity(cursorPos: block.cursorPosFromFlatOffset(flatOffset + 1));
         } else {
           _moveToNextBlock(page, cursor.blockId);
         }
@@ -90,8 +82,7 @@ class PageSelectionSubsystem {
       anchor = cursor;
       extent = cursor;
     } else if (selection is RangeSelectionEntity) {
-      if (selection.anchor is! CursorPositionInTextBlock ||
-          selection.extent is! CursorPositionInTextBlock) {
+      if (selection.anchor is! CursorPositionInTextBlock || selection.extent is! CursorPositionInTextBlock) {
         return;
       }
       anchor = selection.anchor as CursorPositionInTextBlock;
@@ -106,10 +97,7 @@ class PageSelectionSubsystem {
     if (anchor == newExtent) {
       page.selection.value = SingleCursorSelectionEntity(cursorPos: anchor);
     } else {
-      page.selection.value = RangeSelectionEntity(
-        anchor: anchor,
-        extent: newExtent,
-      );
+      page.selection.value = RangeSelectionEntity(anchor: anchor, extent: newExtent);
     }
   }
 
@@ -124,24 +112,13 @@ class PageSelectionSubsystem {
     final page = _pageSystem.getActivePage();
     if (page == null) return;
 
-    final anchorPos = CursorPositionInTextBlock(
-      blockId: anchorBlockId,
-      segmentIndex: anchorSegmentIndex,
-      offset: anchorOffset,
-    );
-    final extentPos = CursorPositionInTextBlock(
-      blockId: extentBlockId,
-      segmentIndex: extentSegmentIndex,
-      offset: extentOffset,
-    );
+    final anchorPos = CursorPositionInTextBlock(blockId: anchorBlockId, segmentIndex: anchorSegmentIndex, offset: anchorOffset);
+    final extentPos = CursorPositionInTextBlock(blockId: extentBlockId, segmentIndex: extentSegmentIndex, offset: extentOffset);
 
     if (anchorPos == extentPos) {
       page.selection.value = SingleCursorSelectionEntity(cursorPos: anchorPos);
     } else {
-      page.selection.value = RangeSelectionEntity(
-        anchor: anchorPos,
-        extent: extentPos,
-      );
+      page.selection.value = RangeSelectionEntity(anchor: anchorPos, extent: extentPos);
     }
   }
 
@@ -163,10 +140,7 @@ class PageSelectionSubsystem {
     if (anchor == extent) {
       page.selection.value = SingleCursorSelectionEntity(cursorPos: anchor);
     } else {
-      page.selection.value = RangeSelectionEntity(
-        anchor: anchor,
-        extent: extent,
-      );
+      page.selection.value = RangeSelectionEntity(anchor: anchor, extent: extent);
     }
   }
 
@@ -183,9 +157,7 @@ class PageSelectionSubsystem {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: block.cursorPosFromFlatOffset(flatOffset),
-    );
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: block.cursorPosFromFlatOffset(flatOffset));
   }
 
   void handleClick(String blockId, int segmentIndex, int offset) {
@@ -193,11 +165,7 @@ class PageSelectionSubsystem {
     if (page == null) return;
 
     page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: CursorPositionInTextBlock(
-        blockId: blockId,
-        segmentIndex: segmentIndex,
-        offset: offset,
-      ),
+      cursorPos: CursorPositionInTextBlock(blockId: blockId, segmentIndex: segmentIndex, offset: offset),
     );
   }
 
@@ -208,32 +176,18 @@ class PageSelectionSubsystem {
     final selection = page.selection.value;
     if (selection is! RangeSelectionEntity) return;
 
-    page.selection.value = RangeSelectionEntity(
-      anchor: selection.extent,
-      extent: selection.anchor,
-    );
+    page.selection.value = RangeSelectionEntity(anchor: selection.extent, extent: selection.anchor);
   }
 
-  CursorPositionInTextBlock? moveCursorPosition(
-    PageEntity page,
-    CursorPositionInTextBlock cursor,
-    CursorMoveDirection direction,
-  ) {
+  CursorPositionInTextBlock? moveCursorPosition(PageEntity page, CursorPositionInTextBlock cursor, CursorMoveDirection direction) {
     return _moveCursorPosition(page, cursor, direction);
   }
 
-  CursorPositionInTextBlock? _moveCursorPosition(
-    PageEntity page,
-    CursorPositionInTextBlock cursor,
-    CursorMoveDirection direction,
-  ) {
+  CursorPositionInTextBlock? _moveCursorPosition(PageEntity page, CursorPositionInTextBlock cursor, CursorMoveDirection direction) {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return null;
 
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
+    final flatOffset = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
     final totalLength = block.computeAllSegmentsText().length;
 
     switch (direction) {
@@ -246,9 +200,7 @@ class PageSelectionSubsystem {
         if (idx <= 0) return null;
         final prevBlock = page.getBlockById(ids[idx - 1]);
         if (prevBlock is! TextBlockEntity) return null;
-        return prevBlock.cursorPosFromFlatOffset(
-          prevBlock.computeAllSegmentsText().length,
-        );
+        return prevBlock.cursorPosFromFlatOffset(prevBlock.computeAllSegmentsText().length);
 
       case CursorMoveDirection.right:
         if (flatOffset < totalLength) {
@@ -272,9 +224,7 @@ class PageSelectionSubsystem {
     if (prevBlock is! TextBlockEntity) return;
 
     final endOffset = prevBlock.computeAllSegmentsText().length;
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: prevBlock.cursorPosFromFlatOffset(endOffset),
-    );
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: prevBlock.cursorPosFromFlatOffset(endOffset));
   }
 
   void _moveToNextBlock(PageEntity page, String currentBlockId) {
@@ -285,8 +235,6 @@ class PageSelectionSubsystem {
     final nextBlock = page.getBlockById(ids[idx + 1]);
     if (nextBlock is! TextBlockEntity) return;
 
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: nextBlock.cursorPosFromFlatOffset(0),
-    );
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: nextBlock.cursorPosFromFlatOffset(0));
   }
 }

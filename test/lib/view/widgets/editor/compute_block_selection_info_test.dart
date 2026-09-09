@@ -14,25 +14,12 @@ void main() {
     const blockB = 'block-b';
     const blockC = 'block-c';
 
-    CursorPositionInTextBlock cursor(
-      String blockId, {
-      int seg = 0,
-      int off = 0,
-    }) => CursorPositionInTextBlock(
-      blockId: blockId,
-      segmentIndex: seg,
-      offset: off,
-    );
+    CursorPositionInTextBlock cursor(String blockId, {int seg = 0, int off = 0}) => CursorPositionInTextBlock(blockId: blockId, segmentIndex: seg, offset: off);
 
     List<String> flatIds() => [blockA, blockB, blockC];
 
     test('returns BlockNotSelected for NoSelectionEntity', () {
-      final result = computeBlockSelectionInfo(
-        blockId: blockA,
-        state: const NoSelectionEntity(),
-        flatBlockIds: flatIds,
-        selectedBlockIds: {},
-      );
+      final result = computeBlockSelectionInfo(blockId: blockA, state: const NoSelectionEntity(), flatBlockIds: flatIds, selectedBlockIds: {});
 
       expect(result, isA<BlockNotSelected>());
     });
@@ -74,21 +61,18 @@ void main() {
       expect(result, isA<BlockWithRange>());
     });
 
-    test(
-      'returns BlockFullySelected for middle block in cross-block selection',
-      () {
-        final anchor = cursor(blockA, off: 3);
-        final extent = cursor(blockC, off: 5);
-        final result = computeBlockSelectionInfo(
-          blockId: blockB,
-          state: RangeSelectionEntity(anchor: anchor, extent: extent),
-          flatBlockIds: flatIds,
-          selectedBlockIds: {blockB},
-        );
+    test('returns BlockFullySelected for middle block in cross-block selection', () {
+      final anchor = cursor(blockA, off: 3);
+      final extent = cursor(blockC, off: 5);
+      final result = computeBlockSelectionInfo(
+        blockId: blockB,
+        state: RangeSelectionEntity(anchor: anchor, extent: extent),
+        flatBlockIds: flatIds,
+        selectedBlockIds: {blockB},
+      );
 
-        expect(result, isA<BlockFullySelected>());
-      },
-    );
+      expect(result, isA<BlockFullySelected>());
+    });
 
     test('returns BlockNotSelected for block outside selection range', () {
       final anchor = cursor(blockA, off: 3);

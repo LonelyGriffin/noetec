@@ -13,14 +13,7 @@ import 'package:noetec/entity/page/block/text/text_segment.dart';
 import 'package:noetec/view/widgets/editor/block_selection_info.dart';
 
 class TextBlockRenderWidget extends LeafRenderObjectWidget {
-  const TextBlockRenderWidget({
-    super.key,
-    required this.block,
-    required this.selectionInfo,
-    required this.cursorColor,
-    required this.selectionColor,
-    required this.textStyle,
-  });
+  const TextBlockRenderWidget({super.key, required this.block, required this.selectionInfo, required this.cursorColor, required this.selectionColor, required this.textStyle});
 
   final TextBlockEntity block;
   final BlockSelectionInfo selectionInfo;
@@ -30,20 +23,11 @@ class TextBlockRenderWidget extends LeafRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return TextBlockRenderBox(
-      block: block,
-      selectionInfo: selectionInfo,
-      cursorColor: cursorColor,
-      selectionColor: selectionColor,
-      textStyle: textStyle,
-    );
+    return TextBlockRenderBox(block: block, selectionInfo: selectionInfo, cursorColor: cursorColor, selectionColor: selectionColor, textStyle: textStyle);
   }
 
   @override
-  void updateRenderObject(
-    BuildContext context,
-    TextBlockRenderBox renderObject,
-  ) {
+  void updateRenderObject(BuildContext context, TextBlockRenderBox renderObject) {
     renderObject.block = block;
     renderObject.selectionInfo = selectionInfo;
     renderObject.cursorColor = cursorColor;
@@ -168,13 +152,7 @@ class TextBlockRenderBox extends RenderBox {
       final text = _getSegmentText(segment);
       final style = _getSegmentStyle(segment);
 
-      _segmentMaps.add(
-        _SegmentIndexMap(
-          segmentIndex: i,
-          startOffset: currentOffset,
-          endOffset: currentOffset + text.length,
-        ),
-      );
+      _segmentMaps.add(_SegmentIndexMap(segmentIndex: i, startOffset: currentOffset, endOffset: currentOffset + text.length));
 
       currentOffset += text.length;
       children.add(TextSpan(text: text, style: style));
@@ -192,10 +170,7 @@ class TextBlockRenderBox extends RenderBox {
   TextStyle _getSegmentStyle(TextSegment segment) {
     return switch (segment) {
       FormattedSegment(:final format) => _buildFormattedStyle(format),
-      LinkSegment() => _textStyle.copyWith(
-        color: const Color(0xFF0066CC),
-        decoration: TextDecoration.underline,
-      ),
+      LinkSegment() => _textStyle.copyWith(color: const Color(0xFF0066CC), decoration: TextDecoration.underline),
       TextSegment() => _textStyle,
     };
   }
@@ -220,10 +195,7 @@ class TextBlockRenderBox extends RenderBox {
     final textSpan = _buildTextSpan();
 
     _textPainter?.dispose();
-    _textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-    );
+    _textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
 
     _textPainter!.layout(maxWidth: maxWidth);
   }
@@ -246,10 +218,7 @@ class TextBlockRenderBox extends RenderBox {
     if (segmentIndex != -1) {
       final map = _segmentMaps[segmentIndex];
       final charIndexInSegment = characterIndex - map.startOffset;
-      return TextInteractionPoint(
-        segmentIndex: segmentIndex,
-        offset: charIndexInSegment,
-      );
+      return TextInteractionPoint(segmentIndex: segmentIndex, offset: charIndexInSegment);
     }
     return null;
   }
@@ -290,37 +259,13 @@ class TextBlockRenderBox extends RenderBox {
       case BlockWithCursor():
         break;
       case BlockWithRange(:final anchorCursorPos, :final extentCursorPos):
-        _paintRangeSelection(
-          context.canvas,
-          paintOffset,
-          anchorCursorPos.segmentIndex,
-          anchorCursorPos.offset,
-          extentCursorPos.segmentIndex,
-          extentCursorPos.offset,
-        );
+        _paintRangeSelection(context.canvas, paintOffset, anchorCursorPos.segmentIndex, anchorCursorPos.offset, extentCursorPos.segmentIndex, extentCursorPos.offset);
       case BlockSelectedFromStart(:final cursorPos):
-        _paintRangeSelection(
-          context.canvas,
-          paintOffset,
-          0,
-          0,
-          cursorPos.segmentIndex,
-          cursorPos.offset,
-        );
+        _paintRangeSelection(context.canvas, paintOffset, 0, 0, cursorPos.segmentIndex, cursorPos.offset);
       case BlockSelectedToEnd(:final cursorPos):
         final lastSegmentIndex = _segmentMaps.length - 1;
-        final lastSegmentEnd = lastSegmentIndex >= 0
-            ? _segmentMaps[lastSegmentIndex].endOffset -
-                  _segmentMaps[lastSegmentIndex].startOffset
-            : 0;
-        _paintRangeSelection(
-          context.canvas,
-          paintOffset,
-          cursorPos.segmentIndex,
-          cursorPos.offset,
-          lastSegmentIndex >= 0 ? lastSegmentIndex : 0,
-          lastSegmentEnd,
-        );
+        final lastSegmentEnd = lastSegmentIndex >= 0 ? _segmentMaps[lastSegmentIndex].endOffset - _segmentMaps[lastSegmentIndex].startOffset : 0;
+        _paintRangeSelection(context.canvas, paintOffset, cursorPos.segmentIndex, cursorPos.offset, lastSegmentIndex >= 0 ? lastSegmentIndex : 0, lastSegmentEnd);
     }
 
     _textPainter!.paint(context.canvas, paintOffset);
@@ -328,119 +273,55 @@ class TextBlockRenderBox extends RenderBox {
     switch (_selectionInfo) {
       case BlockWithCursor(:final cursorPos):
         if (_cursorVisible) {
-          _paintCursor(
-            context.canvas,
-            paintOffset,
-            cursorPos.segmentIndex,
-            cursorPos.offset,
-          );
+          _paintCursor(context.canvas, paintOffset, cursorPos.segmentIndex, cursorPos.offset);
         }
       case BlockWithRange(:final anchorCursorPos, :final extentCursorPos):
-        _paintCursor(
-          context.canvas,
-          paintOffset,
-          anchorCursorPos.segmentIndex,
-          anchorCursorPos.offset,
-        );
-        _paintCursor(
-          context.canvas,
-          paintOffset,
-          extentCursorPos.segmentIndex,
-          extentCursorPos.offset,
-        );
+        _paintCursor(context.canvas, paintOffset, anchorCursorPos.segmentIndex, anchorCursorPos.offset);
+        _paintCursor(context.canvas, paintOffset, extentCursorPos.segmentIndex, extentCursorPos.offset);
       case BlockSelectedFromStart(:final cursorPos):
-        _paintCursor(
-          context.canvas,
-          paintOffset,
-          cursorPos.segmentIndex,
-          cursorPos.offset,
-        );
+        _paintCursor(context.canvas, paintOffset, cursorPos.segmentIndex, cursorPos.offset);
       case BlockSelectedToEnd(:final cursorPos):
-        _paintCursor(
-          context.canvas,
-          paintOffset,
-          cursorPos.segmentIndex,
-          cursorPos.offset,
-        );
+        _paintCursor(context.canvas, paintOffset, cursorPos.segmentIndex, cursorPos.offset);
       default:
         break;
     }
   }
 
-  void _paintCursor(
-    Canvas canvas,
-    Offset blockOffset,
-    int segmentIndex,
-    int charOffsetInSegment,
-  ) {
+  void _paintCursor(Canvas canvas, Offset blockOffset, int segmentIndex, int charOffsetInSegment) {
     final flatOffset = _computeFlatOffset(segmentIndex, charOffsetInSegment);
     if (flatOffset == -1) return;
 
     final textPosition = TextPosition(offset: flatOffset);
     final caretRect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final caretOffset = _textPainter!.getOffsetForCaret(
-      textPosition,
-      caretRect,
-    );
-    final lineHeight = _textPainter!.getFullHeightForCaret(
-      textPosition,
-      caretRect,
-    );
+    final caretOffset = _textPainter!.getOffsetForCaret(textPosition, caretRect);
+    final lineHeight = _textPainter!.getFullHeightForCaret(textPosition, caretRect);
 
-    final cursorRect = Rect.fromLTWH(
-      blockOffset.dx + caretOffset.dx - _cursorWidth / 2,
-      blockOffset.dy + caretOffset.dy,
-      _cursorWidth,
-      lineHeight,
-    );
+    final cursorRect = Rect.fromLTWH(blockOffset.dx + caretOffset.dx - _cursorWidth / 2, blockOffset.dy + caretOffset.dy, _cursorWidth, lineHeight);
 
     final paint = Paint()..color = _cursorColor;
     canvas.drawRect(cursorRect, paint);
   }
 
-  void _paintRangeSelection(
-    Canvas canvas,
-    Offset blockOffset,
-    int fromSegmentIndex,
-    int fromOffsetInSegment,
-    int toSegmentIndex,
-    int toOffsetInSegment,
-  ) {
-    final fromFlatOffset = _computeFlatOffset(
-      fromSegmentIndex,
-      fromOffsetInSegment,
-    );
+  void _paintRangeSelection(Canvas canvas, Offset blockOffset, int fromSegmentIndex, int fromOffsetInSegment, int toSegmentIndex, int toOffsetInSegment) {
+    final fromFlatOffset = _computeFlatOffset(fromSegmentIndex, fromOffsetInSegment);
     final toFlatOffset = _computeFlatOffset(toSegmentIndex, toOffsetInSegment);
 
     if (fromFlatOffset == -1 || toFlatOffset == -1) return;
 
-    final (start, end) = fromFlatOffset <= toFlatOffset
-        ? (fromFlatOffset, toFlatOffset)
-        : (toFlatOffset, fromFlatOffset);
+    final (start, end) = fromFlatOffset <= toFlatOffset ? (fromFlatOffset, toFlatOffset) : (toFlatOffset, fromFlatOffset);
 
     final textSelection = TextSelection(baseOffset: start, extentOffset: end);
     final boxes = _textPainter!.getBoxesForSelection(textSelection);
 
     final paint = Paint()..color = _selectionColor;
     for (final box in boxes) {
-      canvas.drawRect(
-        Rect.fromLTRB(
-          blockOffset.dx + box.left,
-          blockOffset.dy + box.top,
-          blockOffset.dx + box.right,
-          blockOffset.dy + box.bottom,
-        ),
-        paint,
-      );
+      canvas.drawRect(Rect.fromLTRB(blockOffset.dx + box.left, blockOffset.dy + box.top, blockOffset.dx + box.right, blockOffset.dy + box.bottom), paint);
     }
   }
 
   void _paintFullSelection(Canvas canvas, Offset blockOffset) {
     final paint = Paint()..color = _selectionColor;
-    canvas.drawRect(
-      Rect.fromLTWH(blockOffset.dx, blockOffset.dy, size.width, size.height),
-      paint,
-    );
+    canvas.drawRect(Rect.fromLTWH(blockOffset.dx, blockOffset.dy, size.width, size.height), paint);
   }
 
   int _computeFlatOffset(int segmentIndex, int offsetInSegment) {
@@ -465,11 +346,7 @@ class _SegmentIndexMap {
   final int startOffset;
   final int endOffset;
 
-  _SegmentIndexMap({
-    required this.segmentIndex,
-    required this.startOffset,
-    required this.endOffset,
-  });
+  _SegmentIndexMap({required this.segmentIndex, required this.startOffset, required this.endOffset});
 }
 
 class TextInteractionPoint {

@@ -23,18 +23,10 @@ GoRouter createRouter(Listenable vaultListenable) => GoRouter(
     return null;
   },
   routes: [
-    GoRoute(
-      path: '/welcome',
-      builder: (context, state) => const WelcomeScreen(),
-    ),
+    GoRoute(path: '/welcome', builder: (context, state) => const WelcomeScreen()),
     ShellRoute(
       builder: (context, state, child) => AppShell(child: child),
-      routes: [
-        GoRoute(
-          path: '/editor',
-          builder: (context, state) => const EditorScreen(),
-        ),
-      ],
+      routes: [GoRoute(path: '/editor', builder: (context, state) => const EditorScreen())],
     ),
   ],
 );

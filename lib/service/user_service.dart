@@ -47,12 +47,7 @@ abstract interface class IUserService {
   ///
   /// Generates 32 random bytes, derives the BIP39 mnemonic and the Ed25519
   /// key pair, persists the public identity and stores the secrets.
-  Future<CreatedIdentity> createIdentity(
-    String vaultRootPath,
-    String vaultId, {
-    String name = 'Default User',
-    String role = 'owner',
-  });
+  Future<CreatedIdentity> createIdentity(String vaultRootPath, String vaultId, {String name = 'Default User', String role = 'owner'});
 
   /// Restores an identity from a 24-word BIP39 [mnemonic].
   ///
@@ -62,12 +57,7 @@ abstract interface class IUserService {
   /// only `publicKey` is deterministic, while `userId`/`name` are not. The
   /// authoritative source of `userId` on restore (e.g. lookup by `publicKey` in
   /// the `users.json` registry) is pinned down in NOET-29.
-  Future<UserIdentity> restoreIdentity(
-    String vaultRootPath,
-    String vaultId,
-    String mnemonic, {
-    String? userId,
-  });
+  Future<UserIdentity> restoreIdentity(String vaultRootPath, String vaultId, String mnemonic, {String? userId});
 
   /// Loads the identity from `.noetec/identity.json` if present.
   Future<UserIdentity?> loadIdentity(String vaultRootPath);
@@ -84,19 +74,12 @@ class UserServiceImpl implements IUserService {
   final Random _random;
   UserIdentity? _currentIdentity;
 
-  UserServiceImpl(
-    this._fileSystem,
-    this._idService,
-    this._cryptoService,
-    this._secureKeyStore, {
-    Random? random,
-  }) : _random = random ?? Random.secure();
+  UserServiceImpl(this._fileSystem, this._idService, this._cryptoService, this._secureKeyStore, {Random? random}) : _random = random ?? Random.secure();
 
   @override
   UserIdentity? get currentIdentity => _currentIdentity;
 
-  String _identityPath(String vaultRootPath) =>
-      '$vaultRootPath/.noetec/identity.json';
+  String _identityPath(String vaultRootPath) => '$vaultRootPath/.noetec/identity.json';
 
   /// Converts a lowercase hex string (as returned by `bip39.mnemonicToEntropy`)
   /// into its byte representation.
@@ -117,50 +100,23 @@ class UserServiceImpl implements IUserService {
   }
 
   @override
-  Future<CreatedIdentity> createIdentity(
-    String vaultRootPath,
-    String vaultId, {
-    String name = 'Default User',
-    String role = 'owner',
-  }) async {
+  Future<CreatedIdentity> createIdentity(String vaultRootPath, String vaultId, {String name = 'Default User', String role = 'owner'}) async {
     final entropy = _randomEntropy();
-    final mnemonic = bip39.entropyToMnemonic(
-      entropy.map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
-    );
-    final identity = await _persistIdentity(
-      vaultRootPath,
-      vaultId,
-      entropy: entropy,
-      userId: _idService.generateId(),
-      name: name,
-      role: role,
-    );
+    final mnemonic = bip39.entropyToMnemonic(entropy.map((b) => b.toRadixString(16).padLeft(2, '0')).join());
+    final identity = await _persistIdentity(vaultRootPath, vaultId, entropy: entropy, userId: _idService.generateId(), name: name, role: role);
     return CreatedIdentity(identity: identity, mnemonic: mnemonic);
   }
 
   @override
-  Future<UserIdentity> restoreIdentity(
-    String vaultRootPath,
-    String vaultId,
-    String mnemonic, {
-    String? userId,
-  }) async {
+  Future<UserIdentity> restoreIdentity(String vaultRootPath, String vaultId, String mnemonic, {String? userId}) async {
     if (!bip39.validateMnemonic(mnemonic)) {
       throw ArgumentError.value(mnemonic, 'mnemonic', 'Invalid BIP39 mnemonic');
     }
     final entropy = _hexToBytes(bip39.mnemonicToEntropy(mnemonic));
 
     final existing = await loadIdentity(vaultRootPath);
-    final resolvedUserId =
-        userId ?? existing?.userId ?? _idService.generateId();
-    return _persistIdentity(
-      vaultRootPath,
-      vaultId,
-      entropy: entropy,
-      userId: resolvedUserId,
-      name: existing?.name ?? 'Restored User',
-      role: existing?.role ?? 'owner',
-    );
+    final resolvedUserId = userId ?? existing?.userId ?? _idService.generateId();
+    return _persistIdentity(vaultRootPath, vaultId, entropy: entropy, userId: resolvedUserId, name: existing?.name ?? 'Restored User', role: existing?.role ?? 'owner');
   }
 
   /// Derives the key pair from [entropy], stores the secrets, and writes
@@ -177,25 +133,14 @@ class UserServiceImpl implements IUserService {
     final keyPair = await _cryptoService.deriveIdentityKeyPair(entropy);
 
     await _secureKeyStore.storeIdentitySeed(vaultId, seedBase64Url);
-    await _secureKeyStore.storeIdentityPrivateKey(
-      vaultId,
-      keyPair.privateKeyBase64Url,
-    );
+    await _secureKeyStore.storeIdentityPrivateKey(vaultId, keyPair.privateKeyBase64Url);
 
-    final identity = UserIdentity(
-      userId: userId,
-      name: name,
-      publicKey: keyPair.publicKeyBase64Url,
-      role: role,
-    );
+    final identity = UserIdentity(userId: userId, name: name, publicKey: keyPair.publicKeyBase64Url, role: role);
 
     if (!await _fileSystem.directoryExists('$vaultRootPath/.noetec')) {
       await _fileSystem.createDirectory('$vaultRootPath/.noetec');
     }
-    await _fileSystem.writeFile(
-      _identityPath(vaultRootPath),
-      jsonEncode(identity.toJson()),
-    );
+    await _fileSystem.writeFile(_identityPath(vaultRootPath), jsonEncode(identity.toJson()));
 
     _currentIdentity = identity;
     return identity;
@@ -206,9 +151,7 @@ class UserServiceImpl implements IUserService {
     final path = _identityPath(vaultRootPath);
     if (!await _fileSystem.fileExists(path)) return null;
     final content = await _fileSystem.readFile(path);
-    final identity = UserIdentity.fromJson(
-      jsonDecode(content) as Map<String, dynamic>,
-    );
+    final identity = UserIdentity.fromJson(jsonDecode(content) as Map<String, dynamic>);
     _currentIdentity = identity;
     return identity;
   }

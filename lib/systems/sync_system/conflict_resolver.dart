@@ -7,28 +7,17 @@ import 'package:noetec/systems/oplog_system/state_reconstruction_engine.dart';
 import 'package:noetec/systems/sync_system/conflict_store.dart';
 import 'package:noetec/systems/sync_system/merge_engine.dart';
 
-enum ConflictResolution {
-  keepOurs,
-  keepTheirs,
-  keepBoth,
-  acceptDelete,
-  keepModified,
-}
+enum ConflictResolution { keepOurs, keepTheirs, keepBoth, acceptDelete, keepModified }
 
 class ConflictResolver {
-  ConflictResolver({
-    required ConflictStore conflictStore,
-    required String vaultRootPath,
-  }) : _conflictStore = conflictStore,
-       _vaultRootPath = vaultRootPath;
+  ConflictResolver({required ConflictStore conflictStore, required String vaultRootPath}) : _conflictStore = conflictStore, _vaultRootPath = vaultRootPath;
 
   final ConflictStore _conflictStore;
   final String _vaultRootPath;
 
   String get vaultRootPath => _vaultRootPath;
 
-  ({List<ReconstructedBlock> resolvedBlocks, bool allResolved})?
-  resolveConflict(
+  ({List<ReconstructedBlock> resolvedBlocks, bool allResolved})? resolveConflict(
     String relativePath,
     List<ReconstructedBlock> currentBlocks,
     BlockConflict conflict,
@@ -51,11 +40,7 @@ class ConflictResolver {
     return (resolvedBlocks: result, allResolved: allResolved);
   }
 
-  void _resolveContentConflict(
-    List<ReconstructedBlock> blocks,
-    ContentConflict conflict,
-    ConflictResolution resolution,
-  ) {
+  void _resolveContentConflict(List<ReconstructedBlock> blocks, ContentConflict conflict, ConflictResolution resolution) {
     final idx = blocks.indexWhere((b) => b.blockId == conflict.blockId);
     switch (resolution) {
       case ConflictResolution.keepOurs:
@@ -81,11 +66,7 @@ class ConflictResolver {
     }
   }
 
-  void _resolveDeleteModifyConflict(
-    List<ReconstructedBlock> blocks,
-    DeleteModifyConflict conflict,
-    ConflictResolution resolution,
-  ) {
+  void _resolveDeleteModifyConflict(List<ReconstructedBlock> blocks, DeleteModifyConflict conflict, ConflictResolution resolution) {
     final exists = blocks.any((b) => b.blockId == conflict.blockId);
     switch (resolution) {
       case ConflictResolution.keepModified:

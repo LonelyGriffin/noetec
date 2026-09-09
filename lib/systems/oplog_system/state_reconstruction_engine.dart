@@ -18,10 +18,7 @@ class ReconstructedBlock {
 class StateReconstructionEngine {
   const StateReconstructionEngine._();
 
-  static List<ReconstructedBlock> reconstruct(
-    OpLogDag dag,
-    OpLogEntry targetEntry,
-  ) {
+  static List<ReconstructedBlock> reconstruct(OpLogDag dag, OpLogEntry targetEntry) {
     final path = _collectAncestors(dag, targetEntry);
     var state = <ReconstructedBlock>[];
     for (final entry in path) {
@@ -30,10 +27,7 @@ class StateReconstructionEngine {
     return state;
   }
 
-  static List<ReconstructedBlock> applyDiff(
-    List<ReconstructedBlock> blocks,
-    List<BlockOp> ops,
-  ) {
+  static List<ReconstructedBlock> applyDiff(List<ReconstructedBlock> blocks, List<BlockOp> ops) {
     var result = blocks;
     for (final op in ops) {
       result = _applyBlockOp(result, op);
@@ -41,29 +35,16 @@ class StateReconstructionEngine {
     return result;
   }
 
-  static List<ReconstructedBlock> applyBlockOp(
-    List<ReconstructedBlock> blocks,
-    BlockOp op,
-  ) => _applyBlockOp(blocks, op);
+  static List<ReconstructedBlock> applyBlockOp(List<ReconstructedBlock> blocks, BlockOp op) => _applyBlockOp(blocks, op);
 
-  static List<ReconstructedBlock> _applyEntry(
-    List<ReconstructedBlock> state,
-    OpLogEntry entry,
-  ) {
+  static List<ReconstructedBlock> _applyEntry(List<ReconstructedBlock> state, OpLogEntry entry) {
     var result = state;
     switch (entry.type) {
       case OpEntryType.fileCreate:
         final fileOp = entry.fileOp;
         if (fileOp is FileCreateOp) {
           for (final snapshot in fileOp.initialBlocks) {
-            result = _applyBlockOp(
-              result,
-              BlockInsert(
-                blockId: snapshot.blockId,
-                afterBlockId: snapshot.afterBlockId,
-                segments: snapshot.segments,
-              ),
-            );
+            result = _applyBlockOp(result, BlockInsert(blockId: snapshot.blockId, afterBlockId: snapshot.afterBlockId, segments: snapshot.segments));
           }
         }
       case OpEntryType.edit:
@@ -80,18 +61,12 @@ class StateReconstructionEngine {
     return result;
   }
 
-  static List<ReconstructedBlock> _applyBlockOp(
-    List<ReconstructedBlock> blocks,
-    BlockOp op,
-  ) {
+  static List<ReconstructedBlock> _applyBlockOp(List<ReconstructedBlock> blocks, BlockOp op) {
     final result = List<ReconstructedBlock>.of(blocks);
 
     switch (op) {
       case BlockInsert():
-        final block = ReconstructedBlock(
-          blockId: op.blockId,
-          segments: List.of(op.segments),
-        );
+        final block = ReconstructedBlock(blockId: op.blockId, segments: List.of(op.segments));
         _insertAfter(result, block, op.afterBlockId);
 
       case BlockDelete():
@@ -100,10 +75,7 @@ class StateReconstructionEngine {
       case BlockUpdate():
         final index = result.indexWhere((b) => b.blockId == op.blockId);
         if (index != -1) {
-          result[index] = ReconstructedBlock(
-            blockId: op.blockId,
-            segments: List.of(op.segments),
-          );
+          result[index] = ReconstructedBlock(blockId: op.blockId, segments: List.of(op.segments));
         }
 
       case BlockMove():
@@ -117,11 +89,7 @@ class StateReconstructionEngine {
     return result;
   }
 
-  static void _insertAfter(
-    List<ReconstructedBlock> blocks,
-    ReconstructedBlock block,
-    String? afterBlockId,
-  ) {
+  static void _insertAfter(List<ReconstructedBlock> blocks, ReconstructedBlock block, String? afterBlockId) {
     if (afterBlockId == null) {
       blocks.insert(0, block);
       return;
@@ -156,8 +124,7 @@ class StateReconstructionEngine {
       }
     }
 
-    final ordered = visited.values.toList()
-      ..sort((a, b) => a.hlc.compareTo(b.hlc));
+    final ordered = visited.values.toList()..sort((a, b) => a.hlc.compareTo(b.hlc));
     return ordered;
   }
 }

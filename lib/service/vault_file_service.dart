@@ -21,8 +21,7 @@ class PageNameConflictException implements Exception {
   const PageNameConflictException(this.fileName);
 
   @override
-  String toString() =>
-      'PageNameConflictException: page "$fileName" already exists';
+  String toString() => 'PageNameConflictException: page "$fileName" already exists';
 }
 
 sealed class PageFileNode {
@@ -45,12 +44,7 @@ final class PageFileItem extends PageFileNode {
   final String pageId;
   final DateTime? modified;
 
-  const PageFileItem({
-    required this.name,
-    required this.relativePath,
-    required this.pageId,
-    this.modified,
-  });
+  const PageFileItem({required this.name, required this.relativePath, required this.pageId, this.modified});
 }
 
 class VaultFileService {
@@ -90,10 +84,7 @@ class VaultFileService {
       ..addAll(nodes);
   }
 
-  Future<List<PageFileNode>> _scanDirectory(
-    String directoryPath,
-    String rootPath,
-  ) async {
+  Future<List<PageFileNode>> _scanDirectory(String directoryPath, String rootPath) async {
     if (!await _fileSystem.directoryExists(directoryPath)) return [];
 
     final entries = await _fileSystem.listDirectory(directoryPath);
@@ -106,9 +97,7 @@ class VaultFileService {
         final subChildren = await _scanDirectory(entry.path, rootPath);
         children.add(PageFileFolder(name: entry.name, children: subChildren));
       } else if (entry.name.endsWith('.md')) {
-        final relativePath = p
-            .relative(entry.path, from: rootPath)
-            .replaceAll('\\', '/');
+        final relativePath = p.relative(entry.path, from: rootPath).replaceAll('\\', '/');
         String pageId = '';
         try {
           final raw = await _fileSystem.readFile(entry.path);
@@ -117,14 +106,7 @@ class VaultFileService {
         } catch (_) {
           pageId = _uuid.v4();
         }
-        children.add(
-          PageFileItem(
-            name: entry.name,
-            relativePath: relativePath,
-            pageId: pageId,
-            modified: entry.lastModified,
-          ),
-        );
+        children.add(PageFileItem(name: entry.name, relativePath: relativePath, pageId: pageId, modified: entry.lastModified));
       }
     }
 
@@ -145,27 +127,17 @@ class VaultFileService {
     final blockId = _uuid.v4();
     final content = '::: {#$blockId}\n\n:::\n';
     final hash = PageFrontmatterCodec.computeContentHash(content);
-    final frontmatter = PageFrontmatter(
-      id: _uuid.v4(),
-      contentHash: 'sha256:$hash',
-      modified: DateTime.now().toUtc(),
-    );
+    final frontmatter = PageFrontmatter(id: _uuid.v4(), contentHash: 'sha256:$hash', modified: DateTime.now().toUtc());
     final fileContent = PageFrontmatterCodec.encode(frontmatter, content);
     await _fileSystem.writeFile(filePath, fileContent);
 
     await scanFileTree(vaultRootPath);
 
-    final relativePath = p
-        .relative(filePath, from: vaultRootPath)
-        .replaceAll('\\', '/');
+    final relativePath = p.relative(filePath, from: vaultRootPath).replaceAll('\\', '/');
     return relativePath;
   }
 
-  Future<String> renamePage(
-    String vaultRootPath,
-    String oldRelativePath,
-    String newFileName,
-  ) async {
+  Future<String> renamePage(String vaultRootPath, String oldRelativePath, String newFileName) async {
     var finalName = PageFileNameSanitizer.sanitize(newFileName);
     if (!finalName.endsWith('.md')) {
       finalName = '$finalName.md';
@@ -175,9 +147,7 @@ class VaultFileService {
     if (finalName == oldFileName) return oldRelativePath;
 
     final oldAbsolutePath = p.normalize(p.join(vaultRootPath, oldRelativePath));
-    final newAbsolutePath = p.normalize(
-      p.join(p.dirname(oldAbsolutePath), finalName),
-    );
+    final newAbsolutePath = p.normalize(p.join(p.dirname(oldAbsolutePath), finalName));
 
     if (await _fileSystem.fileExists(newAbsolutePath)) {
       throw PageNameConflictException(finalName);
@@ -186,9 +156,7 @@ class VaultFileService {
     await _fileSystem.renameFileOrDirectory(oldAbsolutePath, newAbsolutePath);
     await scanFileTree(vaultRootPath);
 
-    final newRelativePath = p
-        .relative(newAbsolutePath, from: vaultRootPath)
-        .replaceAll('\\', '/');
+    final newRelativePath = p.relative(newAbsolutePath, from: vaultRootPath).replaceAll('\\', '/');
     return newRelativePath;
   }
 

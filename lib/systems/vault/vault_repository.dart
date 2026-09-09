@@ -31,9 +31,7 @@ class VaultRepositoryImpl implements IVaultRepository {
     if (raw == null || raw.isEmpty) return [];
 
     final decoded = json.decode(raw) as List<dynamic>;
-    return decoded
-        .map((item) => VaultEntity.fromMap(item as Map<String, dynamic>))
-        .toList();
+    return decoded.map((item) => VaultEntity.fromMap(item as Map<String, dynamic>)).toList();
   }
 
   @override

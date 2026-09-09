@@ -24,11 +24,9 @@ class FakeFileSystemService implements IFileSystemService {
   @override
   Future<String> readFile(String path) async => files[path] ?? '';
   @override
-  Future<void> writeFile(String path, String content) async =>
-      files[path] = content;
+  Future<void> writeFile(String path, String content) async => files[path] = content;
   @override
-  Future<void> appendToFile(String path, String content) async =>
-      files[path] = (files[path] ?? '') + content;
+  Future<void> appendToFile(String path, String content) async => files[path] = (files[path] ?? '') + content;
   @override
   Future<void> deleteFile(String path) async => files.remove(path);
   @override
@@ -42,10 +40,7 @@ class FakeFileSystemService implements IFileSystemService {
   @override
   Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
   @override
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  }) => const Stream.empty();
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) => const Stream.empty();
 }
 
 class FakeVaultRepository implements IVaultRepository {
@@ -68,17 +63,8 @@ class FakeDeviceService implements IDeviceService {
   DeviceIdentity? get currentDevice => _device;
 
   @override
-  Future<DeviceIdentity> ensureDevice(
-    String vaultRootPath,
-    String vaultId,
-  ) async {
-    _device ??= DeviceIdentity(
-      uuid: 'test-device-uuid',
-      name: 'Test Device',
-      createdAt: DateTime.now(),
-      lastHlc: null,
-      publicKey: 'test-public-key',
-    );
+  Future<DeviceIdentity> ensureDevice(String vaultRootPath, String vaultId) async {
+    _device ??= DeviceIdentity(uuid: 'test-device-uuid', name: 'Test Device', createdAt: DateTime.now(), lastHlc: null, publicKey: 'test-public-key');
     return _device!;
   }
 
@@ -93,18 +79,8 @@ class FakeDeviceService implements IDeviceService {
   void clear() => _device = null;
 }
 
-VaultSystem createTestVaultSystem({
-  IFileSystemService? fileSystem,
-  IVaultRepository? repository,
-  IIdService? idService,
-  IDeviceService? deviceService,
-}) {
-  return VaultSystem(
-    fileSystem ?? FakeFileSystemService(),
-    repository ?? FakeVaultRepository(),
-    idService ?? FakeIdService(),
-    deviceService ?? FakeDeviceService(),
-  );
+VaultSystem createTestVaultSystem({IFileSystemService? fileSystem, IVaultRepository? repository, IIdService? idService, IDeviceService? deviceService}) {
+  return VaultSystem(fileSystem ?? FakeFileSystemService(), repository ?? FakeVaultRepository(), idService ?? FakeIdService(), deviceService ?? FakeDeviceService());
 }
 
 /// In-memory [ISecureKeyStore] shared by the device- and user-service unit
@@ -115,20 +91,15 @@ class FakeSecureKeyStore implements ISecureKeyStore {
   String _key(String prefix, String vaultId) => '$prefix.$vaultId';
 
   @override
-  Future<void> storeDevicePrivateKey(
-    String vaultId,
-    String devicePrivateKeyBase64,
-  ) async {
+  Future<void> storeDevicePrivateKey(String vaultId, String devicePrivateKeyBase64) async {
     _store[_key('device', vaultId)] = devicePrivateKeyBase64;
   }
 
   @override
-  Future<String?> readDevicePrivateKey(String vaultId) async =>
-      _store[_key('device', vaultId)];
+  Future<String?> readDevicePrivateKey(String vaultId) async => _store[_key('device', vaultId)];
 
   @override
-  Future<bool> hasDevicePrivateKey(String vaultId) async =>
-      _store.containsKey(_key('device', vaultId));
+  Future<bool> hasDevicePrivateKey(String vaultId) async => _store.containsKey(_key('device', vaultId));
 
   @override
   Future<void> deleteDevicePrivateKey(String vaultId) async {
@@ -141,22 +112,16 @@ class FakeSecureKeyStore implements ISecureKeyStore {
   }
 
   @override
-  Future<String?> readIdentitySeed(String vaultId) async =>
-      _store[_key('seed', vaultId)];
+  Future<String?> readIdentitySeed(String vaultId) async => _store[_key('seed', vaultId)];
 
   @override
-  Future<bool> hasIdentitySeed(String vaultId) async =>
-      _store.containsKey(_key('seed', vaultId));
+  Future<bool> hasIdentitySeed(String vaultId) async => _store.containsKey(_key('seed', vaultId));
 
   @override
-  Future<void> storeIdentityPrivateKey(
-    String vaultId,
-    String identityPrivateKeyBase64Url,
-  ) async {
+  Future<void> storeIdentityPrivateKey(String vaultId, String identityPrivateKeyBase64Url) async {
     _store[_key('private', vaultId)] = identityPrivateKeyBase64Url;
   }
 
   @override
-  Future<String?> readIdentityPrivateKey(String vaultId) async =>
-      _store[_key('private', vaultId)];
+  Future<String?> readIdentityPrivateKey(String vaultId) async => _store[_key('private', vaultId)];
 }

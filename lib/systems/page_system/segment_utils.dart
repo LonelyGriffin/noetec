@@ -8,10 +8,7 @@ import 'package:noetec/entity/page/block/text/text_segment.dart';
 import 'package:noetec/entity/page/page.dart';
 import 'package:noetec/entity/page/selection.dart';
 
-(List<TextSegment>, List<TextSegment>) splitSegmentsAt(
-  List<TextSegment> segments,
-  int flatOffset,
-) {
+(List<TextSegment>, List<TextSegment>) splitSegmentsAt(List<TextSegment> segments, int flatOffset) {
   final before = <TextSegment>[];
   final after = <TextSegment>[];
   int remaining = flatOffset;
@@ -34,11 +31,7 @@ import 'package:noetec/entity/page/selection.dart';
   return (before, after);
 }
 
-(CursorPositionInTextBlock?, CursorPositionInTextBlock?) orderedCursors(
-  PageEntity page,
-  CursorPositionInTextBlock a,
-  CursorPositionInTextBlock b,
-) {
+(CursorPositionInTextBlock?, CursorPositionInTextBlock?) orderedCursors(PageEntity page, CursorPositionInTextBlock a, CursorPositionInTextBlock b) {
   if (a.blockId == b.blockId) {
     final block = page.getBlockById(a.blockId);
     if (block is! TextBlockEntity) return (null, null);

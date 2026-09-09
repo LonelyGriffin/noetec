@@ -15,8 +15,7 @@ class _FakeFs implements IFileSystemService {
   @override
   Future<String> readFile(String path) async => files[path] ?? '';
   @override
-  Future<void> writeFile(String path, String content) async =>
-      files[path] = content;
+  Future<void> writeFile(String path, String content) async => files[path] = content;
   @override
   Future<void> appendToFile(String path, String content) async {
     files[path] = (files[path] ?? '') + content;
@@ -39,14 +38,7 @@ class _FakeFs implements IFileSystemService {
       if (normKey.startsWith('$normalized/')) {
         final relative = normKey.substring(normalized.length + 1);
         if (!relative.contains('/')) {
-          entries.add(
-            FileEntry(
-              name: relative,
-              path: key,
-              isDirectory: false,
-              lastModified: DateTime.now(),
-            ),
-          );
+          entries.add(FileEntry(name: relative, path: key, isDirectory: false, lastModified: DateTime.now()));
         }
       }
     }
@@ -56,10 +48,7 @@ class _FakeFs implements IFileSystemService {
   @override
   Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
   @override
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  }) => const Stream.empty();
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) => const Stream.empty();
 }
 
 void main() {

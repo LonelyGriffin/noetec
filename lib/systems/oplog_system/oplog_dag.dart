@@ -51,19 +51,16 @@ class OpLogDag {
     return OpLogDag._(entriesByHlc, childrenByHlc, heads);
   }
 
-  Map<String, OpLogEntry> get entriesByHlc =>
-      UnmodifiableMapView(_entriesByHlc);
+  Map<String, OpLogEntry> get entriesByHlc => UnmodifiableMapView(_entriesByHlc);
 
   Map<String, OpLogEntry> get heads => UnmodifiableMapView(_heads);
 
   List<OpLogEntry> get sortedEntries {
-    final list = _entriesByHlc.values.toList()
-      ..sort((a, b) => a.hlc.compareTo(b.hlc));
+    final list = _entriesByHlc.values.toList()..sort((a, b) => a.hlc.compareTo(b.hlc));
     return list;
   }
 
-  List<OpLogEntry> childrenOf(OpLogEntry entry) =>
-      List.unmodifiable(_childrenByHlc[entry.hlcKey] ?? const []);
+  List<OpLogEntry> childrenOf(OpLogEntry entry) => List.unmodifiable(_childrenByHlc[entry.hlcKey] ?? const []);
 
   DagTopology get topology {
     if (_entriesByHlc.isEmpty) return DagTopology.empty;
@@ -135,8 +132,7 @@ class OpLogDag {
       return const [];
     }
 
-    final result = collected.values.toList()
-      ..sort((a, b) => a.hlc.compareTo(b.hlc));
+    final result = collected.values.toList()..sort((a, b) => a.hlc.compareTo(b.hlc));
     return result;
   }
 

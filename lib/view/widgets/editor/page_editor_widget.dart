@@ -85,19 +85,9 @@ class _PageEditorWidgetState extends State<PageEditorWidget> {
     final (blockId, segmentIndex, offset) = hit;
 
     if (_inputService.shiftPressed) {
-      _inputService.handleTextClick(
-        widget.pageId,
-        blockId,
-        segmentIndex,
-        offset,
-      );
+      _inputService.handleTextClick(widget.pageId, blockId, segmentIndex, offset);
     } else {
-      _inputService.handleDragStart(
-        widget.pageId,
-        blockId,
-        segmentIndex,
-        offset,
-      );
+      _inputService.handleDragStart(widget.pageId, blockId, segmentIndex, offset);
     }
     _dragAnchor = hit;
   }
@@ -109,12 +99,7 @@ class _PageEditorWidgetState extends State<PageEditorWidget> {
     if (hit == null) return;
 
     final (blockId, segmentIndex, offset) = hit;
-    _inputService.handleDragUpdate(
-      widget.pageId,
-      blockId,
-      segmentIndex,
-      offset,
-    );
+    _inputService.handleDragUpdate(widget.pageId, blockId, segmentIndex, offset);
   }
 
   void _onPointerUp(PointerUpEvent event) {

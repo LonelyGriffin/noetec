@@ -15,71 +15,58 @@ import 'helpers/widget_finders.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets(
-    'Dirty tab shows circle, hover reveals close icon, tap closes tab',
-    (tester) async {
-      final fileSystem = TestFileSystemService();
-      final settings = InMemorySettingsService();
-      final secureKeyStore = InMemorySecureKeyStore();
-      final parentDir = await VaultFolderFixture.createEmpty();
-      fileSystem.nextPickPath = parentDir.rootPath;
+  testWidgets('Dirty tab shows circle, hover reveals close icon, tap closes tab', (tester) async {
+    final fileSystem = TestFileSystemService();
+    final settings = InMemorySettingsService();
+    final secureKeyStore = InMemorySecureKeyStore();
+    final parentDir = await VaultFolderFixture.createEmpty();
+    fileSystem.nextPickPath = parentDir.rootPath;
 
-      await configureDI(
-        fileSystem: fileSystem,
-        settings: settings,
-        secureKeyStore: secureKeyStore,
-      );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
-      try {
-        await tester.pumpWidget(const MainApp());
-        await tester.pumpAndSettle();
+    try {
+      await tester.pumpWidget(const MainApp());
+      await tester.pumpAndSettle();
 
-        await tester.tap(findCreateVaultButton());
-        await tester.pumpAndSettle();
+      await tester.tap(findCreateVaultButton());
+      await tester.pumpAndSettle();
 
-        await tester.enterText(findVaultNameField(), 'HoverVault');
-        await tester.tap(findDialogCreateButton());
-        await tester.pumpAndSettle();
+      await tester.enterText(findVaultNameField(), 'HoverVault');
+      await tester.tap(findDialogCreateButton());
+      await tester.pumpAndSettle();
 
-        await tester.tap(findEditorBlock());
-        await tester.pumpAndSettle();
+      await tester.tap(findEditorBlock());
+      await tester.pumpAndSettle();
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
-        await tester.pump(const Duration(milliseconds: 500));
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+      await tester.pump(const Duration(milliseconds: 500));
 
-        expect(findTabUnsavedIndicator('welcome'), findsOneWidget);
-        expect(findTabCloseButton('welcome'), findsNothing);
+      expect(findTabUnsavedIndicator('welcome'), findsOneWidget);
+      expect(findTabCloseButton('welcome'), findsNothing);
 
-        final gesture1 = await hoverOver(
-          tester,
-          findTabUnsavedIndicator('welcome'),
-        );
+      final gesture1 = await hoverOver(tester, findTabUnsavedIndicator('welcome'));
 
-        expect(findTabUnsavedIndicator('welcome'), findsNothing);
-        expect(findTabCloseButton('welcome'), findsOneWidget);
+      expect(findTabUnsavedIndicator('welcome'), findsNothing);
+      expect(findTabCloseButton('welcome'), findsOneWidget);
 
-        await hoverAway(tester, gesture1);
+      await hoverAway(tester, gesture1);
 
-        expect(findTabUnsavedIndicator('welcome'), findsOneWidget);
-        expect(findTabCloseButton('welcome'), findsNothing);
+      expect(findTabUnsavedIndicator('welcome'), findsOneWidget);
+      expect(findTabCloseButton('welcome'), findsNothing);
 
-        final gesture2 = await hoverOver(
-          tester,
-          findTabUnsavedIndicator('welcome'),
-        );
-        await tester.tap(findTabCloseButton('welcome'));
-        await tester.pumpAndSettle();
-        await hoverAway(tester, gesture2);
+      final gesture2 = await hoverOver(tester, findTabUnsavedIndicator('welcome'));
+      await tester.tap(findTabCloseButton('welcome'));
+      await tester.pumpAndSettle();
+      await hoverAway(tester, gesture2);
 
-        expect(findTabWithTitle('welcome'), findsNothing);
-        expect(find.text('Open a page to start editing'), findsOneWidget);
-      } finally {
-        await tester.pumpWidget(const SizedBox.shrink());
-        await GetIt.instance.reset();
-        await parentDir.dispose();
-      }
-    },
-  );
+      expect(findTabWithTitle('welcome'), findsNothing);
+      expect(find.text('Open a page to start editing'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await GetIt.instance.reset();
+      await parentDir.dispose();
+    }
+  });
 
   testWidgets('Closing non-active tab removes it from tab bar', (tester) async {
     final fileSystem = TestFileSystemService();
@@ -88,11 +75,7 @@ void main() {
     final parentDir = await VaultFolderFixture.createEmpty();
     fileSystem.nextPickPath = parentDir.rootPath;
 
-    await configureDI(
-      fileSystem: fileSystem,
-      settings: settings,
-      secureKeyStore: secureKeyStore,
-    );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
       await tester.pumpWidget(const MainApp());

@@ -10,25 +10,18 @@ import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
 import 'package:path/path.dart' as p;
 
 class ExternalEditHandler {
-  ExternalEditHandler({
-    required IFileSystemService fileSystem,
-    required MarkdownSystem markdownSystem,
-    required OpLogSystem oplogSystem,
-    required String vaultRootPath,
-  }) : _fileSystem = fileSystem,
-       _markdownSystem = markdownSystem,
-       _oplogSystem = oplogSystem,
-       _vaultRootPath = vaultRootPath;
+  ExternalEditHandler({required IFileSystemService fileSystem, required MarkdownSystem markdownSystem, required OpLogSystem oplogSystem, required String vaultRootPath})
+    : _fileSystem = fileSystem,
+      _markdownSystem = markdownSystem,
+      _oplogSystem = oplogSystem,
+      _vaultRootPath = vaultRootPath;
 
   final IFileSystemService _fileSystem;
   final MarkdownSystem _markdownSystem;
   final OpLogSystem _oplogSystem;
   final String _vaultRootPath;
 
-  Future<String?> handleExternalEdit(
-    String relativePath,
-    String? knownPageId,
-  ) async {
+  Future<String?> handleExternalEdit(String relativePath, String? knownPageId) async {
     final absolutePath = p.join(_vaultRootPath, relativePath);
     if (!await _fileSystem.fileExists(absolutePath)) return null;
 
@@ -38,20 +31,11 @@ class ExternalEditHandler {
     final blocks = _markdownSystem.parseMarkdown(content);
     final pageId = knownPageId ?? frontmatter.id;
 
-    final currentHash =
-        'sha256:${PageFrontmatterCodec.computeContentHash(content)}';
+    final currentHash = 'sha256:${PageFrontmatterCodec.computeContentHash(content)}';
 
-    await _oplogSystem.recordExternalEdit(
-      relativePath,
-      blocks,
-      currentHash,
-      pageId: pageId,
-    );
+    await _oplogSystem.recordExternalEdit(relativePath, blocks, currentHash, pageId: pageId);
 
-    final updatedFrontmatter = frontmatter.copyWith(
-      contentHash: currentHash,
-      modified: DateTime.now().toUtc(),
-    );
+    final updatedFrontmatter = frontmatter.copyWith(contentHash: currentHash, modified: DateTime.now().toUtc());
     final newContent = PageFrontmatterCodec.encode(updatedFrontmatter, content);
     await _fileSystem.writeFile(absolutePath, newContent);
 
