@@ -77,4 +77,90 @@ void main() {
       expect(() => service.deriveIdentityKeyPair(<int>[1, 2, 3]), throwsArgumentError);
     });
   });
+
+  group('CryptoServiceImpl.sign / verify —', () {
+    late String pubKey;
+    late String privKey;
+
+    setUp(() async {
+      final pair = await service.deriveIdentityKeyPair(entropy32);
+      pubKey = pair.publicKeyBase64Url;
+      privKey = pair.privateKeyBase64Url;
+    });
+
+    test('round-trips: sign then verify succeeds', () async {
+      final bytes = utf8.encode('hello, world');
+      final sig = await service.sign(privKey, bytes);
+
+      expect(await service.verify(pubKey, bytes, sig), isTrue, reason: 'a genuine signature must verify under its own key');
+    });
+
+    test('a tampered input fails verification', () async {
+      final bytes = utf8.encode('hello, world');
+      final sig = await service.sign(privKey, bytes);
+
+      final tampered = List<int>.from(bytes)..[0] ^= 0x01;
+      expect(await service.verify(pubKey, tampered, sig), isFalse, reason: 'a signature over a different byte string must not verify');
+    });
+
+    test('a signature verifies under the correct key only', () async {
+      final bytes = utf8.encode('hello, world');
+      final sig = await service.sign(privKey, bytes);
+
+      // A different key (different entropy) must not verify the signature.
+      final otherEntropy = List<int>.from(entropy32)..[0] ^= 0xff;
+      final other = await service.deriveIdentityKeyPair(otherEntropy);
+
+      expect(await service.verify(other.publicKeyBase64Url, bytes, sig), isFalse, reason: 'a signature must not verify under a different public key');
+    });
+
+    test('rejects a malformed signature (wrong length) with false', () async {
+      final bytes = utf8.encode('hello, world');
+      final sig = await service.sign(privKey, bytes);
+      // Chop one base64url char off the signature.
+      expect(await service.verify(pubKey, bytes, sig.substring(0, sig.length - 1)), isFalse);
+    });
+
+    test('signature is base64url (no +, /, or =) and 64 bytes', () async {
+      final bytes = utf8.encode('hello, world');
+      final sig = await service.sign(privKey, bytes);
+
+      expect(sig.contains('+'), isFalse);
+      expect(sig.contains('/'), isFalse);
+      expect(sig.contains('='), isFalse);
+      expect(base64UrlDecode(sig).length, 64);
+    });
+
+    test('sign throws ArgumentError for a non-32-byte seed', () {
+      expect(() => service.sign(base64UrlEncodeNoPad([1, 2, 3]), <int>[1]), throwsArgumentError);
+    });
+  });
+
+  group('base64url helpers —', () {
+    test('encode/decode round-trip', () {
+      final bytes = List<int>.generate(33, (i) => (i * 7) % 251);
+      final encoded = base64UrlEncodeNoPad(bytes);
+      expect(encoded.contains('='), isFalse);
+      expect(base64UrlDecode(encoded), bytes);
+    });
+
+    test('decodes a legacy padded standard-base64 value', () {
+      // 32 bytes → standard base64 with one '=' pad char.
+      final bytes = List<int>.generate(32, (i) => i + 1);
+      final legacy = base64Encode(Uint8List.fromList(bytes));
+      expect(legacy.contains('='), isTrue);
+      expect(base64UrlDecode(legacy), bytes);
+    });
+
+    test('decodes legacy base64 using + / alphabet', () {
+      // 0xFB 0xFF 0xFF … encodes to '+//…' in standard base64 and '-__…' in
+      // base64url. Both must decode to the same bytes.
+      final bytes = <int>[0xFB, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF];
+      final legacy = base64Encode(bytes);
+      final url = base64UrlEncodeNoPad(bytes);
+      expect(legacy.contains('+'), isTrue);
+      expect(base64UrlDecode(legacy), bytes);
+      expect(base64UrlDecode(url), bytes);
+    });
+  });
 }

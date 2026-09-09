@@ -39,9 +39,9 @@ class DeviceServiceImpl implements IDeviceService {
     } else {
       final keyPair = await _cryptoService.generateDeviceKeyPair();
 
-      _currentDevice = DeviceIdentity(uuid: _idService.generateId(), name: 'Default Device', createdAt: DateTime.now(), lastHlc: null, publicKey: keyPair.publicKeyBase64);
+      _currentDevice = DeviceIdentity(uuid: _idService.generateId(), name: 'Default Device', createdAt: DateTime.now(), lastHlc: null, publicKey: keyPair.publicKeyBase64Url);
       await _fileSystem.writeFile(devicePath, jsonEncode(_currentDevice!.toJson()));
-      await _secureKeyStore.storeDevicePrivateKey(vaultId, keyPair.privateKeyBase64);
+      await _secureKeyStore.storeDevicePrivateKey(vaultId, keyPair.privateKeyBase64Url);
     }
     return _currentDevice!;
   }
