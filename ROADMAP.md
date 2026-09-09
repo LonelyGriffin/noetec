@@ -1,8 +1,7 @@
 # Roadmap
 
-A date-free, single-stream view of Noetec's development phases and the state of
-each piece. Every phase and milestone carries a status, and every milestone is
-decomposed into sub-items with their own status.
+A date-free, development phases and the state of
+each piece. This is a "living" document: the structure, statuses, and level of detail change during the development process.
 
 ## Status
 
@@ -11,94 +10,90 @@ decomposed into sub-items with their own status.
 - 🔜 Soon — up next
 - ⏳ Later — planned for the future
 
-## 1. Prototype 🔨
+## 🔨 Prototype (alpha version)
 
-Getting the app to a usable prototype for windows and android.
+Getting the app to a usable prototype for windows and android. Plan to test and use only yourself
 
-### 1.1 Foundation ✅
+- ✅ Foundation 
+  - ✅ Vault management — create/open vaults on plain local Markdown files
+  - ✅ Block-based page model with stable block IDs
+  - ✅ Operation log (OpLog) with WAL persistence and crash recovery
+  - ✅ Local-first, offline-first operation
+- 🔨 Basic editor functionality 
+  - ✅ Basic page/block editor — create, edit, and rename pages
+  - ✅ Text editing — selection, clipboard, IME/keyboard/pointer input
+  - 🔨 Markdown round-trip — basic text blocks only
+    - ✅ Text paragraph 
+    - 🔨 Link
+    - 🔜 Header
+- 🔨 Basic sync & user system 
+  - 🔨 Device and user identity
+  - 🔨 File-based sync engine — Аuto conflict resolution, external-edit handling
+  - 🔜 Manual conflict resolution
+  - 🔜 End-to-end sync hardening and verification
+- ⏳ QoL & UI/UX 
+  - ⏳ Rework the prototype UI into a polished, friendly interface
+  - ⏳ Quality-of-life improvements — smoother editing, shortcuts, visual feedback
+  - ⏳ User scope settings
+  - ⏳ Onboarding and empty states for new users
+- ⏳ Android adaptation 
+  - ⏳ Аdapt the app for Android (phones and tablets)
+  - ⏳ Adnroid e2e tests
+- ⏳ Polishing and release
+  - ⏳ Expand the integration test suite for the prototype scope
+  - ⏳ Refactoring and polish app architecture
+  - ⏳ Polish and stabilize the prototype behavior
 
-- ✅ Vault management — create/open vaults on plain local Markdown files
-- ✅ Block-based page model with stable block IDs
-- ✅ Operation log (OpLog) with WAL persistence and crash recovery
-- ✅ Local-first, offline-first operation
+## ⏳ Expansion (beta version)
 
-### 1.2 Basic editor functionality 🔨
+An app with rich functionality and full features. I'm planning to test it out with a small, close circle of people.
 
-- ✅ Basic page/block editor — create, edit, and rename pages
-- ✅ Text editing — selection, clipboard, IME/keyboard/pointer input
-- 🔨 Markdown round-trip — basic text blocks only - Text Paragraph, List, Header.
-
-### 1.3 Basic sync & user system 🔨
-
-- ✅ Device and user identity
-- 🔨 File-based sync engine — OpLog merge, auto conflict resolution, external-edit handling
-- 🔜 Manual conflict resolution
-- 🔜 End-to-end sync hardening and verification
-
-### 1.4 QoL & UI/UX 🔜
-
-- 🔜 Rework the prototype UI into a polished, friendly interface
-- 🔜 Quality-of-life improvements — smoother editing, shortcuts, visual feedback
-- 🔜 User scope settings
-- 🔜 Onboarding and empty states for new users
-
-### 1.5 Android adaptation 🔜
-
-- 🔜 Аdapt the app for Android (phones and tablets)
-- 🔜 Adnroid e2e tests
-
-### 1.6 Polishing 🔜
-
-- 🔜 Expand the integration test suite for the prototype scope
-- 🔜 Refactoring and polish app architecture
-- 🔜 Polish and stabilize the prototype behavior
-
-## 2. Expansion ⏳
-
-### 2.1 Full markdown editor ⏳
-
-- ⏳ Extend the editor to full markdown block coverage — headings, lists,
-  tasks, code, quotes, tables
-
-### 2.2 Block references, backlinks & templates ⏳
-
-- ⏳ Block references and backlinks
+- ⏳ Full markdown editor 
+  - ⏳ Extend the editor to full markdown block coverage
+    - ⏳ lists
+    - ⏳ tasks (simple checkboxes)
+    - ⏳ code
+    - ⏳ quotes
+    - ⏳ tables
+    - ⏳ callouts
+  - ⏳ Tags system
+  - ⏳ Slash-comands 
+  - ⏳ Embeds
+  - ⏳ Mathematics formulas
+- ⏳ Indexing and cache systems
 - ⏳ Meta-properties — status, start/end dates, custom properties
+- ⏳ Search
+- ⏳ Block references and backlinks
 - ⏳ Templates — note and block
+- ⏳ Native task blocks
+- ⏳ Event handling
+- ⏳ Built-in calendar
+- ⏳ Agenda views
+- ⏳ Board canvas
+- ⏳ Query blocks   
+  - ⏳ Outliner
+  - ⏳ Table
+  - ⏳ Kanban
+  - ⏳ Timeline
+- ⏳ Pages history navigation
 
-### 2.3 Task & event system ⏳
+## ⏳ Sync & collaboration (release candidate)
 
-- ⏳ Native task blocks and event handling
-
-### 2.4 Calendar, agenda & specific pages ⏳
-
-- ⏳ Built-in calendar and agenda views
-- ⏳ Board mode — a spatial canvas view of the same content
-
-### 2.5 Views & search ⏳
-
-- ⏳ Views — outliner, table, kanban, timeline
-- ⏳ Query blocks and smart search
-
-## 3. Sync & collaboration ⏳
-
-### 3.1 Server sync ⏳
+To create an app that fits a wide audience and different use cases.
 
 - ⏳ Server-based sync — self-hosted or hosted master copy
-
-### 3.2 Teams, roles & access control ⏳
-
 - ⏳ Teams, roles, and access control (requires server sync)
-
-### 3.3 P2P sync ⏳
-
 - ⏳ Peer-to-peer sync — devices synchronize directly
-
-### 3.4 Real-time collaboration ⏳
-
 - ⏳ Real-time co-editing via CRDT
+- ⏳ Plugins ecosystem
 
-## 4. Cross platform adaptation ⏳
+## ⏳ Public Documentation
+  - ⏳ Marketing website with feature showcases, setup variants and release notes
+  - ⏳ Comprehensive user manual and comprehensive video/visual guides
+  - ⏳ Interactive templates gallery and community-driven showcase
+  - ⏳ Self-hosting deployment guides and API/developer documentation
+
+## ⏳ Cross platform adaptation
 
 - ⏳ IOS
 - ⏳ Linux
