@@ -1,28 +1,31 @@
 # Noetec
 
-A cross-platform Flutter block-based note-taking application with file-based storage, local-first operation, and multi-device synchronization.
+**Local-first, block-based notes that live in plain files you own.**
 
-> **Status:** Early development
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-red.svg)](#status)
+[![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-0175C2?logo=dart&logoColor=white)](https://dart.dev)
 
-## Overview
+## What is Noetec?
 
-Noetec combines the file-based approach of Obsidian (all data stored as readable `.md` files) with the user-friendly interface of Notion. The application is fully functional offline, with flexible sync options: file-based (Dropbox, Git), server-based, or P2P.
+Noetec is a cross-platform note-taking app that pairs the openness of plain files with the comfort of a modern block editor. Your notes live in readable Markdown files on your own disk — the Obsidian approach — while the editor hides the formatting markers behind a friendly, Notion-like interface.
 
-All notes are structured as trees of blocks (paragraphs, lists, headings, etc.), each with a unique identifier. This enables block-level references, precise sync, and conflict resolution.
+Every note is a tree of typed blocks (paragraphs, headings, lists, tasks, and more), each with a globally unique ID. That block-level structure is what makes precise references, synchronization, and conflict resolution possible — and it means your data is never locked into a proprietary format.
 
-## Documentation
+Noetec is **local-first**: it works fully offline, and the network is an enhancement, never a requirement. When you do want to sync, you choose how — file-based (Git, Dropbox, …), server-based (self-hosted or hosted), or peer-to-peer.
 
-- [Architecture decisions](docs/decisions/) — ADRs capturing key design choices
-- [Product Vision](docs/product/vision.md) — features, sync strategies, future plans
-- [Specs](docs/specs/) — normative file-format and workflow specs
+## Who is it for?
 
-## Tech Stack
+- **You want to own your data.** Your notes stay in plain, readable files you control — no account, no proprietary storage, no lock-in.
+- **You love Markdown and self-hosting.** A file-first design that plays well with Git, Dropbox, and your own tooling, plus a server sync you can host yourself.
+- **Developers and early adopters.** An open-source (AGPLv3) Flutter app with a clean, documented architecture you can read, learn from, and extend.
 
-- **Flutter** (Dart 3.10.7) — cross-platform (desktop + mobile)
-- **State management**: get_it + watch_it + listen_it + command_it
-- **Storage**: File-based (Markdown with YAML frontmatter)
+## Status
 
-## Getting Started
+Noetec is in **pre-alpha**: under active development, and not yet ready for daily, critical use. APIs and file formats may change without notice. Follow along via the [roadmap](ROADMAP.md), and see [CONTRIBUTING.md](CONTRIBUTING.md) if you'd like to help.
+
+## Quick start
 
 ```bash
 flutter pub get
@@ -30,6 +33,17 @@ dart run build_runner build
 flutter run
 ```
 
+Requires a recent Flutter SDK (Dart 3.10+). Full setup — including git hooks — is covered in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Documentation
+
+- [ROADMAP.md](ROADMAP.md) — what's done and what's planned
+- [CONTRIBUTING.md](CONTRIBUTING.md) — set up, report bugs, and contribute
+- [docs/how-we-work.md](docs/how-we-work.md) — how this project is built
+- [SECURITY.md](SECURITY.md) — report a security issue privately
+- [SUPPORT.md](SUPPORT.md) — where to ask questions
+- [docs/](docs/) — product vision, architecture decisions, and specs
+
 ## License
 
-See [LICENSE](LICENSE)
+Noetec is free and open-source software licensed under the [GNU Affero General Public License v3.0](LICENSE).
