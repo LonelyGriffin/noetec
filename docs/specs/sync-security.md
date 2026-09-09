@@ -129,10 +129,26 @@ signingInput = canonicalJson(entryWithoutSignature) + documentPath
 - `documentPath` is the page path relative to the vault root, no extension,
   `/` separators (e.g. `notes/ideas`), appended with no separator.
 
-`canonicalJson(obj)` **MUST** serialize: keys sorted lexicographically (UTF-8
-code point order), no whitespace beyond `,`/`:`, UTF-8 strings, arrays in
-stored order (order is significant). `null`-valued keys **MAY** be omitted; an
-implementation that omits them on write **MUST** omit them on verify.
+`canonicalJson(obj)` **MUST** be the **OLPC Canonical JSON** encoding, as
+produced by the `canonical_json` Dart package (v1.1.3). Concretely:
+
+- object keys sorted lexicographically by the UTF-8 bytes of their
+  **JSON-escaped, NFC-normalized** key (i.e. `"` and `\` are escaped before
+  ordering; keys without them order identically to raw UTF-8 byte order);
+- no whitespace beyond the `,` and `:` separators;
+- strings are UTF-8 in **Unicode Normalization Form C (NFC)**; only `"` and
+  `\` are escaped (control characters are emitted raw, **not** as `\uXXXX`
+  escapes);
+- arrays keep their stored order (order is significant);
+- `null` is encoded as the literal token `null` — `null`-valued keys are
+  **NOT** omitted, and neither are `null` list items;
+- numbers **MUST** be integers. Floating-point values (including `-0.0`,
+  `NaN`, and `Infinity`) **MUST NOT** appear — the encoder rejects them.
+
+Because the encoding is byte-deterministic, `canonicalJson` is its own
+inverse in the relevant sense: re-encoding the decoded value reproduces the
+same bytes, so a verifier can re-derive the signed input from the decoded
+record.
 
 ### 2.3 Signature rules
 
