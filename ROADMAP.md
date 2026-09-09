@@ -1,7 +1,8 @@
 # Roadmap
 
-A date-free, one-list view of what's done and what's planned. Each milestone is
-decomposed into sub-items, and each sub-item carries its own status.
+A date-free, single-stream view of Noetec's development phases and the state of
+each piece. Every phase and milestone carries a status, and every milestone is
+decomposed into sub-items with their own status.
 
 ## Status
 
@@ -10,47 +11,94 @@ decomposed into sub-items, and each sub-item carries its own status.
 - 🔜 Next — up next
 - ⏳ Later — planned for the future
 
-## Foundation
+## 1. Prototype 🔨
+
+We are here. Getting the app to a usable prototype.
+
+### 1.1 Foundation ✅
 
 - ✅ Vault management — create/open vaults on plain local Markdown files
 - ✅ Block-based page model with stable block IDs
-- 🔨 Markdown support — basic text blocks only; full block coverage (headings,
-  lists, tasks, code, …) is not implemented yet
-- ✅ Basic page/block editor — functional, but the UI is still a prototype
 - ✅ Operation log (OpLog) with WAL persistence and crash recovery
+- ✅ Local-first, offline-first operation
 
-## UI/UX & quality of life
+### 1.2 Basic editor functionality 🔨
 
-- 🔜 Rework the prototype editor UI into a polished, friendly interface
-- 🔜 Quality-of-life improvements — smoother editing, shortcuts, visual feedback
-- 🔜 Onboarding and empty states for new users
+- ✅ Basic page/block editor — create, edit, and rename pages
+- ✅ Text editing — selection, clipboard, IME/keyboard/pointer input
+- 🔨 Markdown round-trip — basic text blocks only; full block coverage
+  (headings, lists, tasks, code, …) is not implemented yet
 
-## Identity & file-based sync
+### 1.3 Basic sync & user system 🔨
 
 - ✅ Device and user identity (seed → Ed25519, secure key storage)
 - ✅ File-based sync engine — OpLog merge, conflict resolution, external-edit handling
 - 🔜 End-to-end sync hardening and verification
 
-## Block ecosystem
+### 1.4 QoL & UI/UX 🔨
+
+- 🔨 Rework the prototype UI into a polished, friendly interface
+- 🔨 Quality-of-life improvements — smoother editing, shortcuts, visual feedback
+- 🔜 Onboarding and empty states for new users
+
+### 1.5 Android adaptation 🔜
+
+- 🔜 Run and adapt the app for Android (phones and tablets)
+
+### 1.6 Polishing & integration tests 🔜
+
+- 🔜 Polish and stabilize the prototype
+- 🔜 Expand the integration test suite for the prototype scope
+
+## 2. Feature expansion 🔜
+
+### 2.1 Full markdown editor ⏳
+
+- ⏳ Extend the editor to full markdown block coverage — headings, lists,
+  tasks, code, quotes, tables
+
+### 2.2 Block references, backlinks & templates 🔜
 
 - 🔜 Block references and backlinks
 - 🔜 Meta-properties — status, start/end dates, custom properties
 - 🔜 Templates — note and block
-- 🔜 Task and query blocks
+
+### 2.3 Task & event system 🔜
+
+- 🔜 Native task blocks and event handling
+
+### 2.4 Calendar, agenda & specific pages 🔜
+
+- 🔜 Built-in calendar and agenda views
+- 🔜 Board mode — a spatial canvas view of the same content
+
+### 2.5 Views & search 🔜
+
 - 🔜 Views — outliner, table, kanban, timeline
+- 🔜 Query blocks and smart search
 
-## Server sync & teams/roles
+## 3. Sync & collaboration ⏳
 
-- ⏳ Server-based sync (self-hosted or hosted)
-- ⏳ Teams, roles, and access control
+### 3.1 Server sync ⏳
 
-## Collaboration
+- ⏳ Server-based sync — self-hosted or hosted master copy
+
+### 3.2 Teams, roles & access control ⏳
+
+- ⏳ Teams, roles, and access control (requires server sync)
+
+### 3.3 P2P sync ⏳
+
+- ⏳ Peer-to-peer sync — devices synchronize directly
+
+### 3.4 Real-time collaboration ⏳
 
 - ⏳ Real-time co-editing via CRDT
-- ⏳ P2P sync
 
-## Mobile & polish
+## 4. iOS adaptation ⏳
 
-- ⏳ Mobile (phones and tablets)
-- ⏳ Built-in calendar
-- ⏳ Board mode (spatial canvas view of the same content)
+- ⏳ Adapt the app for iOS — after core functionality is complete
+
+## 5. Linux & macOS adaptation ⏳
+
+- ⏳ Adapt the app for Linux and macOS — after core functionality is complete
