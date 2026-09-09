@@ -44,13 +44,23 @@ class FakeIdService implements IIdService {
 
 class FakeCryptoService implements ICryptoService {
   @override
-  Future<({String publicKeyBase64, String privateKeyBase64})> generateDeviceKeyPair() async {
-    return (publicKeyBase64: 'fake-public-key-base64', privateKeyBase64: 'fake-private-key-base64');
+  Future<({String publicKeyBase64Url, String privateKeyBase64Url})> generateDeviceKeyPair() async {
+    return (publicKeyBase64Url: 'fake-public-key-base64', privateKeyBase64Url: 'fake-private-key-base64');
   }
 
   @override
   Future<IdentityKeyPair> deriveIdentityKeyPair(List<int> entropy32) async {
     return const IdentityKeyPair(publicKeyBase64Url: 'fake-identity-public-b64url', privateKeyBase64Url: 'fake-identity-private-b64url');
+  }
+
+  @override
+  Future<String> sign(String privateKeyBase64Url, List<int> bytes) async {
+    return 'fake-signature-base64url';
+  }
+
+  @override
+  Future<bool> verify(String publicKeyBase64Url, List<int> bytes, String signatureBase64Url) async {
+    return signatureBase64Url == 'fake-signature-base64url';
   }
 }
 

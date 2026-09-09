@@ -10,14 +10,22 @@ import 'package:cryptography/cryptography.dart';
 
 /// Encodes [bytes] as base64url (RFC 4648 §5) **without** `=` padding.
 ///
-/// sync-security.md §2.1: public keys are base64url with no padding.
+/// sync-security.md §2.1: public keys, signatures, and all other wire values
+/// are base64url with no padding.
 String base64UrlEncodeNoPad(List<int> bytes) => base64Url.encode(Uint8List.fromList(bytes)).replaceAll('=', '');
 
-/// Decodes a base64url (RFC 4648 §5) string, re-adding `=` padding if the
-/// encoder stripped it.
+/// Decodes a base64 or base64url encoded value to bytes.
+///
+/// Accepts both base64url (RFC 4648 §5, `-`/`_`, with or without `=` padding)
+/// and standard base64 (RFC 4648 §4, `+`/`/`, `=` padding) so that legacy
+/// `device.json` values (padded standard base64) can still be read — see
+/// sync-security.md §2.1 "Encoding migration". Throws [FormatException] if the
+/// input is not valid base64.
 List<int> base64UrlDecode(String value) {
-  final padded = value.padRight((value.length + 3) ~/ 4 * 4, '=');
-  return base64Url.decode(padded);
+  final normalized = value.trim().replaceAll('-', '+').replaceAll('_', '/');
+  final padCount = (4 - normalized.length % 4) % 4;
+  final padded = normalized.padRight(normalized.length + padCount, '=');
+  return base64Decode(padded);
 }
 
 /// A derived Ed25519 identity key pair.
@@ -33,7 +41,10 @@ final class IdentityKeyPair {
 }
 
 abstract interface class ICryptoService {
-  Future<({String publicKeyBase64, String privateKeyBase64})> generateDeviceKeyPair();
+  /// Generates a fresh Ed25519 device key pair.
+  ///
+  /// Both keys are base64url-encoded (no padding), per sync-security.md §2.1.
+  Future<({String publicKeyBase64Url, String privateKeyBase64Url})> generateDeviceKeyPair();
 
   /// Derives the Ed25519 identity key pair deterministically from a 32-byte
   /// entropy seed (ADR-0007 §1).
@@ -43,20 +54,36 @@ abstract interface class ICryptoService {
   /// public key is then base64url-encoded (no padding). The same entropy
   /// always yields the same identity key.
   Future<IdentityKeyPair> deriveIdentityKeyPair(List<int> entropy32);
+
+  /// Signs [bytes] with the Ed25519 secret seed [privateKeyBase64Url]
+  /// (32 bytes, base64url no padding) and returns the 64-byte signature
+  /// encoded as base64url (no padding).
+  ///
+  /// Throws [ArgumentError] if the seed is not exactly 32 bytes, and
+  /// [FormatException] if the seed is not valid base64.
+  Future<String> sign(String privateKeyBase64Url, List<int> bytes);
+
+  /// Verifies that [signatureBase64Url] (base64url no padding) is a valid
+  /// Ed25519 signature over [bytes] under the 32-byte public key
+  /// [publicKeyBase64Url] (base64url no padding).
+  ///
+  /// Returns `false` for a wrong key, a malformed key or signature, or an
+  /// invalid signature; it never throws for a verification failure.
+  Future<bool> verify(String publicKeyBase64Url, List<int> bytes, String signatureBase64Url);
 }
 
 class CryptoServiceImpl implements ICryptoService {
   final Ed25519 _algorithm = Ed25519();
 
   @override
-  Future<({String publicKeyBase64, String privateKeyBase64})> generateDeviceKeyPair() async {
+  Future<({String publicKeyBase64Url, String privateKeyBase64Url})> generateDeviceKeyPair() async {
     final keyPair = await _algorithm.newKeyPair();
     final publicKey = await keyPair.extractPublicKey();
 
     final publicKeyBytes = publicKey.bytes;
     final privateKeyBytes = await keyPair.extractPrivateKeyBytes();
 
-    return (publicKeyBase64: base64Encode(Uint8List.fromList(publicKeyBytes)), privateKeyBase64: base64Encode(Uint8List.fromList(privateKeyBytes)));
+    return (publicKeyBase64Url: base64UrlEncodeNoPad(publicKeyBytes), privateKeyBase64Url: base64UrlEncodeNoPad(privateKeyBytes));
   }
 
   @override
@@ -72,5 +99,37 @@ class CryptoServiceImpl implements ICryptoService {
     final publicKeyBytes = (await keyPair.extractPublicKey()).bytes;
 
     return IdentityKeyPair(publicKeyBase64Url: base64UrlEncodeNoPad(publicKeyBytes), privateKeyBase64Url: base64UrlEncodeNoPad(edSeed.bytes));
+  }
+
+  @override
+  Future<String> sign(String privateKeyBase64Url, List<int> bytes) async {
+    final seed = base64UrlDecode(privateKeyBase64Url);
+    if (seed.length != 32) {
+      throw ArgumentError.value(seed.length, 'privateKeyBase64Url', 'Ed25519 secret seed MUST be 32 bytes');
+    }
+
+    final keyPair = await _algorithm.newKeyPairFromSeed(seed);
+    final signature = await _algorithm.sign(bytes, keyPair: keyPair);
+    return base64UrlEncodeNoPad(signature.bytes);
+  }
+
+  @override
+  Future<bool> verify(String publicKeyBase64Url, List<int> bytes, String signatureBase64Url) async {
+    final List<int> publicKeyBytes;
+    final List<int> signatureBytes;
+    try {
+      publicKeyBytes = base64UrlDecode(publicKeyBase64Url);
+      signatureBytes = base64UrlDecode(signatureBase64Url);
+    } on FormatException {
+      return false;
+    }
+
+    if (publicKeyBytes.length != 32 || signatureBytes.length != 64) {
+      return false;
+    }
+
+    final publicKey = SimplePublicKey(publicKeyBytes, type: KeyPairType.ed25519);
+    final signature = Signature(signatureBytes, publicKey: publicKey);
+    return await _algorithm.verify(bytes, signature: signature);
   }
 }
