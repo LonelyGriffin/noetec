@@ -91,8 +91,7 @@ deferred/optional — attribution lives in the OpLog (deviceId + signature).
 - Negative: two key pairs and two registry kinds (more concepts/code).
 - Negative: the identity key (or seed) is present on every device of a user,
   so compromising one device compromises the identity.
-- Negative (inherited file-based limits, unchanged from sync-security.md):
-  no confidentiality (anyone with folder access reads everything) and no
+- Negative (inherited file-based limit, unchanged from sync-security.md): no
   physical write prevention (rejection happens at read time).
 
 ## Alternatives considered

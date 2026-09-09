@@ -587,9 +587,6 @@ entry.
 - Migration, rollout, and test plans — implementation tasks.
 - Platform file-access mechanics (macOS bookmarks, Android SAF) — they
   constrain key storage, not the format.
-- Encryption of entry content — these extensions provide integrity,
-  attribution, and authorization only; entries stay readable. Confidentiality
-  is separate.
 
 ---
 
