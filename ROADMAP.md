@@ -8,12 +8,12 @@ decomposed into sub-items with their own status.
 
 - ✅ Done
 - 🔨 Now — in progress
-- 🔜 Next — up next
+- 🔜 Soon — up next
 - ⏳ Later — planned for the future
 
 ## 1. Prototype 🔨
 
-We are here. Getting the app to a usable prototype.
+Getting the app to a usable prototype for windows and android.
 
 ### 1.1 Foundation ✅
 
@@ -26,56 +26,59 @@ We are here. Getting the app to a usable prototype.
 
 - ✅ Basic page/block editor — create, edit, and rename pages
 - ✅ Text editing — selection, clipboard, IME/keyboard/pointer input
-- 🔨 Markdown round-trip — basic text blocks only; full block coverage
-  (headings, lists, tasks, code, …) is not implemented yet
+- 🔨 Markdown round-trip — basic text blocks only - Text Paragraph, List, Header.
 
 ### 1.3 Basic sync & user system 🔨
 
-- ✅ Device and user identity (seed → Ed25519, secure key storage)
-- ✅ File-based sync engine — OpLog merge, conflict resolution, external-edit handling
+- ✅ Device and user identity
+- 🔨 File-based sync engine — OpLog merge, auto conflict resolution, external-edit handling
+- 🔜 Manual conflict resolution
 - 🔜 End-to-end sync hardening and verification
 
-### 1.4 QoL & UI/UX 🔨
+### 1.4 QoL & UI/UX 🔜
 
-- 🔨 Rework the prototype UI into a polished, friendly interface
-- 🔨 Quality-of-life improvements — smoother editing, shortcuts, visual feedback
+- 🔜 Rework the prototype UI into a polished, friendly interface
+- 🔜 Quality-of-life improvements — smoother editing, shortcuts, visual feedback
+- 🔜 User scope settings
 - 🔜 Onboarding and empty states for new users
 
 ### 1.5 Android adaptation 🔜
 
-- 🔜 Run and adapt the app for Android (phones and tablets)
+- 🔜 Аdapt the app for Android (phones and tablets)
+- 🔜 Adnroid e2e tests
 
-### 1.6 Polishing & integration tests 🔜
+### 1.6 Polishing 🔜
 
-- 🔜 Polish and stabilize the prototype
 - 🔜 Expand the integration test suite for the prototype scope
+- 🔜 Refactoring and polish app architecture
+- 🔜 Polish and stabilize the prototype behavior
 
-## 2. Feature expansion 🔜
+## 2. Expansion ⏳
 
 ### 2.1 Full markdown editor ⏳
 
 - ⏳ Extend the editor to full markdown block coverage — headings, lists,
   tasks, code, quotes, tables
 
-### 2.2 Block references, backlinks & templates 🔜
+### 2.2 Block references, backlinks & templates ⏳
 
-- 🔜 Block references and backlinks
-- 🔜 Meta-properties — status, start/end dates, custom properties
-- 🔜 Templates — note and block
+- ⏳ Block references and backlinks
+- ⏳ Meta-properties — status, start/end dates, custom properties
+- ⏳ Templates — note and block
 
-### 2.3 Task & event system 🔜
+### 2.3 Task & event system ⏳
 
-- 🔜 Native task blocks and event handling
+- ⏳ Native task blocks and event handling
 
-### 2.4 Calendar, agenda & specific pages 🔜
+### 2.4 Calendar, agenda & specific pages ⏳
 
-- 🔜 Built-in calendar and agenda views
-- 🔜 Board mode — a spatial canvas view of the same content
+- ⏳ Built-in calendar and agenda views
+- ⏳ Board mode — a spatial canvas view of the same content
 
-### 2.5 Views & search 🔜
+### 2.5 Views & search ⏳
 
-- 🔜 Views — outliner, table, kanban, timeline
-- 🔜 Query blocks and smart search
+- ⏳ Views — outliner, table, kanban, timeline
+- ⏳ Query blocks and smart search
 
 ## 3. Sync & collaboration ⏳
 
@@ -95,10 +98,8 @@ We are here. Getting the app to a usable prototype.
 
 - ⏳ Real-time co-editing via CRDT
 
-## 4. iOS adaptation ⏳
+## 4. Cross platform adaptation ⏳
 
-- ⏳ Adapt the app for iOS — after core functionality is complete
-
-## 5. Linux & macOS adaptation ⏳
-
-- ⏳ Adapt the app for Linux and macOS — after core functionality is complete
+- ⏳ IOS
+- ⏳ Linux
+- ⏳ MacOS
