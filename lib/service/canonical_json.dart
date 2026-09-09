@@ -24,15 +24,7 @@ final class CanonicalJson {
 
   /// The fixed set of JSON escape sequences for control characters, `"` and
   /// `\` (RFC 8259 §7).
-  static const Map<int, String> _escapes = {
-    0x08: r'\b',
-    0x09: r'\t',
-    0x0A: r'\n',
-    0x0C: r'\f',
-    0x0D: r'\r',
-    0x22: r'\"',
-    0x5C: r'\\',
-  };
+  static const Map<int, String> _escapes = {0x08: r'\b', 0x09: r'\t', 0x0A: r'\n', 0x0C: r'\f', 0x0D: r'\r', 0x22: r'\"', 0x5C: r'\\'};
 
   /// Serializes [value] to its canonical JSON form.
   ///
@@ -41,9 +33,7 @@ final class CanonicalJson {
   /// omitted from maps (per the spec) and rejected in lists.
   static String encode(Object? value) {
     if (value == null) {
-      throw UnsupportedError(
-        'Canonical JSON does not support a null top-level value',
-      );
+      throw UnsupportedError('Canonical JSON does not support a null top-level value');
     }
     if (value is bool) return value ? 'true' : 'false';
     if (value is int) return value.toString();
@@ -56,19 +46,14 @@ final class CanonicalJson {
     if (value is String) return _encodeString(value);
     if (value is List) return _encodeList(value);
     if (value is Map) {
-      final map = Map<String, Object?>.from(
-        value.map((k, v) => MapEntry(k as String, v)),
-      );
+      final map = Map<String, Object?>.from(value.map((k, v) => MapEntry(k as String, v)));
       return _encodeMap(map);
     }
-    throw UnsupportedError(
-      'Canonical JSON cannot serialize a ${value.runtimeType}',
-    );
+    throw UnsupportedError('Canonical JSON cannot serialize a ${value.runtimeType}');
   }
 
   static String _encodeMap(Map<String, Object?> map) {
-    final entries = map.entries.where((e) => e.value != null).toList()
-      ..sort((a, b) => _compareUtf8(a.key, b.key));
+    final entries = map.entries.where((e) => e.value != null).toList()..sort((a, b) => _compareUtf8(a.key, b.key));
     if (entries.isEmpty) return '{}';
     final parts = <String>[];
     for (final e in entries) {
@@ -82,9 +67,7 @@ final class CanonicalJson {
     final parts = <String>[];
     for (final item in list) {
       if (item == null) {
-        throw UnsupportedError(
-          'Canonical JSON does not support null list items',
-        );
+        throw UnsupportedError('Canonical JSON does not support null list items');
       }
       parts.add(encode(item));
     }

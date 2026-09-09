@@ -54,9 +54,7 @@ void main() {
       final map = <String, dynamic>{for (final k in keys) k: k.length};
       final first = canonicalJson(map);
       // Same logical object, different insertion order, must be identical.
-      final reversed = <String, dynamic>{
-        for (final k in keys.reversed) k: k.length,
-      };
+      final reversed = <String, dynamic>{for (final k in keys.reversed) k: k.length};
       expect(canonicalJson(reversed), first);
 
       // Keys are sorted by UTF-8 code point order: uppercase sorts before

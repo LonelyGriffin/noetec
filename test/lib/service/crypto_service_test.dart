@@ -92,11 +92,7 @@ void main() {
       final bytes = utf8.encode('hello, world');
       final sig = await service.sign(privKey, bytes);
 
-      expect(
-        await service.verify(pubKey, bytes, sig),
-        isTrue,
-        reason: 'a genuine signature must verify under its own key',
-      );
+      expect(await service.verify(pubKey, bytes, sig), isTrue, reason: 'a genuine signature must verify under its own key');
     });
 
     test('a tampered input fails verification', () async {
@@ -104,11 +100,7 @@ void main() {
       final sig = await service.sign(privKey, bytes);
 
       final tampered = List<int>.from(bytes)..[0] ^= 0x01;
-      expect(
-        await service.verify(pubKey, tampered, sig),
-        isFalse,
-        reason: 'a signature over a different byte string must not verify',
-      );
+      expect(await service.verify(pubKey, tampered, sig), isFalse, reason: 'a signature over a different byte string must not verify');
     });
 
     test('a signature verifies under the correct key only', () async {
@@ -119,21 +111,14 @@ void main() {
       final otherEntropy = List<int>.from(entropy32)..[0] ^= 0xff;
       final other = await service.deriveIdentityKeyPair(otherEntropy);
 
-      expect(
-        await service.verify(other.publicKeyBase64Url, bytes, sig),
-        isFalse,
-        reason: 'a signature must not verify under a different public key',
-      );
+      expect(await service.verify(other.publicKeyBase64Url, bytes, sig), isFalse, reason: 'a signature must not verify under a different public key');
     });
 
     test('rejects a malformed signature (wrong length) with false', () async {
       final bytes = utf8.encode('hello, world');
       final sig = await service.sign(privKey, bytes);
       // Chop one base64url char off the signature.
-      expect(
-        await service.verify(pubKey, bytes, sig.substring(0, sig.length - 1)),
-        isFalse,
-      );
+      expect(await service.verify(pubKey, bytes, sig.substring(0, sig.length - 1)), isFalse);
     });
 
     test('signature is base64url (no +, /, or =) and 64 bytes', () async {
@@ -147,10 +132,7 @@ void main() {
     });
 
     test('sign throws ArgumentError for a non-32-byte seed', () {
-      expect(
-        () => service.sign(base64UrlEncodeNoPad([1, 2, 3]), <int>[1]),
-        throwsArgumentError,
-      );
+      expect(() => service.sign(base64UrlEncodeNoPad([1, 2, 3]), <int>[1]), throwsArgumentError);
     });
   });
 
