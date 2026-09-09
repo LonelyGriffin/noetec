@@ -64,13 +64,7 @@ void main() {
 
   // Well-formed fixtures whose body is in canonical serializer-emitted form.
   // Each must round-trip byte-for-byte through parse → serialize.
-  const wellFormedFixtures = [
-    'welcome',
-    'nested-blocks',
-    'inline-formatting',
-    'links',
-    'windows-line-endings',
-  ];
+  const wellFormedFixtures = ['welcome', 'nested-blocks', 'inline-formatting', 'links', 'windows-line-endings'];
 
   group('Markdown golden round-trip (format v1) —', () {
     for (final name in wellFormedFixtures) {

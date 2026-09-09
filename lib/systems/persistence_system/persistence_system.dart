@@ -20,33 +20,18 @@ final class PageSaveInfo {
   final DateTime? lastSaved;
   final String? lastError;
 
-  const PageSaveInfo({
-    this.state = PageSaveState.clean,
-    this.lastSaved,
-    this.lastError,
-  });
+  const PageSaveInfo({this.state = PageSaveState.clean, this.lastSaved, this.lastError});
 
-  PageSaveInfo copyWith({
-    PageSaveState? state,
-    DateTime? lastSaved,
-    String? lastError,
-  }) => PageSaveInfo(
-    state: state ?? this.state,
-    lastSaved: lastSaved ?? this.lastSaved,
-    lastError: lastError ?? this.lastError,
-  );
+  PageSaveInfo copyWith({PageSaveState? state, DateTime? lastSaved, String? lastError}) =>
+      PageSaveInfo(state: state ?? this.state, lastSaved: lastSaved ?? this.lastSaved, lastError: lastError ?? this.lastError);
 }
 
 class PersistenceSystem {
-  PersistenceSystem({
-    required WalService wal,
-    required OpLogSystem oplog,
-    required PageSystem pageSystem,
-    required VaultSystem vaultSystem,
-  }) : _wal = wal,
-       _oplog = oplog,
-       _pageSystem = pageSystem,
-       _vaultSystem = vaultSystem {
+  PersistenceSystem({required WalService wal, required OpLogSystem oplog, required PageSystem pageSystem, required VaultSystem vaultSystem})
+    : _wal = wal,
+      _oplog = oplog,
+      _pageSystem = pageSystem,
+      _vaultSystem = vaultSystem {
     _vaultSystem.currentVault.addListener(_onVaultChanged);
     _pageOpenedSub = _pageSystem.pageOpened.listen(_onPageOpened);
     _pageClosedSub = _pageSystem.pageClosed.listen(_onPageClosed);
@@ -63,8 +48,7 @@ class PersistenceSystem {
   StreamSubscription<(String, String)>? _pageCreatedSub;
   bool _active = false;
 
-  ValueNotifier<PageSaveInfo> saveStateOf(String pageId) => _saveStates
-      .putIfAbsent(pageId, () => ValueNotifier(const PageSaveInfo()));
+  ValueNotifier<PageSaveInfo> saveStateOf(String pageId) => _saveStates.putIfAbsent(pageId, () => ValueNotifier(const PageSaveInfo()));
 
   void _onPageOpened((String pageId, String relativePath) event) {
     final (pageId, relativePath) = event;
@@ -150,16 +134,10 @@ class PersistenceSystem {
       }
       await _wal.clear(pageId);
       if (_saveStates[pageId] != notifier) return;
-      notifier.value = PageSaveInfo(
-        state: PageSaveState.clean,
-        lastSaved: DateTime.now(),
-      );
+      notifier.value = PageSaveInfo(state: PageSaveState.clean, lastSaved: DateTime.now());
     } catch (error) {
       if (_saveStates[pageId] == notifier) {
-        notifier.value = notifier.value.copyWith(
-          state: PageSaveState.error,
-          lastError: error.toString(),
-        );
+        notifier.value = notifier.value.copyWith(state: PageSaveState.error, lastError: error.toString());
       }
     }
   }

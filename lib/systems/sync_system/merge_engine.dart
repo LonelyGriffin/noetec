@@ -25,11 +25,7 @@ final class MergeSuccess extends MergeResult {
   final Hlc ourHead;
   final Hlc theirHead;
 
-  const MergeSuccess({
-    required this.mergedBlocks,
-    required this.ourHead,
-    required this.theirHead,
-  });
+  const MergeSuccess({required this.mergedBlocks, required this.ourHead, required this.theirHead});
 }
 
 final class MergeConflict extends MergeResult {
@@ -38,12 +34,7 @@ final class MergeConflict extends MergeResult {
   final Hlc ourHead;
   final Hlc theirHead;
 
-  const MergeConflict({
-    required this.conflicts,
-    required this.partiallyMergedBlocks,
-    required this.ourHead,
-    required this.theirHead,
-  });
+  const MergeConflict({required this.conflicts, required this.partiallyMergedBlocks, required this.ourHead, required this.theirHead});
 }
 
 sealed class BlockConflict {
@@ -55,22 +46,14 @@ final class ContentConflict extends BlockConflict {
   final ReconstructedBlock ours;
   final ReconstructedBlock theirs;
 
-  const ContentConflict({
-    required super.blockId,
-    required this.ours,
-    required this.theirs,
-  });
+  const ContentConflict({required super.blockId, required this.ours, required this.theirs});
 }
 
 final class DeleteModifyConflict extends BlockConflict {
   final ReconstructedBlock modifiedBlock;
   final bool deletedByUs;
 
-  const DeleteModifyConflict({
-    required super.blockId,
-    required this.modifiedBlock,
-    required this.deletedByUs,
-  });
+  const DeleteModifyConflict({required super.blockId, required this.modifiedBlock, required this.deletedByUs});
 }
 
 class MergeEngine {
@@ -88,9 +71,7 @@ class MergeEngine {
     if (topology == DagTopology.linear) {
       final sorted = heads..sort((a, b) => a.hlc.compareTo(b.hlc));
       final latest = sorted.last;
-      return MergeFastForward(
-        updatedBlocks: StateReconstructionEngine.reconstruct(dag, latest),
-      );
+      return MergeFastForward(updatedBlocks: StateReconstructionEngine.reconstruct(dag, latest));
     }
 
     final ourHead = heads.firstWhere((h) => h.deviceId == dag.heads.keys.first);
@@ -105,13 +86,7 @@ class MergeEngine {
     final ourBlocks = StateReconstructionEngine.reconstruct(dag, ourHead);
     final theirBlocks = StateReconstructionEngine.reconstruct(dag, theirHead);
 
-    return _threeWayMerge(
-      ancestor: ancestorBlocks,
-      ours: ourBlocks,
-      theirs: theirBlocks,
-      ourHead: ourHead.hlc,
-      theirHead: theirHead.hlc,
-    );
+    return _threeWayMerge(ancestor: ancestorBlocks, ours: ourBlocks, theirs: theirBlocks, ourHead: ourHead.hlc, theirHead: theirHead.hlc);
   }
 
   static MergeResult _threeWayMerge({
@@ -138,36 +113,18 @@ class MergeEngine {
 
       final deletedByUs = inOurs == null && inAncestor != null;
       final deletedByThem = inTheirs == null && inAncestor != null;
-      final changedByUs =
-          inOurs != null &&
-          inAncestor != null &&
-          !_blocksEqual(inOurs, inAncestor);
-      final changedByThem =
-          inTheirs != null &&
-          inAncestor != null &&
-          !_blocksEqual(inTheirs, inAncestor);
+      final changedByUs = inOurs != null && inAncestor != null && !_blocksEqual(inOurs, inAncestor);
+      final changedByThem = inTheirs != null && inAncestor != null && !_blocksEqual(inTheirs, inAncestor);
 
       if (deletedByUs && deletedByThem) continue;
 
       if (deletedByUs && changedByThem) {
-        conflicts.add(
-          DeleteModifyConflict(
-            blockId: blockId,
-            modifiedBlock: inTheirs,
-            deletedByUs: true,
-          ),
-        );
+        conflicts.add(DeleteModifyConflict(blockId: blockId, modifiedBlock: inTheirs, deletedByUs: true));
         continue;
       }
 
       if (deletedByThem && changedByUs) {
-        conflicts.add(
-          DeleteModifyConflict(
-            blockId: blockId,
-            modifiedBlock: inOurs,
-            deletedByUs: false,
-          ),
-        );
+        conflicts.add(DeleteModifyConflict(blockId: blockId, modifiedBlock: inOurs, deletedByUs: false));
         continue;
       }
 
@@ -184,9 +141,7 @@ class MergeEngine {
         if (_blocksEqual(inOurs, inTheirs)) {
           merged.add(inOurs);
         } else {
-          conflicts.add(
-            ContentConflict(blockId: blockId, ours: inOurs, theirs: inTheirs),
-          );
+          conflicts.add(ContentConflict(blockId: blockId, ours: inOurs, theirs: inTheirs));
         }
         continue;
       }
@@ -205,26 +160,13 @@ class MergeEngine {
     }
 
     if (conflicts.isEmpty) {
-      return MergeSuccess(
-        mergedBlocks: merged,
-        ourHead: ourHead,
-        theirHead: theirHead,
-      );
+      return MergeSuccess(mergedBlocks: merged, ourHead: ourHead, theirHead: theirHead);
     }
 
-    return MergeConflict(
-      conflicts: conflicts,
-      partiallyMergedBlocks: merged,
-      ourHead: ourHead,
-      theirHead: theirHead,
-    );
+    return MergeConflict(conflicts: conflicts, partiallyMergedBlocks: merged, ourHead: ourHead, theirHead: theirHead);
   }
 
-  static List<ReconstructedBlock> _computeMergedOrder(
-    List<ReconstructedBlock> ancestor,
-    List<ReconstructedBlock> ours,
-    List<ReconstructedBlock> theirs,
-  ) {
+  static List<ReconstructedBlock> _computeMergedOrder(List<ReconstructedBlock> ancestor, List<ReconstructedBlock> ours, List<ReconstructedBlock> theirs) {
     final mergedMap = <String, ReconstructedBlock>{};
     for (final b in ancestor) {
       mergedMap[b.blockId] = b;
@@ -252,9 +194,7 @@ class MergeEngine {
 
     for (final ancestorBlock in ancestor) {
       final ourPos = ours.indexWhere((b) => b.blockId == ancestorBlock.blockId);
-      final theirPos = theirs.indexWhere(
-        (b) => b.blockId == ancestorBlock.blockId,
-      );
+      final theirPos = theirs.indexWhere((b) => b.blockId == ancestorBlock.blockId);
 
       if (ourPos > 0) flushNew(0, ourPos, ours);
       if (theirPos > 0) flushNew(0, theirPos, theirs);

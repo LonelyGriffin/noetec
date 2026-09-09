@@ -11,11 +11,7 @@ import 'package:noetec/view/widgets/content_panel/pages_panel.dart';
 import 'package:noetec/view/widgets/content_panel/settings_panel.dart';
 
 class ContentPanel extends StatelessWidget {
-  const ContentPanel({
-    super.key,
-    required this.activePanel,
-    required this.isCollapsed,
-  });
+  const ContentPanel({super.key, required this.activePanel, required this.isCollapsed});
 
   static const double width = 280;
 

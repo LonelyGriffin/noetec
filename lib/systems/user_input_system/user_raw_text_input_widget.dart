@@ -9,12 +9,7 @@ import 'package:noetec/systems/user_input_system/user_input_service.dart';
 import 'package:watch_it/watch_it.dart';
 
 class UserRawTextInputWidget extends WatchingStatefulWidget {
-  const UserRawTextInputWidget({
-    super.key,
-    required this.pageId,
-    required this.child,
-    this.focusNode,
-  });
+  const UserRawTextInputWidget({super.key, required this.pageId, required this.child, this.focusNode});
 
   final String pageId;
   final Widget child;
@@ -24,8 +19,7 @@ class UserRawTextInputWidget extends WatchingStatefulWidget {
   State<UserRawTextInputWidget> createState() => _UserRawTextInputWidgetState();
 }
 
-class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget>
-    with DeltaTextInputClient {
+class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget> with DeltaTextInputClient {
   late final FocusNode _focusNode;
   TextInputConnection? _textInputConnection;
 
@@ -51,18 +45,14 @@ class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget>
   }
 
   @override
-  TextEditingValue get currentTextEditingValue =>
-      _inputService.getImeState(widget.pageId).value;
+  TextEditingValue get currentTextEditingValue => _inputService.getImeState(widget.pageId).value;
 
   @override
   AutofillScope? get currentAutofillScope => null;
 
   @override
   void updateEditingValue(TextEditingValue value) {
-    assert(
-      false,
-      'updateEditingValue should not be called when enableDeltaModel is true',
-    );
+    assert(false, 'updateEditingValue should not be called when enableDeltaModel is true');
   }
 
   @override
@@ -78,14 +68,7 @@ class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget>
   @override
   void performAction(TextInputAction action) {
     if (action == TextInputAction.newline) {
-      _inputService.handleKeyEvent(
-        widget.pageId,
-        const KeyDownEvent(
-          logicalKey: LogicalKeyboardKey.enter,
-          physicalKey: PhysicalKeyboardKey.enter,
-          timeStamp: Duration.zero,
-        ),
-      );
+      _inputService.handleKeyEvent(widget.pageId, const KeyDownEvent(logicalKey: LogicalKeyboardKey.enter, physicalKey: PhysicalKeyboardKey.enter, timeStamp: Duration.zero));
     }
   }
 
@@ -119,25 +102,16 @@ class _UserRawTextInputWidgetState extends State<UserRawTextInputWidget>
   void performSelector(String selectorName) {}
 
   @override
-  void didChangeInputControl(
-    TextInputControl? oldControl,
-    TextInputControl? newControl,
-  ) {}
+  void didChangeInputControl(TextInputControl? oldControl, TextInputControl? newControl) {}
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focusNode,
-      onKeyEvent: _handleKeyEvent,
-      child: widget.child,
-    );
+    return Focus(focusNode: _focusNode, onKeyEvent: _handleKeyEvent, child: widget.child);
   }
 
   void _syncPlatformIme() {
     if (_textInputConnection != null && _textInputConnection!.attached) {
-      _textInputConnection!.setEditingState(
-        _inputService.getImeState(widget.pageId).value,
-      );
+      _textInputConnection!.setEditingState(_inputService.getImeState(widget.pageId).value);
     }
   }
 

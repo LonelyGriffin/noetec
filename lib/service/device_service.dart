@@ -25,45 +25,23 @@ class DeviceServiceImpl implements IDeviceService {
   final ISecureKeyStore _secureKeyStore;
   DeviceIdentity? _currentDevice;
 
-  DeviceServiceImpl(
-    this._fileSystem,
-    this._idService,
-    this._cryptoService,
-    this._secureKeyStore,
-  );
+  DeviceServiceImpl(this._fileSystem, this._idService, this._cryptoService, this._secureKeyStore);
 
   @override
   DeviceIdentity? get currentDevice => _currentDevice;
 
   @override
-  Future<DeviceIdentity> ensureDevice(
-    String vaultRootPath,
-    String vaultId,
-  ) async {
+  Future<DeviceIdentity> ensureDevice(String vaultRootPath, String vaultId) async {
     final devicePath = '$vaultRootPath/.noetec/device.json';
     if (await _fileSystem.fileExists(devicePath)) {
       final content = await _fileSystem.readFile(devicePath);
-      _currentDevice = DeviceIdentity.fromJson(
-        jsonDecode(content) as Map<String, dynamic>,
-      );
+      _currentDevice = DeviceIdentity.fromJson(jsonDecode(content) as Map<String, dynamic>);
     } else {
       final keyPair = await _cryptoService.generateDeviceKeyPair();
 
-      _currentDevice = DeviceIdentity(
-        uuid: _idService.generateId(),
-        name: 'Default Device',
-        createdAt: DateTime.now(),
-        lastHlc: null,
-        publicKey: keyPair.publicKeyBase64,
-      );
-      await _fileSystem.writeFile(
-        devicePath,
-        jsonEncode(_currentDevice!.toJson()),
-      );
-      await _secureKeyStore.storeDevicePrivateKey(
-        vaultId,
-        keyPair.privateKeyBase64,
-      );
+      _currentDevice = DeviceIdentity(uuid: _idService.generateId(), name: 'Default Device', createdAt: DateTime.now(), lastHlc: null, publicKey: keyPair.publicKeyBase64);
+      await _fileSystem.writeFile(devicePath, jsonEncode(_currentDevice!.toJson()));
+      await _secureKeyStore.storeDevicePrivateKey(vaultId, keyPair.privateKeyBase64);
     }
     return _currentDevice!;
   }
@@ -73,10 +51,7 @@ class DeviceServiceImpl implements IDeviceService {
     if (_currentDevice == null) return;
     _currentDevice = _currentDevice!.withLastHlc(hlcKey);
     final devicePath = '$vaultRootPath/.noetec/device.json';
-    await _fileSystem.writeFile(
-      devicePath,
-      jsonEncode(_currentDevice!.toJson()),
-    );
+    await _fileSystem.writeFile(devicePath, jsonEncode(_currentDevice!.toJson()));
   }
 
   @override

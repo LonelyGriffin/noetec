@@ -58,9 +58,7 @@ final class RenameController {
   ///
   /// Single source of truth for the tree (replaces the former
   /// `VaultFileService.renamingPath` notifier).
-  final CustomValueNotifier<String?> activePath = CustomValueNotifier<String?>(
-    null,
-  );
+  final CustomValueNotifier<String?> activePath = CustomValueNotifier<String?>(null);
 
   _RenamePhase _phase = _RenamePhase.idle;
   String? _target;
@@ -69,10 +67,7 @@ final class RenameController {
   ///
   /// A no-op while a commit is in flight: a new session is never armed in the
   /// middle of an in-progress rename.
-  late final beginCommand = Command.createAsyncNoResult<String>(
-    _begin,
-    debugName: 'renameBegin',
-  );
+  late final beginCommand = Command.createAsyncNoResult<String>(_begin, debugName: 'renameBegin');
 
   /// Commits the rename with [newName], running
   /// [VaultFileService.renamePage] at most once per session.
@@ -80,19 +75,13 @@ final class RenameController {
   /// An empty [newName], no active vault, or no armed session closes the
   /// session without renaming. A real rename error is allowed to propagate to
   /// the command's `.errors`; the session is still closed afterward.
-  late final confirmCommand = Command.createAsyncNoResult<String>(
-    _confirm,
-    debugName: 'renameConfirm',
-  );
+  late final confirmCommand = Command.createAsyncNoResult<String>(_confirm, debugName: 'renameConfirm');
 
   /// Abandons the current session without renaming.
   ///
   /// A no-op while a commit is in flight (cancelling mid-rename would leave
   /// the tree inconsistent with an in-flight file rename).
-  late final cancelCommand = Command.createAsyncNoParamNoResult(
-    _cancel,
-    debugName: 'renameCancel',
-  );
+  late final cancelCommand = Command.createAsyncNoParamNoResult(_cancel, debugName: 'renameCancel');
 
   Future<void> _begin(String relativePath) async {
     if (_phase == _RenamePhase.committing) return;

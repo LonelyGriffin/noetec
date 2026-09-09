@@ -20,8 +20,7 @@ void main() {
   const vaultId = 'vault-1';
   const identityPath = '/vault/.noetec/identity.json';
 
-  UserServiceImpl buildService(FakeFileSystemService f, FakeSecureKeyStore k) =>
-      UserServiceImpl(f, FakeIdService(), CryptoServiceImpl(), k);
+  UserServiceImpl buildService(FakeFileSystemService f, FakeSecureKeyStore k) => UserServiceImpl(f, FakeIdService(), CryptoServiceImpl(), k);
 
   setUp(() {
     fs = FakeFileSystemService();
@@ -30,36 +29,29 @@ void main() {
   });
 
   group('UserServiceImpl —', () {
-    test(
-      'createIdentity writes identity.json with only public fields',
-      () async {
-        final created = await service.createIdentity(vaultRoot, vaultId);
+    test('createIdentity writes identity.json with only public fields', () async {
+      final created = await service.createIdentity(vaultRoot, vaultId);
 
-        expect(fs.files[identityPath], isNotNull);
-        final json =
-            jsonDecode(fs.files[identityPath]!) as Map<String, dynamic>;
-        expect(json.keys.toSet(), {'userId', 'name', 'publicKey', 'role'});
-        expect(json['role'], 'owner');
-        // No private material on disk.
-        expect(json.toString(), isNot(contains('seed')));
-        expect(created.identity.publicKey, json['publicKey']);
-      },
-    );
+      expect(fs.files[identityPath], isNotNull);
+      final json = jsonDecode(fs.files[identityPath]!) as Map<String, dynamic>;
+      expect(json.keys.toSet(), {'userId', 'name', 'publicKey', 'role'});
+      expect(json['role'], 'owner');
+      // No private material on disk.
+      expect(json.toString(), isNot(contains('seed')));
+      expect(created.identity.publicKey, json['publicKey']);
+    });
 
-    test(
-      'createIdentity stores seed and private key only in secure storage',
-      () async {
-        await service.createIdentity(vaultRoot, vaultId);
+    test('createIdentity stores seed and private key only in secure storage', () async {
+      await service.createIdentity(vaultRoot, vaultId);
 
-        expect(await keyStore.readIdentitySeed(vaultId), isNotNull);
-        expect(await keyStore.readIdentityPrivateKey(vaultId), isNotNull);
-        // The seed round-trips back to 32 bytes.
-        final seedB64 = await keyStore.readIdentitySeed(vaultId);
-        expect(seedB64, isNotNull);
-        final padded = seedB64!.padRight((seedB64.length + 3) ~/ 4 * 4, '=');
-        expect(base64Url.decode(padded).length, 32);
-      },
-    );
+      expect(await keyStore.readIdentitySeed(vaultId), isNotNull);
+      expect(await keyStore.readIdentityPrivateKey(vaultId), isNotNull);
+      // The seed round-trips back to 32 bytes.
+      final seedB64 = await keyStore.readIdentitySeed(vaultId);
+      expect(seedB64, isNotNull);
+      final padded = seedB64!.padRight((seedB64.length + 3) ~/ 4 * 4, '=');
+      expect(base64Url.decode(padded).length, 32);
+    });
 
     test('createIdentity exposes a 24-word mnemonic that validates', () async {
       final created = await service.createIdentity(vaultRoot, vaultId);
@@ -68,28 +60,21 @@ void main() {
       expect(bip39.validateMnemonic(created.mnemonic), isTrue);
     });
 
-    test(
-      'restoreIdentity from the creation mnemonic yields the SAME identity',
-      () async {
-        final created = await service.createIdentity(vaultRoot, vaultId);
+    test('restoreIdentity from the creation mnemonic yields the SAME identity', () async {
+      final created = await service.createIdentity(vaultRoot, vaultId);
 
-        // Simulate a fresh device: new file system + new key store.
-        final fs2 = FakeFileSystemService();
-        final keyStore2 = FakeSecureKeyStore();
-        final fresh = buildService(fs2, keyStore2);
+      // Simulate a fresh device: new file system + new key store.
+      final fs2 = FakeFileSystemService();
+      final keyStore2 = FakeSecureKeyStore();
+      final fresh = buildService(fs2, keyStore2);
 
-        final restored = await fresh.restoreIdentity(
-          vaultRoot,
-          vaultId,
-          created.mnemonic,
-        );
+      final restored = await fresh.restoreIdentity(vaultRoot, vaultId, created.mnemonic);
 
-        expect(restored.publicKey, created.identity.publicKey);
-        expect(fs2.files[identityPath], isNotNull);
-        // Secrets were re-derived on the new device.
-        expect(await keyStore2.readIdentitySeed(vaultId), isNotNull);
-      },
-    );
+      expect(restored.publicKey, created.identity.publicKey);
+      expect(fs2.files[identityPath], isNotNull);
+      // Secrets were re-derived on the new device.
+      expect(await keyStore2.readIdentitySeed(vaultId), isNotNull);
+    });
 
     test('restoreIdentity is deterministic across calls', () async {
       final a = await service.createIdentity(vaultRoot, vaultId);
@@ -98,14 +83,7 @@ void main() {
     });
 
     test('restoreIdentity rejects an invalid mnemonic', () async {
-      expect(
-        () => service.restoreIdentity(
-          vaultRoot,
-          vaultId,
-          'not a valid mnemonic at all',
-        ),
-        throwsArgumentError,
-      );
+      expect(() => service.restoreIdentity(vaultRoot, vaultId, 'not a valid mnemonic at all'), throwsArgumentError);
     });
 
     test('loadIdentity returns null when identity.json is absent', () async {

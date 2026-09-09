@@ -11,41 +11,13 @@ class WalActionSerializer {
   Map<String, dynamic> toJson(PageEditAction action) {
     final base = <String, dynamic>{'type': typeOf(action)};
     return switch (action) {
-      InsertTextAction() => {
-        ...base,
-        'block_id': action.blockId,
-        'flat_offset': action.flatOffset,
-        'text': action.text,
-      },
-      DeleteTextBackAction() => {
-        ...base,
-        'block_id': action.blockId,
-        'flat_offset': action.flatOffset,
-      },
-      DeleteTextForwardAction() => {
-        ...base,
-        'block_id': action.blockId,
-        'flat_offset': action.flatOffset,
-      },
-      BlockSplitAction() => {
-        ...base,
-        'block_id': action.blockId,
-        'flat_offset': action.splitOffset,
-      },
-      ReplaceTextAction() => {
-        ...base,
-        'block_id': action.blockId,
-        'flat_start': action.flatStart,
-        'flat_end': action.flatEnd,
-        'replacement': action.replacement,
-      },
+      InsertTextAction() => {...base, 'block_id': action.blockId, 'flat_offset': action.flatOffset, 'text': action.text},
+      DeleteTextBackAction() => {...base, 'block_id': action.blockId, 'flat_offset': action.flatOffset},
+      DeleteTextForwardAction() => {...base, 'block_id': action.blockId, 'flat_offset': action.flatOffset},
+      BlockSplitAction() => {...base, 'block_id': action.blockId, 'flat_offset': action.splitOffset},
+      ReplaceTextAction() => {...base, 'block_id': action.blockId, 'flat_start': action.flatStart, 'flat_end': action.flatEnd, 'replacement': action.replacement},
       DeleteSelectionAction() => {...base, 'block_id': action.blockId},
-      PasteTextAction() => {
-        ...base,
-        'block_id': action.blockId,
-        'flat_offset': action.flatOffset,
-        'clipboard_content': action.clipboardContent,
-      },
+      PasteTextAction() => {...base, 'block_id': action.blockId, 'flat_offset': action.flatOffset, 'clipboard_content': action.clipboardContent},
     };
   }
 
@@ -63,35 +35,13 @@ class WalActionSerializer {
     final type = json['type'] as String;
     final blockId = json['block_id'] as String;
     return switch (type) {
-      'insert_text' => InsertTextAction(
-        blockId: blockId,
-        flatOffset: json['flat_offset'] as int,
-        text: json['text'] as String,
-      ),
-      'delete_text_back' => DeleteTextBackAction(
-        blockId: blockId,
-        flatOffset: json['flat_offset'] as int,
-      ),
-      'delete_text_forward' => DeleteTextForwardAction(
-        blockId: blockId,
-        flatOffset: json['flat_offset'] as int,
-      ),
-      'block_split' => BlockSplitAction(
-        blockId: blockId,
-        splitOffset: json['flat_offset'] as int,
-      ),
-      'replace_text' => ReplaceTextAction(
-        blockId: blockId,
-        flatStart: json['flat_start'] as int,
-        flatEnd: json['flat_end'] as int,
-        replacement: json['replacement'] as String,
-      ),
+      'insert_text' => InsertTextAction(blockId: blockId, flatOffset: json['flat_offset'] as int, text: json['text'] as String),
+      'delete_text_back' => DeleteTextBackAction(blockId: blockId, flatOffset: json['flat_offset'] as int),
+      'delete_text_forward' => DeleteTextForwardAction(blockId: blockId, flatOffset: json['flat_offset'] as int),
+      'block_split' => BlockSplitAction(blockId: blockId, splitOffset: json['flat_offset'] as int),
+      'replace_text' => ReplaceTextAction(blockId: blockId, flatStart: json['flat_start'] as int, flatEnd: json['flat_end'] as int, replacement: json['replacement'] as String),
       'delete_selection' => DeleteSelectionAction(blockId: blockId),
-      'paste_text' => PasteTextAction(
-        blockId: blockId,
-        flatOffset: json['flat_offset'] as int,
-        clipboardContent: json['clipboard_content'] as String,
-      ),
+      'paste_text' => PasteTextAction(blockId: blockId, flatOffset: json['flat_offset'] as int, clipboardContent: json['clipboard_content'] as String),
       _ => throw FormatException('Unknown WAL action type: $type'),
     };
   }

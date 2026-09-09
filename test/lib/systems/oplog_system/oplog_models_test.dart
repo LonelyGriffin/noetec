@@ -28,18 +28,12 @@ void main() {
         expect(insert.segments[0], isA<TextSegment>());
         expect(insert.segments[0].text, 'hello');
         expect(insert.segments[1], isA<FormattedSegment>());
-        expect(
-          (insert.segments[1] as FormattedSegment).format,
-          TextFormat.bold,
-        );
+        expect((insert.segments[1] as FormattedSegment).format, TextFormat.bold);
       });
     });
 
     test('fromJson throws FormatException for unknown type', () {
-      expect(
-        () => BlockOp.fromJson({'type': 'unknown', 'blockId': 'b1'}),
-        throwsA(isA<FormatException>()),
-      );
+      expect(() => BlockOp.fromJson({'type': 'unknown', 'blockId': 'b1'}), throwsA(isA<FormatException>()));
     });
   });
 
@@ -78,10 +72,7 @@ void main() {
     });
 
     test('fromJson throws FormatException for unknown type', () {
-      expect(
-        () => FileOp.fromJson({'type': 'unknown'}),
-        throwsA(isA<FormatException>()),
-      );
+      expect(() => FileOp.fromJson({'type': 'unknown'}), throwsA(isA<FormatException>()));
     });
   });
 
@@ -137,17 +128,7 @@ void main() {
     test('serializes all OpEntryType values', () {
       for (final type in OpEntryType.values) {
         final hlc = Hlc.now(null, 'device1');
-        final entry = OpLogEntry(
-          version: 1,
-          hlc: hlc,
-          parent: null,
-          parentB: null,
-          type: type,
-          blockOps: [],
-          fileOp: null,
-          fileHash: null,
-          deviceId: 'device1',
-        );
+        final entry = OpLogEntry(version: 1, hlc: hlc, parent: null, parentB: null, type: type, blockOps: [], fileOp: null, fileHash: null, deviceId: 'device1');
 
         final json = entry.toJson();
         final restored = OpLogEntry.fromJson(json);

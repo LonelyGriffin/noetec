@@ -22,10 +22,7 @@ class ImeInputHandler {
   }
 
   ValueNotifier<TextEditingValue> getImeState(String pageId) {
-    return _imeStates.putIfAbsent(
-      pageId,
-      () => ValueNotifier(TextEditingValue.empty),
-    );
+    return _imeStates.putIfAbsent(pageId, () => ValueNotifier(TextEditingValue.empty));
   }
 
   void syncImeState(String pageId) {
@@ -54,11 +51,7 @@ class ImeInputHandler {
     }
   }
 
-  void _handleInsertion(
-    PageEntity page,
-    String pageId,
-    TextEditingDeltaInsertion delta,
-  ) {
+  void _handleInsertion(PageEntity page, String pageId, TextEditingDeltaInsertion delta) {
     final selection = page.selection.value;
     if (selection is! SingleCursorSelectionEntity) return;
 
@@ -68,41 +61,26 @@ class ImeInputHandler {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
+    final flatOffset = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
 
     _pageSystem.editing.insertText(flatOffset, delta.textInserted);
 
     getImeState(pageId).value = delta.apply(getImeState(pageId).value);
   }
 
-  void _handleReplacement(
-    PageEntity page,
-    String pageId,
-    TextEditingDeltaReplacement delta,
-  ) {
+  void _handleReplacement(PageEntity page, String pageId, TextEditingDeltaReplacement delta) {
     final selection = page.selection.value;
     if (selection is! SingleCursorSelectionEntity) return;
 
     final cursor = selection.cursorPos;
     if (cursor is! CursorPositionInTextBlock) return;
 
-    _pageSystem.editing.replaceText(
-      delta.replacedRange.start,
-      delta.replacedRange.end,
-      delta.replacementText,
-    );
+    _pageSystem.editing.replaceText(delta.replacedRange.start, delta.replacedRange.end, delta.replacementText);
 
     getImeState(pageId).value = _computeTextEditingValue(page);
   }
 
-  void _handleNonTextUpdate(
-    PageEntity page,
-    String pageId,
-    TextEditingDeltaNonTextUpdate delta,
-  ) {
+  void _handleNonTextUpdate(PageEntity page, String pageId, TextEditingDeltaNonTextUpdate delta) {
     if (!delta.selection.isCollapsed) return;
 
     final selection = page.selection.value;
@@ -141,10 +119,7 @@ class ImeInputHandler {
         final block = page.getBlockById(cursor.blockId);
         if (block is TextBlockEntity) {
           final blockStart = blockOffsets[cursor.blockId] ?? 0;
-          final flatInBlock = block.flatOffsetFromCursor(
-            cursor.segmentIndex,
-            cursor.offset,
-          );
+          final flatInBlock = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
           final globalOffset = blockStart + flatInBlock;
           return TextEditingValue(
             text: fullText,
@@ -157,31 +132,17 @@ class ImeInputHandler {
     if (selection is RangeSelectionEntity) {
       final anchor = selection.anchor;
       final extent = selection.extent;
-      if (anchor is CursorPositionInTextBlock &&
-          extent is CursorPositionInTextBlock) {
+      if (anchor is CursorPositionInTextBlock && extent is CursorPositionInTextBlock) {
         final anchorBlock = page.getBlockById(anchor.blockId);
         final extentBlock = page.getBlockById(extent.blockId);
         if (anchorBlock is TextBlockEntity && extentBlock is TextBlockEntity) {
           final anchorStart = blockOffsets[anchor.blockId] ?? 0;
           final extentStart = blockOffsets[extent.blockId] ?? 0;
-          final anchorFlat =
-              anchorStart +
-              anchorBlock.flatOffsetFromCursor(
-                anchor.segmentIndex,
-                anchor.offset,
-              );
-          final extentFlat =
-              extentStart +
-              extentBlock.flatOffsetFromCursor(
-                extent.segmentIndex,
-                extent.offset,
-              );
+          final anchorFlat = anchorStart + anchorBlock.flatOffsetFromCursor(anchor.segmentIndex, anchor.offset);
+          final extentFlat = extentStart + extentBlock.flatOffsetFromCursor(extent.segmentIndex, extent.offset);
           return TextEditingValue(
             text: fullText,
-            selection: TextSelection(
-              baseOffset: anchorFlat,
-              extentOffset: extentFlat,
-            ),
+            selection: TextSelection(baseOffset: anchorFlat, extentOffset: extentFlat),
           );
         }
       }

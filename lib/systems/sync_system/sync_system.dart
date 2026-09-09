@@ -63,8 +63,7 @@ class SyncSystem {
 
   ConflictStore get conflictStore => _conflictStore;
 
-  DocumentSyncState documentStateOf(String relativePath) =>
-      _documentStates[relativePath] ?? DocumentSyncState.synced;
+  DocumentSyncState documentStateOf(String relativePath) => _documentStates[relativePath] ?? DocumentSyncState.synced;
 
   void _onVaultChanged() {
     final vault = _vaultSystem.currentVault.value;
@@ -73,26 +72,10 @@ class SyncSystem {
       if (device == null) return;
       _vaultRootPath = vault.rootPath;
       _ownDeviceUuid = device.uuid;
-      _syncWatcher = SyncWatcher(
-        fileSystem: _fileSystem,
-        vaultRootPath: _vaultRootPath!,
-        ownDeviceUuid: _ownDeviceUuid!,
-      );
-      _vaultWatcher = VaultWatcher(
-        fileSystem: _fileSystem,
-        vaultRootPath: _vaultRootPath!,
-      );
-      _mergeApplier = MergeApplier(
-        fileSystem: _fileSystem,
-        markdownSystem: _markdownSystem,
-        vaultRootPath: _vaultRootPath!,
-      );
-      _externalEditHandler = ExternalEditHandler(
-        fileSystem: _fileSystem,
-        markdownSystem: _markdownSystem,
-        oplogSystem: _oplogSystem,
-        vaultRootPath: _vaultRootPath!,
-      );
+      _syncWatcher = SyncWatcher(fileSystem: _fileSystem, vaultRootPath: _vaultRootPath!, ownDeviceUuid: _ownDeviceUuid!);
+      _vaultWatcher = VaultWatcher(fileSystem: _fileSystem, vaultRootPath: _vaultRootPath!);
+      _mergeApplier = MergeApplier(fileSystem: _fileSystem, markdownSystem: _markdownSystem, vaultRootPath: _vaultRootPath!);
+      _externalEditHandler = ExternalEditHandler(fileSystem: _fileSystem, markdownSystem: _markdownSystem, oplogSystem: _oplogSystem, vaultRootPath: _vaultRootPath!);
       unawaited(start());
     } else {
       stop();
@@ -148,9 +131,7 @@ class SyncSystem {
   }
 
   String _extractOplogRelativePath(String oplogFilePath) {
-    final rel = oplogFilePath
-        .replaceAll('\\', '/')
-        .replaceFirst('$_vaultRootPath/.sync/', '');
+    final rel = oplogFilePath.replaceAll('\\', '/').replaceFirst('$_vaultRootPath/.sync/', '');
     final lastSlash = rel.lastIndexOf('/');
     return rel.substring(0, lastSlash);
   }
@@ -191,51 +172,34 @@ class SyncSystem {
   }
 
   Future<void> _onExternalEdit(ExternalEditEvent event) async {
-    final pageId = await _externalEditHandler.handleExternalEdit(
-      event.relativePath,
-      null,
-    );
+    final pageId = await _externalEditHandler.handleExternalEdit(event.relativePath, null);
     _vaultWatcher.acknowledge(event.relativePath);
     if (pageId != null) {
       await checkFile(event.relativePath);
     }
   }
 
-  Future<void> _applyMergeResult(
-    String relativePath,
-    MergeResult result,
-  ) async {
+  Future<void> _applyMergeResult(String relativePath, MergeResult result) async {
     if (_vaultRootPath == null) return;
     switch (result) {
       case MergeNoop():
         _documentStates[relativePath] = DocumentSyncState.synced;
-        status.value = _hasAnyConflict()
-            ? SyncStatus.conflict
-            : SyncStatus.idle;
+        status.value = _hasAnyConflict() ? SyncStatus.conflict : SyncStatus.idle;
 
       case MergeFastForward():
         await _writeMergedBlocks(relativePath, result.updatedBlocks);
         _documentStates[relativePath] = DocumentSyncState.synced;
-        status.value = _hasAnyConflict()
-            ? SyncStatus.conflict
-            : SyncStatus.idle;
+        status.value = _hasAnyConflict() ? SyncStatus.conflict : SyncStatus.idle;
 
       case MergeSuccess():
         await _writeMergedBlocks(relativePath, result.mergedBlocks);
         await _recordMergeEntry(relativePath, result.ourHead, result.theirHead);
         _documentStates[relativePath] = DocumentSyncState.synced;
-        status.value = _hasAnyConflict()
-            ? SyncStatus.conflict
-            : SyncStatus.idle;
+        status.value = _hasAnyConflict() ? SyncStatus.conflict : SyncStatus.idle;
 
       case MergeConflict():
         await _writeMergedBlocks(relativePath, result.partiallyMergedBlocks);
-        _conflictStore.addConflicts(
-          relativePath,
-          result.conflicts,
-          result.ourHead,
-          result.theirHead,
-        );
+        _conflictStore.addConflicts(relativePath, result.conflicts, result.ourHead, result.theirHead);
         await _conflictStore.save(_vaultRootPath!);
         _documentStates[relativePath] = DocumentSyncState.conflict;
         status.value = SyncStatus.conflict;
@@ -243,18 +207,11 @@ class SyncSystem {
     }
   }
 
-  Future<({String fileHash, String content})> _writeMergedBlocks(
-    String relativePath,
-    List<ReconstructedBlock> blocks,
-  ) async {
+  Future<({String fileHash, String content})> _writeMergedBlocks(String relativePath, List<ReconstructedBlock> blocks) async {
     return _mergeApplier.applyToDisk(relativePath, blocks);
   }
 
-  Future<void> _recordMergeEntry(
-    String relativePath,
-    Hlc hlcA,
-    Hlc hlcB,
-  ) async {
+  Future<void> _recordMergeEntry(String relativePath, Hlc hlcA, Hlc hlcB) async {
     await _oplogSystem.recordMerge(relativePath, hlcA, hlcB, '');
   }
 

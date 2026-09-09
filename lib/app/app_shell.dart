@@ -61,12 +61,8 @@ class _DesktopShellState extends State<_DesktopShell> {
           children: [
             IconRail(activePanel: _activePanel, onSelectPanel: _selectPanel),
             const VerticalDivider(thickness: 1, width: 1),
-            ContentPanel(
-              activePanel: _activePanel,
-              isCollapsed: _isContentPanelCollapsed,
-            ),
-            if (!_isContentPanelCollapsed)
-              const VerticalDivider(thickness: 1, width: 1),
+            ContentPanel(activePanel: _activePanel, isCollapsed: _isContentPanelCollapsed),
+            if (!_isContentPanelCollapsed) const VerticalDivider(thickness: 1, width: 1),
             const Expanded(child: EditorArea()),
           ],
         ),
@@ -101,22 +97,10 @@ class _MobileShellState extends State<_MobileShell> {
           _showPanelSheet(context, panel);
         },
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.book_outlined),
-            label: 'Journal',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.article_outlined),
-            label: 'Pages',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bookmark_outline),
-            label: 'Bookmarks',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            label: 'Settings',
-          ),
+          NavigationDestination(icon: Icon(Icons.book_outlined), label: 'Journal'),
+          NavigationDestination(icon: Icon(Icons.article_outlined), label: 'Pages'),
+          NavigationDestination(icon: Icon(Icons.bookmark_outline), label: 'Bookmarks'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
       ),
     );

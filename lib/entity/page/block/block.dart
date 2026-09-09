@@ -8,8 +8,7 @@ abstract class BlockEntity {
   final String id;
   final List<BlockEntity> children;
 
-  BlockEntity({required this.id, this.parentId, List<BlockEntity>? children})
-    : children = children ?? <BlockEntity>[];
+  BlockEntity({required this.id, this.parentId, List<BlockEntity>? children}) : children = children ?? <BlockEntity>[];
 
   void dispose() {
     for (var c in children) {

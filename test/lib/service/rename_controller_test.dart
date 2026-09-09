@@ -18,11 +18,7 @@ import '../../helpers/test_fakes.dart';
 /// be scripted to fail, so the tests can assert exactly how many times the
 /// rename is invoked regardless of the (fake) file system.
 class _RecordingVaultFileService extends VaultFileService {
-  _RecordingVaultFileService(
-    super.fileSystem,
-    super.vaultSystem,
-    super.pageSystem,
-  );
+  _RecordingVaultFileService(super.fileSystem, super.vaultSystem, super.pageSystem);
 
   final List<List<String>> renameCalls = [];
   Exception Function()? _onRename;
@@ -30,11 +26,7 @@ class _RecordingVaultFileService extends VaultFileService {
   void whenRename(Exception Function() producer) => _onRename = producer;
 
   @override
-  Future<String> renamePage(
-    String vaultRootPath,
-    String oldRelativePath,
-    String newFileName,
-  ) async {
+  Future<String> renamePage(String vaultRootPath, String oldRelativePath, String newFileName) async {
     renameCalls.add([oldRelativePath, newFileName]);
     final producer = _onRename;
     if (producer != null) throw producer();
@@ -44,12 +36,7 @@ class _RecordingVaultFileService extends VaultFileService {
 
 void main() {
   const oldPath = 'pages/old.md';
-  final vault = VaultEntity(
-    id: 'vault-1',
-    name: 'TestVault',
-    rootPath: '/vault',
-    createdAt: DateTime(2026),
-  );
+  final vault = VaultEntity(id: 'vault-1', name: 'TestVault', rootPath: '/vault', createdAt: DateTime(2026));
 
   late VaultSystem vaultSystem;
   late _RecordingVaultFileService vfs;
@@ -57,17 +44,8 @@ void main() {
 
   setUp(() {
     vaultSystem = createTestVaultSystem();
-    final pageSystem = PageSystem(
-      FakeIdService(),
-      MarkdownSystem(FakeIdService()),
-      FakeFileSystemService(),
-      vaultSystem,
-    );
-    vfs = _RecordingVaultFileService(
-      FakeFileSystemService(),
-      vaultSystem,
-      pageSystem,
-    );
+    final pageSystem = PageSystem(FakeIdService(), MarkdownSystem(FakeIdService()), FakeFileSystemService(), vaultSystem);
+    vfs = _RecordingVaultFileService(FakeFileSystemService(), vaultSystem, pageSystem);
     controller = RenameController(vfs, vaultSystem);
     vaultSystem.currentVault.value = vault;
   });
@@ -79,25 +57,19 @@ void main() {
   });
 
   group('RenameController — commit-once invariant (NOET-17)', () {
-    test(
-      'confirmCommand renames exactly once (Enter + focus-loss both fire it)',
-      () async {
-        await controller.beginCommand.runAsync(oldPath);
-        await controller.confirmCommand.runAsync('renamed');
-        // A second confirm (the focus-loss re-entry) must be a no-op.
-        await controller.confirmCommand.runAsync('renamed');
-        expect(vfs.renameCalls, hasLength(1));
-      },
-    );
+    test('confirmCommand renames exactly once (Enter + focus-loss both fire it)', () async {
+      await controller.beginCommand.runAsync(oldPath);
+      await controller.confirmCommand.runAsync('renamed');
+      // A second confirm (the focus-loss re-entry) must be a no-op.
+      await controller.confirmCommand.runAsync('renamed');
+      expect(vfs.renameCalls, hasLength(1));
+    });
 
     test('two concurrent confirmCommands still rename exactly once', () async {
       await controller.beginCommand.runAsync(oldPath);
       // Simulate Enter (onSubmitted) racing the focus-loss handler: both
       // confirm before either has settled.
-      await Future.wait([
-        controller.confirmCommand.runAsync('renamed'),
-        controller.confirmCommand.runAsync('renamed'),
-      ]);
+      await Future.wait([controller.confirmCommand.runAsync('renamed'), controller.confirmCommand.runAsync('renamed')]);
       expect(vfs.renameCalls, hasLength(1));
     });
 
@@ -154,40 +126,28 @@ void main() {
   });
 
   group('RenameController — real rename errors still propagate', () {
-    test(
-      'PageNameConflictException propagates and closes the session',
-      () async {
-        vfs.whenRename(() => const PageNameConflictException('renamed.md'));
-        await controller.beginCommand.runAsync(oldPath);
-        // Local listener mirrors how the app consumes command errors (via
-        // `.errors`); it also satisfies command_it's local-handler routing.
-        controller.confirmCommand.errors.addListener(() {});
+    test('PageNameConflictException propagates and closes the session', () async {
+      vfs.whenRename(() => const PageNameConflictException('renamed.md'));
+      await controller.beginCommand.runAsync(oldPath);
+      // Local listener mirrors how the app consumes command errors (via
+      // `.errors`); it also satisfies command_it's local-handler routing.
+      controller.confirmCommand.errors.addListener(() {});
 
-        await expectLater(
-          controller.confirmCommand.runAsync('renamed'),
-          throwsA(isA<PageNameConflictException>()),
-        );
+      await expectLater(controller.confirmCommand.runAsync('renamed'), throwsA(isA<PageNameConflictException>()));
 
-        expect(controller.activePath.value, isNull);
-        expect(vfs.renameCalls, hasLength(1));
-      },
-    );
+      expect(controller.activePath.value, isNull);
+      expect(vfs.renameCalls, hasLength(1));
+    });
 
-    test(
-      'PageNameInvalidException propagates and closes the session',
-      () async {
-        vfs.whenRename(() => const PageNameInvalidException('..'));
-        await controller.beginCommand.runAsync(oldPath);
-        controller.confirmCommand.errors.addListener(() {});
+    test('PageNameInvalidException propagates and closes the session', () async {
+      vfs.whenRename(() => const PageNameInvalidException('..'));
+      await controller.beginCommand.runAsync(oldPath);
+      controller.confirmCommand.errors.addListener(() {});
 
-        await expectLater(
-          controller.confirmCommand.runAsync('..'),
-          throwsA(isA<PageNameInvalidException>()),
-        );
+      await expectLater(controller.confirmCommand.runAsync('..'), throwsA(isA<PageNameInvalidException>()));
 
-        expect(controller.activePath.value, isNull);
-        expect(vfs.renameCalls, hasLength(1));
-      },
-    );
+      expect(controller.activePath.value, isNull);
+      expect(vfs.renameCalls, hasLength(1));
+    });
   });
 }

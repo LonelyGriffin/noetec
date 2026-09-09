@@ -36,11 +36,7 @@ class PageEditingSubsystem {
         _applyDeleteForward(page, block, flatOffset);
       case BlockSplitAction(:final splitOffset):
         _applySplit(page, block, splitOffset);
-      case ReplaceTextAction(
-        :final flatStart,
-        :final flatEnd,
-        :final replacement,
-      ):
+      case ReplaceTextAction(:final flatStart, :final flatEnd, :final replacement):
         _applyReplace(block, flatStart, flatEnd, replacement);
       case PasteTextAction(:final flatOffset, :final clipboardContent):
         _applyInsertText(block, flatOffset, clipboardContent);
@@ -69,13 +65,7 @@ class PageEditingSubsystem {
 
     page.selection.value = SingleCursorSelectionEntity(cursorPos: newCursorPos);
 
-    _dispatcher.dispatch(
-      InsertTextAction(
-        blockId: cursor.blockId,
-        flatOffset: flatOffset,
-        text: text,
-      ),
-    );
+    _dispatcher.dispatch(InsertTextAction(blockId: cursor.blockId, flatOffset: flatOffset, text: text));
   }
 
   void deleteTextBack(int flatOffset) {
@@ -103,9 +93,7 @@ class PageEditingSubsystem {
 
     page.selection.value = SingleCursorSelectionEntity(cursorPos: newCursorPos);
 
-    _dispatcher.dispatch(
-      DeleteTextBackAction(blockId: cursor.blockId, flatOffset: flatOffset),
-    );
+    _dispatcher.dispatch(DeleteTextBackAction(blockId: cursor.blockId, flatOffset: flatOffset));
   }
 
   void deleteTextForward(int flatOffset) {
@@ -133,9 +121,7 @@ class PageEditingSubsystem {
 
     page.selection.value = SingleCursorSelectionEntity(cursorPos: newCursorPos);
 
-    _dispatcher.dispatch(
-      DeleteTextForwardAction(blockId: cursor.blockId, flatOffset: flatOffset),
-    );
+    _dispatcher.dispatch(DeleteTextForwardAction(blockId: cursor.blockId, flatOffset: flatOffset));
   }
 
   void splitBlock(int splitOffset) {
@@ -153,17 +139,9 @@ class PageEditingSubsystem {
 
     final newBlock = _applySplit(page, block, splitOffset);
 
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: CursorPositionInTextBlock(
-        blockId: newBlock.id,
-        segmentIndex: 0,
-        offset: 0,
-      ),
-    );
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: CursorPositionInTextBlock(blockId: newBlock.id, segmentIndex: 0, offset: 0));
 
-    _dispatcher.dispatch(
-      BlockSplitAction(blockId: cursor.blockId, splitOffset: splitOffset),
-    );
+    _dispatcher.dispatch(BlockSplitAction(blockId: cursor.blockId, splitOffset: splitOffset));
   }
 
   void replaceText(int flatStart, int flatEnd, String replacement) {
@@ -182,18 +160,9 @@ class PageEditingSubsystem {
     _applyReplace(block, flatStart, flatEnd, replacement);
 
     final newFlatOffset = flatStart + replacement.length;
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: block.cursorPosFromFlatOffset(newFlatOffset),
-    );
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: block.cursorPosFromFlatOffset(newFlatOffset));
 
-    _dispatcher.dispatch(
-      ReplaceTextAction(
-        blockId: cursor.blockId,
-        flatStart: flatStart,
-        flatEnd: flatEnd,
-        replacement: replacement,
-      ),
-    );
+    _dispatcher.dispatch(ReplaceTextAction(blockId: cursor.blockId, flatStart: flatStart, flatEnd: flatEnd, replacement: replacement));
   }
 
   void deleteSelection() {
@@ -205,8 +174,7 @@ class PageEditingSubsystem {
 
     final anchor = selection.anchor;
     final extent = selection.extent;
-    if (anchor is! CursorPositionInTextBlock ||
-        extent is! CursorPositionInTextBlock) {
+    if (anchor is! CursorPositionInTextBlock || extent is! CursorPositionInTextBlock) {
       return;
     }
 
@@ -225,11 +193,7 @@ class PageEditingSubsystem {
   void _applyInsertText(TextBlockEntity block, int flatOffset, String text) {
     final insertionPos = block.cursorPosFromFlatOffset(flatOffset);
     final segment = block.segments[insertionPos.segmentIndex];
-    final newText = segment.text.replaceRange(
-      insertionPos.offset,
-      insertionPos.offset,
-      text,
-    );
+    final newText = segment.text.replaceRange(insertionPos.offset, insertionPos.offset, text);
     final newSegment = segment.cloneWithText(newText);
 
     final newSegments = List<TextSegment>.from(block.segments);
@@ -237,11 +201,7 @@ class PageEditingSubsystem {
     block.segments.replaceRange(0, block.segments.length, newSegments);
   }
 
-  void _applyDeleteBack(
-    PageEntity page,
-    TextBlockEntity block,
-    int flatOffset,
-  ) {
+  void _applyDeleteBack(PageEntity page, TextBlockEntity block, int flatOffset) {
     if (flatOffset <= 0) {
       _mergeWithPreviousBlock(page, block);
       return;
@@ -251,11 +211,7 @@ class PageEditingSubsystem {
     if (deletePos == null) return;
 
     final segment = block.segments[deletePos.segmentIndex];
-    final newText = segment.text.replaceRange(
-      deletePos.offset,
-      deletePos.offset + 1,
-      '',
-    );
+    final newText = segment.text.replaceRange(deletePos.offset, deletePos.offset + 1, '');
     final newSegment = segment.cloneWithText(newText);
 
     final newSegments = List<TextSegment>.from(block.segments);
@@ -263,11 +219,7 @@ class PageEditingSubsystem {
     block.segments.replaceRange(0, block.segments.length, newSegments);
   }
 
-  void _applyDeleteForward(
-    PageEntity page,
-    TextBlockEntity block,
-    int flatOffset,
-  ) {
+  void _applyDeleteForward(PageEntity page, TextBlockEntity block, int flatOffset) {
     final totalLength = block.computeAllSegmentsText().length;
     if (flatOffset >= totalLength) {
       _mergeWithNextBlock(page, block);
@@ -278,11 +230,7 @@ class PageEditingSubsystem {
     if (deletePos == null) return;
 
     final segment = block.segments[deletePos.segmentIndex];
-    final newText = segment.text.replaceRange(
-      deletePos.offset,
-      deletePos.offset + 1,
-      '',
-    );
+    final newText = segment.text.replaceRange(deletePos.offset, deletePos.offset + 1, '');
     final newSegment = segment.cloneWithText(newText);
 
     final newSegments = List<TextSegment>.from(block.segments);
@@ -290,46 +238,24 @@ class PageEditingSubsystem {
     block.segments.replaceRange(0, block.segments.length, newSegments);
   }
 
-  TextBlockEntity _applySplit(
-    PageEntity page,
-    TextBlockEntity block,
-    int splitOffset,
-  ) {
-    final (beforeSegments, afterSegments) = splitSegmentsAt(
-      List.of(block.segments),
-      splitOffset,
-    );
+  TextBlockEntity _applySplit(PageEntity page, TextBlockEntity block, int splitOffset) {
+    final (beforeSegments, afterSegments) = splitSegmentsAt(List.of(block.segments), splitOffset);
 
-    final normalizedBefore = beforeSegments.isEmpty
-        ? [const TextSegment(text: '')]
-        : beforeSegments;
-    final normalizedAfter = afterSegments.isEmpty
-        ? [const TextSegment(text: '')]
-        : afterSegments;
+    final normalizedBefore = beforeSegments.isEmpty ? [const TextSegment(text: '')] : beforeSegments;
+    final normalizedAfter = afterSegments.isEmpty ? [const TextSegment(text: '')] : afterSegments;
 
     block.segments.replaceRange(0, block.segments.length, normalizedBefore);
 
-    final newBlock = TextBlockEntity(
-      id: _idService.generateId(),
-      parentId: block.parentId,
-      segments: normalizedAfter,
-    );
+    final newBlock = TextBlockEntity(id: _idService.generateId(), parentId: block.parentId, segments: normalizedAfter);
 
-    final siblings = block.parentId == null
-        ? page.rootBlocks
-        : (page.getBlockById(block.parentId!)?.children ?? page.rootBlocks);
+    final siblings = block.parentId == null ? page.rootBlocks : (page.getBlockById(block.parentId!)?.children ?? page.rootBlocks);
     final currentIndex = siblings.indexOf(block);
     page.addBlockAt(newBlock, currentIndex + 1);
 
     return newBlock;
   }
 
-  void _applyReplace(
-    TextBlockEntity block,
-    int flatStart,
-    int flatEnd,
-    String replacement,
-  ) {
+  void _applyReplace(TextBlockEntity block, int flatStart, int flatEnd, String replacement) {
     final segs = List.of(block.segments);
 
     final (before, fromStart) = splitSegmentsAt(segs, flatStart);
@@ -338,10 +264,7 @@ class PageEditingSubsystem {
 
     final newSegs = <TextSegment>[
       ...before,
-      if (replacement.isNotEmpty)
-        replaced.isNotEmpty
-            ? replaced.first.cloneWithText(replacement)
-            : TextSegment(text: replacement),
+      if (replacement.isNotEmpty) replaced.isNotEmpty ? replaced.first.cloneWithText(replacement) : TextSegment(text: replacement),
       ...after,
     ];
 
@@ -371,58 +294,37 @@ class PageEditingSubsystem {
     _mergeBlocks(page, block, nextBlock);
   }
 
-  void _mergeBlocks(
-    PageEntity page,
-    TextBlockEntity leftBlock,
-    TextBlockEntity rightBlock,
-  ) {
+  void _mergeBlocks(PageEntity page, TextBlockEntity leftBlock, TextBlockEntity rightBlock) {
     final leftText = leftBlock.computeAllSegmentsText();
     final leftEmpty = leftText.isEmpty;
     final rightEmpty = rightBlock.computeAllSegmentsText().isEmpty;
 
     if (leftEmpty) {
       page.removeBlock(leftBlock.id);
-      page.selection.value = SingleCursorSelectionEntity(
-        cursorPos: rightBlock.cursorPosFromFlatOffset(0),
-      );
+      page.selection.value = SingleCursorSelectionEntity(cursorPos: rightBlock.cursorPosFromFlatOffset(0));
       return;
     }
 
     if (rightEmpty) {
       page.removeBlock(rightBlock.id);
-      page.selection.value = SingleCursorSelectionEntity(
-        cursorPos: leftBlock.cursorPosFromFlatOffset(leftText.length),
-      );
+      page.selection.value = SingleCursorSelectionEntity(cursorPos: leftBlock.cursorPosFromFlatOffset(leftText.length));
       return;
     }
 
     final joinOffset = leftText.length;
     final mergedSegments = [...leftBlock.segments, ...rightBlock.segments];
 
-    leftBlock.segments.replaceRange(
-      0,
-      leftBlock.segments.length,
-      mergedSegments,
-    );
+    leftBlock.segments.replaceRange(0, leftBlock.segments.length, mergedSegments);
     page.removeBlock(rightBlock.id);
 
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: leftBlock.cursorPosFromFlatOffset(joinOffset),
-    );
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: leftBlock.cursorPosFromFlatOffset(joinOffset));
   }
 
-  void _deleteSelectionSingleBlock(
-    PageEntity page,
-    CursorPositionInTextBlock first,
-    CursorPositionInTextBlock last,
-  ) {
+  void _deleteSelectionSingleBlock(PageEntity page, CursorPositionInTextBlock first, CursorPositionInTextBlock last) {
     final block = page.getBlockById(first.blockId);
     if (block is! TextBlockEntity) return;
 
-    final firstFlat = block.flatOffsetFromCursor(
-      first.segmentIndex,
-      first.offset,
-    );
+    final firstFlat = block.flatOffsetFromCursor(first.segmentIndex, first.offset);
     final lastFlat = block.flatOffsetFromCursor(last.segmentIndex, last.offset);
 
     if (firstFlat == lastFlat) return;
@@ -437,38 +339,20 @@ class PageEditingSubsystem {
 
     block.segments.replaceRange(0, block.segments.length, normalized);
 
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: block.cursorPosFromFlatOffset(firstFlat),
-    );
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: block.cursorPosFromFlatOffset(firstFlat));
   }
 
-  void _deleteSelectionMultiBlock(
-    PageEntity page,
-    CursorPositionInTextBlock first,
-    CursorPositionInTextBlock last,
-  ) {
+  void _deleteSelectionMultiBlock(PageEntity page, CursorPositionInTextBlock first, CursorPositionInTextBlock last) {
     final firstBlock = page.getBlockById(first.blockId);
     final lastBlock = page.getBlockById(last.blockId);
     if (firstBlock is! TextBlockEntity || lastBlock is! TextBlockEntity) return;
 
-    final firstFlat = firstBlock.flatOffsetFromCursor(
-      first.segmentIndex,
-      first.offset,
-    );
-    final lastFlat = lastBlock.flatOffsetFromCursor(
-      last.segmentIndex,
-      last.offset,
-    );
+    final firstFlat = firstBlock.flatOffsetFromCursor(first.segmentIndex, first.offset);
+    final lastFlat = lastBlock.flatOffsetFromCursor(last.segmentIndex, last.offset);
 
-    final (keepBefore, _) = splitSegmentsAt(
-      List.of(firstBlock.segments),
-      firstFlat,
-    );
+    final (keepBefore, _) = splitSegmentsAt(List.of(firstBlock.segments), firstFlat);
 
-    final (_, keepAfter) = splitSegmentsAt(
-      List.of(lastBlock.segments),
-      lastFlat,
-    );
+    final (_, keepAfter) = splitSegmentsAt(List.of(lastBlock.segments), lastFlat);
 
     final ids = page.flatBlockIds();
     final firstIdx = ids.indexOf(first.blockId);
@@ -483,8 +367,6 @@ class PageEditingSubsystem {
     firstBlock.segments.replaceRange(0, firstBlock.segments.length, normalized);
     page.removeBlock(lastBlock.id);
 
-    page.selection.value = SingleCursorSelectionEntity(
-      cursorPos: firstBlock.cursorPosFromFlatOffset(firstFlat),
-    );
+    page.selection.value = SingleCursorSelectionEntity(cursorPos: firstBlock.cursorPosFromFlatOffset(firstFlat));
   }
 }

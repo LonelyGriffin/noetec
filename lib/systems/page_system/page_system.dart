@@ -28,15 +28,10 @@ final class SessionState {
 
   const SessionState({required this.openPagePaths, this.activePagePath});
 
-  Map<String, dynamic> toJson() => {
-    'open_pages': openPagePaths,
-    'active_page': activePagePath,
-  };
+  Map<String, dynamic> toJson() => {'open_pages': openPagePaths, 'active_page': activePagePath};
 
-  factory SessionState.fromJson(Map<String, dynamic> json) => SessionState(
-    openPagePaths: (json['open_pages'] as List).cast<String>(),
-    activePagePath: json['active_page'] as String?,
-  );
+  factory SessionState.fromJson(Map<String, dynamic> json) =>
+      SessionState(openPagePaths: (json['open_pages'] as List).cast<String>(), activePagePath: json['active_page'] as String?);
 }
 
 class PageSystem {
@@ -53,22 +48,14 @@ class PageSystem {
   String? _vaultRootPath;
   final Map<String, String> _pathToPageId = {};
 
-  final _pageOpenedController =
-      StreamController<(String pageId, String relativePath)>.broadcast(
-        sync: true,
-      );
-  Stream<(String pageId, String relativePath)> get pageOpened =>
-      _pageOpenedController.stream;
+  final _pageOpenedController = StreamController<(String pageId, String relativePath)>.broadcast(sync: true);
+  Stream<(String pageId, String relativePath)> get pageOpened => _pageOpenedController.stream;
 
   final _pageClosedController = StreamController<String>.broadcast(sync: true);
   Stream<String> get pageClosed => _pageClosedController.stream;
 
-  final _pageCreatedController =
-      StreamController<(String pageId, String relativePath)>.broadcast(
-        sync: true,
-      );
-  Stream<(String pageId, String relativePath)> get pageCreated =>
-      _pageCreatedController.stream;
+  final _pageCreatedController = StreamController<(String pageId, String relativePath)>.broadcast(sync: true);
+  Stream<(String pageId, String relativePath)> get pageCreated => _pageCreatedController.stream;
 
   late final PageEditingSubsystem editing;
   late final PageSelectionSubsystem selection;
@@ -77,20 +64,13 @@ class PageSystem {
   StreamSubscription<ClosingEvent>? _closingSubscription;
   StreamSubscription<VaultEntity>? _vaultCreatedSubscription;
 
-  PageSystem(
-    this._idService,
-    this._markdownSystem,
-    this._fileSystem,
-    this._vaultSystem,
-  ) {
+  PageSystem(this._idService, this._markdownSystem, this._fileSystem, this._vaultSystem) {
     editing = PageEditingSubsystem(this, _idService, actionDispatcher);
     selection = PageSelectionSubsystem(this);
     clipboard = PageClipboardSubsystem(this, _markdownSystem, _idService);
     _closingSubscription = _vaultSystem.closing.listen(_onClosing);
     _vaultSystem.currentVault.addListener(_onVaultChanged);
-    _vaultCreatedSubscription = _vaultSystem.vaultCreated.listen(
-      _onVaultCreated,
-    );
+    _vaultCreatedSubscription = _vaultSystem.vaultCreated.listen(_onVaultCreated);
   }
 
   void _onVaultChanged() {
@@ -174,16 +154,10 @@ class PageSystem {
     final markdown = _markdownSystem.serializeBlocks(textBlocks);
 
     final hash = PageFrontmatterCodec.computeContentHash(markdown);
-    final frontmatter = PageFrontmatter(
-      id: page.id,
-      contentHash: 'sha256:$hash',
-      modified: DateTime.now().toUtc(),
-    );
+    final frontmatter = PageFrontmatter(id: page.id, contentHash: 'sha256:$hash', modified: DateTime.now().toUtc());
 
     final fileContent = PageFrontmatterCodec.encode(frontmatter, markdown);
-    final absolutePath = p.normalize(
-      p.join(_vaultRootPath!, page.relativePath),
-    );
+    final absolutePath = p.normalize(p.join(_vaultRootPath!, page.relativePath));
     await _fileSystem.writeFile(absolutePath, fileContent);
     return 'sha256:$hash';
   }
@@ -217,18 +191,10 @@ class PageSystem {
 
   Future<void> saveSession() async {
     if (_vaultRootPath == null) return;
-    final openPaths = openPages.values
-        .map((page) => page.relativePath)
-        .toList();
+    final openPaths = openPages.values.map((page) => page.relativePath).toList();
     final activePage = getActivePage();
-    final state = SessionState(
-      openPagePaths: openPaths,
-      activePagePath: activePage?.relativePath,
-    );
-    await _fileSystem.writeFile(
-      p.normalize(p.join(_vaultRootPath!, _sessionFile)),
-      jsonEncode(state.toJson()),
-    );
+    final state = SessionState(openPagePaths: openPaths, activePagePath: activePage?.relativePath);
+    await _fileSystem.writeFile(p.normalize(p.join(_vaultRootPath!, _sessionFile)), jsonEncode(state.toJson()));
   }
 
   Future<void> restoreSession() async {

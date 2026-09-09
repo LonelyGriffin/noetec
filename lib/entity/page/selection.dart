@@ -49,23 +49,15 @@ class CursorPositionInTextBlock extends CursorPositionInDocument {
   final int segmentIndex;
   final int offset;
 
-  const CursorPositionInTextBlock({
-    required super.blockId,
-    required this.segmentIndex,
-    required this.offset,
-  });
+  const CursorPositionInTextBlock({required super.blockId, required this.segmentIndex, required this.offset});
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
 
-    return other is CursorPositionInTextBlock &&
-        other.blockId == blockId &&
-        other.segmentIndex == segmentIndex &&
-        other.offset == offset;
+    return other is CursorPositionInTextBlock && other.blockId == blockId && other.segmentIndex == segmentIndex && other.offset == offset;
   }
 
   @override
-  int get hashCode =>
-      blockId.hashCode ^ segmentIndex.hashCode ^ offset.hashCode;
+  int get hashCode => blockId.hashCode ^ segmentIndex.hashCode ^ offset.hashCode;
 }

@@ -22,8 +22,7 @@ class VaultAlreadyExistsException implements Exception {
   final String path;
 
   @override
-  String toString() =>
-      'VaultAlreadyExistsException: vault already exists at $path';
+  String toString() => 'VaultAlreadyExistsException: vault already exists at $path';
 }
 
 class DirectoryAlreadyExistsException implements Exception {
@@ -32,8 +31,7 @@ class DirectoryAlreadyExistsException implements Exception {
   final String existingPath;
 
   @override
-  String toString() =>
-      'DirectoryAlreadyExistsException: directory already exists at $existingPath';
+  String toString() => 'DirectoryAlreadyExistsException: directory already exists at $existingPath';
 }
 
 class InvalidVaultException implements Exception {
@@ -46,12 +44,7 @@ class InvalidVaultException implements Exception {
 }
 
 class VaultSystem {
-  VaultSystem(
-    this._fileSystem,
-    this._repository,
-    this._ids,
-    this._deviceService,
-  );
+  VaultSystem(this._fileSystem, this._repository, this._ids, this._deviceService);
 
   final IFileSystemService _fileSystem;
   final IVaultRepository _repository;
@@ -61,30 +54,17 @@ class VaultSystem {
   final currentVault = CustomValueNotifier<VaultEntity?>(null);
   final recentVaults = ListNotifier<VaultEntity>();
 
-  final StreamController<ClosingEvent> _closingController =
-      StreamController<ClosingEvent>.broadcast();
+  final StreamController<ClosingEvent> _closingController = StreamController<ClosingEvent>.broadcast();
   Stream<ClosingEvent> get closing => _closingController.stream;
 
-  final StreamController<VaultEntity> _vaultCreatedController =
-      StreamController<VaultEntity>.broadcast();
+  final StreamController<VaultEntity> _vaultCreatedController = StreamController<VaultEntity>.broadcast();
   Stream<VaultEntity> get vaultCreated => _vaultCreatedController.stream;
 
-  late final createVaultCommand =
-      Command.createAsync<
-        ({String parentPath, String vaultName}),
-        VaultEntity?
-      >(_createVault, initialValue: null, debugName: 'createVault');
+  late final createVaultCommand = Command.createAsync<({String parentPath, String vaultName}), VaultEntity?>(_createVault, initialValue: null, debugName: 'createVault');
 
-  late final openVaultCommand = Command.createAsync<String, VaultEntity?>(
-    _openVault,
-    initialValue: null,
-    debugName: 'openVault',
-  );
+  late final openVaultCommand = Command.createAsync<String, VaultEntity?>(_openVault, initialValue: null, debugName: 'openVault');
 
-  late final closeVaultCommand = Command.createAsyncNoParamNoResult(
-    _closeVault,
-    debugName: 'closeVault',
-  );
+  late final closeVaultCommand = Command.createAsyncNoParamNoResult(_closeVault, debugName: 'closeVault');
 
   Future<void> init() async {
     final vaults = await _repository.loadRecentVaults();
@@ -93,9 +73,7 @@ class VaultSystem {
       ..addAll(vaults);
   }
 
-  Future<VaultEntity?> _createVault(
-    ({String parentPath, String vaultName}) params,
-  ) async {
+  Future<VaultEntity?> _createVault(({String parentPath, String vaultName}) params) async {
     final directoryPath = p.join(params.parentPath, params.vaultName);
 
     if (await _fileSystem.directoryExists(directoryPath)) {
@@ -107,12 +85,7 @@ class VaultSystem {
     await _fileSystem.createDirectory(p.join(directoryPath, 'pages'));
     await _fileSystem.createDirectory(p.join(directoryPath, '.sync', 'pages'));
 
-    final vault = VaultEntity(
-      id: _ids.generateId(),
-      name: params.vaultName,
-      rootPath: directoryPath,
-      createdAt: DateTime.now(),
-    );
+    final vault = VaultEntity(id: _ids.generateId(), name: params.vaultName, rootPath: directoryPath, createdAt: DateTime.now());
 
     await _deviceService.ensureDevice(directoryPath, vault.id);
 
@@ -162,21 +135,11 @@ class VaultSystem {
         ':::\n';
 
     final hash = PageFrontmatterCodec.computeContentHash(welcomeContent);
-    final frontmatter = PageFrontmatter(
-      id: _ids.generateId(),
-      contentHash: 'sha256:$hash',
-      modified: DateTime.now().toUtc(),
-    );
+    final frontmatter = PageFrontmatter(id: _ids.generateId(), contentHash: 'sha256:$hash', modified: DateTime.now().toUtc());
 
-    final fileContent = PageFrontmatterCodec.encode(
-      frontmatter,
-      welcomeContent,
-    );
+    final fileContent = PageFrontmatterCodec.encode(frontmatter, welcomeContent);
 
-    await _fileSystem.writeFile(
-      p.join(vaultRootPath, 'pages', 'welcome.md'),
-      fileContent,
-    );
+    await _fileSystem.writeFile(p.join(vaultRootPath, 'pages', 'welcome.md'), fileContent);
   }
 
   Future<void> _closeVault() async {

@@ -28,11 +28,7 @@ void main() {
     final parentDir = await VaultFolderFixture.createEmpty();
     fileSystem.nextPickPath = parentDir.rootPath;
 
-    await configureDI(
-      fileSystem: fileSystem,
-      settings: settings,
-      secureKeyStore: secureKeyStore,
-    );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
       /* Arrange: launch the app shell */
@@ -53,11 +49,7 @@ void main() {
       expect(findTabWithTitle('welcome'), findsOneWidget);
 
       // Assert: initial session has only welcome.md
-      await expectSessionJsonValid(
-        vaultPath,
-        expectedOpenPagePaths: ['pages/welcome.md'],
-        expectedActivePagePath: 'pages/welcome.md',
-      );
+      await expectSessionJsonValid(vaultPath, expectedOpenPagePaths: ['pages/welcome.md'], expectedActivePagePath: 'pages/welcome.md');
 
       // Act: create extra.md via Pages panel
       await tester.tap(findPagesPanelButton());
@@ -71,10 +63,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Assert: extra.md file created on disk
-      expect(
-        await File(p.join(vaultPath, 'pages', 'extra.md')).exists(),
-        isTrue,
-      );
+      expect(await File(p.join(vaultPath, 'pages', 'extra.md')).exists(), isTrue);
 
       // Act: open extra.md from Pages panel
       await tester.tap(findPagesPanelButton());
@@ -85,11 +74,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Assert: session tracks both pages, extra.md is active
-      await expectSessionJsonValid(
-        vaultPath,
-        expectedOpenPagePaths: ['pages/welcome.md', 'pages/extra.md'],
-        expectedActivePagePath: 'pages/extra.md',
-      );
+      await expectSessionJsonValid(vaultPath, expectedOpenPagePaths: ['pages/welcome.md', 'pages/extra.md'], expectedActivePagePath: 'pages/extra.md');
 
       // Act: close extra.md tab via UI
       await tester.tap(findTabCloseButton('extra'));
@@ -100,11 +85,7 @@ void main() {
       expect(findTabWithTitle('welcome'), findsOneWidget);
 
       // Assert: session updated — only welcome.md remains
-      await expectSessionJsonValid(
-        vaultPath,
-        expectedOpenPagePaths: ['pages/welcome.md'],
-        expectedActivePagePath: 'pages/welcome.md',
-      );
+      await expectSessionJsonValid(vaultPath, expectedOpenPagePaths: ['pages/welcome.md'], expectedActivePagePath: 'pages/welcome.md');
 
       // Act: close welcome.md tab via UI
       await tester.tap(findTabCloseButton('welcome'));
@@ -114,11 +95,7 @@ void main() {
       expect(find.text('Open a page to start editing'), findsOneWidget);
 
       // Assert: session is empty
-      await expectSessionJsonValid(
-        vaultPath,
-        expectedOpenPagePaths: [],
-        expectedActivePagePath: null,
-      );
+      await expectSessionJsonValid(vaultPath, expectedOpenPagePaths: [], expectedActivePagePath: null);
 
       // Act: reopen extra.md via Pages panel (panel is already open)
       expect(findPageInPanel('extra.md'), findsOneWidget);
@@ -130,11 +107,7 @@ void main() {
       expect(findTabWithTitle('extra'), findsOneWidget);
 
       // Assert: session updated with extra.md as sole open page
-      await expectSessionJsonValid(
-        vaultPath,
-        expectedOpenPagePaths: ['pages/extra.md'],
-        expectedActivePagePath: 'pages/extra.md',
-      );
+      await expectSessionJsonValid(vaultPath, expectedOpenPagePaths: ['pages/extra.md'], expectedActivePagePath: 'pages/extra.md');
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await GetIt.instance.reset();

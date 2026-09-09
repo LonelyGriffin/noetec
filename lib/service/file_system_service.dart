@@ -16,12 +16,7 @@ final class FileEntry {
   final bool isDirectory;
   final DateTime? lastModified;
 
-  const FileEntry({
-    required this.name,
-    required this.path,
-    required this.isDirectory,
-    this.lastModified,
-  });
+  const FileEntry({required this.name, required this.path, required this.isDirectory, this.lastModified});
 }
 
 abstract interface class IFileSystemService {
@@ -43,10 +38,7 @@ abstract interface class IFileSystemService {
 
   Future<void> renameFileOrDirectory(String oldPath, String newPath);
 
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  });
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)});
 
   Future<void> appendToFile(String path, String content);
 }
@@ -56,15 +48,13 @@ class FileSystemServiceImpl implements IFileSystemService {
   Future<bool> directoryExists(String path) => Directory(path).exists();
 
   @override
-  Future<void> createDirectory(String path) =>
-      Directory(path).create(recursive: true);
+  Future<void> createDirectory(String path) => Directory(path).create(recursive: true);
 
   @override
   Future<String> readFile(String path) => File(path).readAsString();
 
   @override
-  Future<void> writeFile(String path, String content) =>
-      File(path).writeAsString(content);
+  Future<void> writeFile(String path, String content) => File(path).writeAsString(content);
 
   @override
   Future<bool> fileExists(String path) => File(path).exists();
@@ -79,18 +69,9 @@ class FileSystemServiceImpl implements IFileSystemService {
     return [
       for (final entry in entries)
         if (entry is Directory)
-          FileEntry(
-            name: p.basename(entry.path),
-            path: entry.path,
-            isDirectory: true,
-          )
+          FileEntry(name: p.basename(entry.path), path: entry.path, isDirectory: true)
         else if (entry is File)
-          FileEntry(
-            name: p.basename(entry.path),
-            path: entry.path,
-            isDirectory: false,
-            lastModified: await entry.lastModified(),
-          ),
+          FileEntry(name: p.basename(entry.path), path: entry.path, isDirectory: false, lastModified: await entry.lastModified()),
     ];
   }
 
@@ -111,10 +92,7 @@ class FileSystemServiceImpl implements IFileSystemService {
   }
 
   @override
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  }) {
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) {
     late StreamController<FileEntry> controller;
     Timer? timer;
     final lastModified = <String, DateTime>{};
@@ -129,14 +107,7 @@ class FileSystemServiceImpl implements IFileSystemService {
         if (prev == null || stat.modified.isAfter(prev)) {
           lastModified[entryPath] = stat.modified;
           if (prev != null) {
-            controller.add(
-              FileEntry(
-                name: p.basename(entryPath),
-                path: entryPath,
-                isDirectory: entity is Directory,
-                lastModified: stat.modified,
-              ),
-            );
+            controller.add(FileEntry(name: p.basename(entryPath), path: entryPath, isDirectory: entity is Directory, lastModified: stat.modified));
           }
         }
       }

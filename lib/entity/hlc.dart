@@ -10,11 +10,7 @@ final class Hlc implements Comparable<Hlc> {
   final int counter;
   final String deviceId;
 
-  const Hlc({
-    required this.physicalMs,
-    required this.counter,
-    required this.deviceId,
-  });
+  const Hlc({required this.physicalMs, required this.counter, required this.deviceId});
 
   factory Hlc.now(Hlc? last, String deviceId) {
     final wallMs = DateTime.now().millisecondsSinceEpoch;
@@ -52,17 +48,12 @@ final class Hlc implements Comparable<Hlc> {
     return Hlc(physicalMs: physical, counter: count, deviceId: deviceId);
   }
 
-  String toKey() =>
-      '$physicalMs-${counter.toRadixString(16).padLeft(4, '0')}-$deviceId';
+  String toKey() => '$physicalMs-${counter.toRadixString(16).padLeft(4, '0')}-$deviceId';
 
   factory Hlc.fromKey(String key) {
     final parts = key.split('-');
     if (parts.length != 3) throw FormatException('Invalid HLC key: $key');
-    return Hlc(
-      physicalMs: int.parse(parts[0]),
-      counter: int.parse(parts[1], radix: 16),
-      deviceId: parts[2],
-    );
+    return Hlc(physicalMs: int.parse(parts[0]), counter: int.parse(parts[1], radix: 16), deviceId: parts[2]);
   }
 
   @override
@@ -80,12 +71,7 @@ final class Hlc implements Comparable<Hlc> {
   bool operator >=(Hlc other) => compareTo(other) >= 0;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is Hlc &&
-          physicalMs == other.physicalMs &&
-          counter == other.counter &&
-          deviceId == other.deviceId;
+  bool operator ==(Object other) => identical(this, other) || other is Hlc && physicalMs == other.physicalMs && counter == other.counter && deviceId == other.deviceId;
 
   @override
   int get hashCode => Object.hash(physicalMs, counter, deviceId);
@@ -95,6 +81,5 @@ final class Hlc implements Comparable<Hlc> {
 
   static int _max3(int a, int b, int c) => max(a, max(b, c));
 
-  static String truncateDeviceId(String fullUuid) =>
-      fullUuid.replaceAll('-', '').substring(0, 8);
+  static String truncateDeviceId(String fullUuid) => fullUuid.replaceAll('-', '').substring(0, 8);
 }

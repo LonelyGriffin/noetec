@@ -3,30 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/view/widgets/editor/text_block_render_widget.dart';
 
-Finder findCreateVaultButton() =>
-    find.widgetWithText(FilledButton, 'Create Vault');
-Finder findOpenVaultButton() =>
-    find.widgetWithText(OutlinedButton, 'Open Vault');
+Finder findCreateVaultButton() => find.widgetWithText(FilledButton, 'Create Vault');
+Finder findOpenVaultButton() => find.widgetWithText(OutlinedButton, 'Open Vault');
 Finder findVaultNameField() => find.byType(TextField);
 Finder findDialogCreateButton() => find.widgetWithText(FilledButton, 'Create');
 Finder findDialogCancelButton() => find.widgetWithText(TextButton, 'Cancel');
 
 // Settings panel
-Finder findOpenAnotherVaultButton() =>
-    find.widgetWithText(OutlinedButton, 'Open Another Vault');
+Finder findOpenAnotherVaultButton() => find.widgetWithText(OutlinedButton, 'Open Another Vault');
 
 // Tab bar
 Finder findTabWithTitle(String title) => find.byKey(Key('tab-$title'));
 
-Finder findTabCloseButton(String title) => find.descendant(
-  of: findTabWithTitle(title),
-  matching: find.byIcon(Icons.close),
-);
+Finder findTabCloseButton(String title) => find.descendant(of: findTabWithTitle(title), matching: find.byIcon(Icons.close));
 
-Finder findTabUnsavedIndicator(String title) => find.descendant(
-  of: findTabWithTitle(title),
-  matching: find.byIcon(Icons.circle),
-);
+Finder findTabUnsavedIndicator(String title) => find.descendant(of: findTabWithTitle(title), matching: find.byIcon(Icons.circle));
 
 // Pages panel
 Finder findPageInPanel(String name) => find.text(name);

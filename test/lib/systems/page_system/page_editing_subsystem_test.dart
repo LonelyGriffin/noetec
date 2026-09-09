@@ -38,10 +38,7 @@ class _FakeFileSystemService implements IFileSystemService {
   @override
   Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
   @override
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  }) => const Stream.empty();
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) => const Stream.empty();
   @override
   Future<void> appendToFile(String path, String content) async {}
 }
@@ -52,12 +49,7 @@ void main() {
 
   setUp(() {
     vaultSystem = createTestVaultSystem();
-    pageSystem = PageSystem(
-      _FakeIdService(),
-      MarkdownSystem(_FakeIdService()),
-      _FakeFileSystemService(),
-      vaultSystem,
-    );
+    pageSystem = PageSystem(_FakeIdService(), MarkdownSystem(_FakeIdService()), _FakeFileSystemService(), vaultSystem);
     final page = PageEntity(id: 'page-1', relativePath: 'pages/page-1.md');
     pageSystem.openPages['page-1'] = page;
     pageSystem.activePageId.value = 'page-1';
@@ -74,20 +66,13 @@ void main() {
       segments: [TextSegment(text: text)],
     );
     final page = pageSystem.getActivePage()!;
-    page.addBlock(
-      block,
-      page.rootBlocks.isNotEmpty ? page.rootBlocks.last.id : null,
-    );
+    page.addBlock(block, page.rootBlocks.isNotEmpty ? page.rootBlocks.last.id : null);
     page.blocks[id] = block;
   }
 
   void setCursor(String blockId, int segmentIndex, int offset) {
     pageSystem.getActivePage()!.selection.value = SingleCursorSelectionEntity(
-      cursorPos: CursorPositionInTextBlock(
-        blockId: blockId,
-        segmentIndex: segmentIndex,
-        offset: offset,
-      ),
+      cursorPos: CursorPositionInTextBlock(blockId: blockId, segmentIndex: segmentIndex, offset: offset),
     );
   }
 
@@ -99,8 +84,7 @@ void main() {
 
         pageSystem.editing.insertText(5, ' world');
 
-        final block =
-            pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
+        final block = pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
         expect(block.computeAllSegmentsText(), 'hello world');
       });
 
@@ -112,9 +96,7 @@ void main() {
 
         final selection = pageSystem.getActivePage()!.selection.value;
         expect(selection, isA<SingleCursorSelectionEntity>());
-        final cursor =
-            (selection as SingleCursorSelectionEntity).cursorPos
-                as CursorPositionInTextBlock;
+        final cursor = (selection as SingleCursorSelectionEntity).cursorPos as CursorPositionInTextBlock;
         expect(cursor.offset, 2);
       });
 
@@ -131,8 +113,7 @@ void main() {
 
         pageSystem.editing.deleteTextBack(2);
 
-        final block =
-            pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
+        final block = pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
         expect(block.computeAllSegmentsText(), 'ac');
       });
 
@@ -142,8 +123,7 @@ void main() {
 
         pageSystem.editing.deleteTextBack(0);
 
-        final block =
-            pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
+        final block = pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
         expect(block.computeAllSegmentsText(), 'abc');
       });
     });
@@ -155,8 +135,7 @@ void main() {
 
         pageSystem.editing.deleteTextForward(1);
 
-        final block =
-            pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
+        final block = pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
         expect(block.computeAllSegmentsText(), 'ac');
       });
 
@@ -166,8 +145,7 @@ void main() {
 
         pageSystem.editing.deleteTextForward(3);
 
-        final block =
-            pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
+        final block = pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
         expect(block.computeAllSegmentsText(), 'abc');
       });
     });
@@ -197,9 +175,7 @@ void main() {
         pageSystem.editing.splitBlock(3);
 
         final selection = pageSystem.getActivePage()!.selection.value;
-        final cursor =
-            (selection as SingleCursorSelectionEntity).cursorPos
-                as CursorPositionInTextBlock;
+        final cursor = (selection as SingleCursorSelectionEntity).cursorPos as CursorPositionInTextBlock;
         expect(cursor.blockId, isNot('b1'));
         expect(cursor.offset, 0);
       });
@@ -212,8 +188,7 @@ void main() {
 
         pageSystem.editing.replaceText(5, 11, ' Dart');
 
-        final block =
-            pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
+        final block = pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
         expect(block.computeAllSegmentsText(), 'hello Dart');
       });
     });
@@ -223,16 +198,8 @@ void main() {
         addTextBlock('b1', 'hello world');
         final page = pageSystem.getActivePage()!;
         page.selection.value = const RangeSelectionEntity(
-          anchor: CursorPositionInTextBlock(
-            blockId: 'b1',
-            segmentIndex: 0,
-            offset: 5,
-          ),
-          extent: CursorPositionInTextBlock(
-            blockId: 'b1',
-            segmentIndex: 0,
-            offset: 11,
-          ),
+          anchor: CursorPositionInTextBlock(blockId: 'b1', segmentIndex: 0, offset: 5),
+          extent: CursorPositionInTextBlock(blockId: 'b1', segmentIndex: 0, offset: 11),
         );
 
         pageSystem.editing.deleteSelection();
@@ -247,8 +214,7 @@ void main() {
 
         pageSystem.editing.deleteSelection();
 
-        final block =
-            pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
+        final block = pageSystem.getActivePage()!.getBlockById('b1') as TextBlockEntity;
         expect(block.computeAllSegmentsText(), 'hello');
       });
     });

@@ -11,11 +11,7 @@ import '../../systems/vault/vault_system.dart';
 import 'wal_action_serializer.dart';
 
 class WalEntry {
-  const WalEntry({
-    required this.relativePath,
-    required this.walFilePath,
-    required this.actionCount,
-  });
+  const WalEntry({required this.relativePath, required this.walFilePath, required this.actionCount});
 
   final String relativePath;
   final String walFilePath;
@@ -23,10 +19,7 @@ class WalEntry {
 }
 
 class WalService {
-  WalService(IFileSystemService fileSystem, VaultSystem vaultSystem)
-    : _fs = fileSystem,
-      _vaultSystem = vaultSystem,
-      _serializer = const WalActionSerializer() {
+  WalService(IFileSystemService fileSystem, VaultSystem vaultSystem) : _fs = fileSystem, _vaultSystem = vaultSystem, _serializer = const WalActionSerializer() {
     _vaultSystem.currentVault.addListener(_onVaultChanged);
   }
 
@@ -74,20 +67,14 @@ class WalService {
 
     if (_tryAccumulate(buffer, action)) {
       buffer.timer?.cancel();
-      buffer.timer = Timer(
-        const Duration(milliseconds: 250),
-        () => _flushBuffer(pageId),
-      );
+      buffer.timer = Timer(const Duration(milliseconds: 250), () => _flushBuffer(pageId));
       return;
     }
 
     _flushBufferSync(pageId);
     buffer.pending = action;
     buffer.timer?.cancel();
-    buffer.timer = Timer(
-      const Duration(milliseconds: 250),
-      () => _flushBuffer(pageId),
-    );
+    buffer.timer = Timer(const Duration(milliseconds: 250), () => _flushBuffer(pageId));
   }
 
   Future<void> flush(String pageId) => _flushBuffer(pageId);
@@ -137,20 +124,11 @@ class WalService {
       for (final filePath in filePaths) {
         try {
           final raw = await _fs.readFile(filePath);
-          final lines = raw
-              .split('\n')
-              .where((line) => line.trim().isNotEmpty)
-              .toList();
+          final lines = raw.split('\n').where((line) => line.trim().isNotEmpty).toList();
           if (lines.isEmpty) continue;
 
           final relativePath = _extractRelativePathFromWal(filePath);
-          entries.add(
-            WalEntry(
-              relativePath: relativePath,
-              walFilePath: filePath,
-              actionCount: lines.length,
-            ),
-          );
+          entries.add(WalEntry(relativePath: relativePath, walFilePath: filePath, actionCount: lines.length));
         } catch (_) {}
       }
     } catch (_) {}
@@ -174,9 +152,7 @@ class WalService {
   String _extractRelativePathFromWal(String walFilePath) {
     final normalized = walFilePath.replaceAll('\\', '/');
     final prefix = '$_vaultRootPath/.noetec/wal/';
-    return normalized.startsWith(prefix)
-        ? normalized.substring(prefix.length)
-        : normalized;
+    return normalized.startsWith(prefix) ? normalized.substring(prefix.length) : normalized;
   }
 
   Future<List<PageEditAction>> readWal(String walFilePath) async {
@@ -202,30 +178,22 @@ class WalService {
     }
 
     if (pending is InsertTextAction && action is InsertTextAction) {
-      if (pending.blockId == action.blockId &&
-          pending.flatOffset + pending.text.length == action.flatOffset) {
-        buffer.pending = InsertTextAction(
-          blockId: pending.blockId,
-          flatOffset: pending.flatOffset,
-          text: pending.text + action.text,
-        );
+      if (pending.blockId == action.blockId && pending.flatOffset + pending.text.length == action.flatOffset) {
+        buffer.pending = InsertTextAction(blockId: pending.blockId, flatOffset: pending.flatOffset, text: pending.text + action.text);
         return true;
       }
     }
 
     if (pending is DeleteTextBackAction && action is DeleteTextBackAction) {
-      if (pending.blockId == action.blockId &&
-          action.flatOffset == pending.flatOffset - 1) {
+      if (pending.blockId == action.blockId && action.flatOffset == pending.flatOffset - 1) {
         buffer.pending = action;
         buffer.deleteBackCount += 1;
         return true;
       }
     }
 
-    if (pending is DeleteTextForwardAction &&
-        action is DeleteTextForwardAction) {
-      if (pending.blockId == action.blockId &&
-          action.flatOffset == pending.flatOffset) {
+    if (pending is DeleteTextForwardAction && action is DeleteTextForwardAction) {
+      if (pending.blockId == action.blockId && action.flatOffset == pending.flatOffset) {
         buffer.deleteForwardCount += 1;
         return true;
       }

@@ -9,15 +9,8 @@ import 'package:noetec/entity/page/block/text/text_format.dart';
 import 'package:noetec/entity/page/block/text/text_segment.dart';
 import 'package:noetec/service/id_service.dart';
 
-List<TextBlockEntity> markdownToBlocks(
-  String markdown, {
-  required IIdService idService,
-  String? parentId,
-}) {
-  final document = md.Document(
-    blockSyntaxes: [FencedDirectiveSyntax()],
-    extensionSet: md.ExtensionSet.gitHubFlavored,
-  );
+List<TextBlockEntity> markdownToBlocks(String markdown, {required IIdService idService, String? parentId}) {
+  final document = md.Document(blockSyntaxes: [FencedDirectiveSyntax()], extensionSet: md.ExtensionSet.gitHubFlavored);
 
   final lines = markdown.split('\n');
   final nodes = document.parseLines(lines);
@@ -33,9 +26,7 @@ List<TextBlockEntity> markdownToBlocks(
           TextBlockEntity(
             id: blockId,
             parentId: parentId,
-            segments: segments.isEmpty
-                ? [const TextSegment(text: '')]
-                : segments,
+            segments: segments.isEmpty ? [const TextSegment(text: '')] : segments,
           ),
         );
       } else if (node.tag == 'p') {
@@ -44,9 +35,7 @@ List<TextBlockEntity> markdownToBlocks(
           TextBlockEntity(
             id: idService.generateId(),
             parentId: parentId,
-            segments: segments.isEmpty
-                ? [const TextSegment(text: '')]
-                : segments,
+            segments: segments.isEmpty ? [const TextSegment(text: '')] : segments,
           ),
         );
       }
@@ -81,10 +70,7 @@ List<TextSegment> _elementChildrenToSegments(md.Element element) {
   return segments;
 }
 
-List<TextSegment> _inlineNodesToSegments(
-  List<md.Node> nodes, {
-  TextFormat inheritedFormat = TextFormat.none,
-}) {
+List<TextSegment> _inlineNodesToSegments(List<md.Node> nodes, {TextFormat inheritedFormat = TextFormat.none}) {
   final segments = <TextSegment>[];
 
   for (final node in nodes) {
@@ -101,21 +87,11 @@ List<TextSegment> _inlineNodesToSegments(
       switch (node.tag) {
         case 'strong':
           final newFormat = inheritedFormat | TextFormat.bold;
-          segments.addAll(
-            _inlineNodesToSegments(
-              node.children ?? [],
-              inheritedFormat: newFormat,
-            ),
-          );
+          segments.addAll(_inlineNodesToSegments(node.children ?? [], inheritedFormat: newFormat));
 
         case 'em':
           final newFormat = inheritedFormat | TextFormat.italic;
-          segments.addAll(
-            _inlineNodesToSegments(
-              node.children ?? [],
-              inheritedFormat: newFormat,
-            ),
-          );
+          segments.addAll(_inlineNodesToSegments(node.children ?? [], inheritedFormat: newFormat));
 
         case 'a':
           final url = node.attributes['href'] ?? '';
@@ -128,12 +104,7 @@ List<TextSegment> _inlineNodesToSegments(
           final text = node.textContent;
           if (text.isNotEmpty) {
             if (inheritedFormat != TextFormat.none) {
-              segments.add(
-                FormattedSegment(
-                  text: _unescapeMarkdown(text),
-                  format: inheritedFormat,
-                ),
-              );
+              segments.add(FormattedSegment(text: _unescapeMarkdown(text), format: inheritedFormat));
             } else {
               segments.add(TextSegment(text: _unescapeMarkdown(text)));
             }
@@ -146,10 +117,7 @@ List<TextSegment> _inlineNodesToSegments(
 }
 
 String _unescapeMarkdown(String text) {
-  return text.replaceAllMapped(
-    RegExp(r'\\([\\*_\[\]()~`>#+\-=|{}.!])'),
-    (m) => m[1]!,
-  );
+  return text.replaceAllMapped(RegExp(r'\\([\\*_\[\]()~`>#+\-=|{}.!])'), (m) => m[1]!);
 }
 
 class FencedDirectiveSyntax extends md.BlockSyntax {
@@ -193,9 +161,7 @@ class FencedDirectiveSyntax extends md.BlockSyntax {
 
   Map<String, String> _parseAttributes(String attrString) {
     final attrs = <String, String>{};
-    final regex = RegExp(
-      r'''#([\w-]+)|\.[\w-]+|([\w-]+)=(?:"([^"]*)"|'([^']*)'|([\w-]+))''',
-    );
+    final regex = RegExp(r'''#([\w-]+)|\.[\w-]+|([\w-]+)=(?:"([^"]*)"|'([^']*)'|([\w-]+))''');
 
     for (final match in regex.allMatches(attrString)) {
       if (match.group(1) != null) {

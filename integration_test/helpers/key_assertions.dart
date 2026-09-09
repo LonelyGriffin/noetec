@@ -13,23 +13,20 @@ import 'package:path/path.dart' as p;
 
 Future<void> expectDeviceHasPublicKey(String vaultPath) async {
   final deviceFile = File(p.join(vaultPath, '.noetec', 'device.json'));
-  final content =
-      json.decode(await deviceFile.readAsString()) as Map<String, dynamic>;
+  final content = json.decode(await deviceFile.readAsString()) as Map<String, dynamic>;
   expect(content['public_key'], isNotNull);
   expect(content['public_key'] as String, isNotEmpty);
 }
 
 Future<String> readPublicKeyFromDevice(String vaultPath) async {
   final deviceFile = File(p.join(vaultPath, '.noetec', 'device.json'));
-  final content =
-      json.decode(await deviceFile.readAsString()) as Map<String, dynamic>;
+  final content = json.decode(await deviceFile.readAsString()) as Map<String, dynamic>;
   return content['public_key'] as String;
 }
 
 Future<String> readVaultId(String vaultPath) async {
   final vaultFile = File(p.join(vaultPath, '.noetec', 'vault.json'));
-  final content =
-      json.decode(await vaultFile.readAsString()) as Map<String, dynamic>;
+  final content = json.decode(await vaultFile.readAsString()) as Map<String, dynamic>;
   return content['id'] as String;
 }
 

@@ -60,38 +60,23 @@ void main() {
     });
 
     test('throws on an empty name', () {
-      expect(
-        () => PageFileNameSanitizer.sanitize(''),
-        throwsA(isA<PageNameInvalidException>()),
-      );
+      expect(() => PageFileNameSanitizer.sanitize(''), throwsA(isA<PageNameInvalidException>()));
     });
 
     test('throws on whitespace-only input', () {
-      expect(
-        () => PageFileNameSanitizer.sanitize('   '),
-        throwsA(isA<PageNameInvalidException>()),
-      );
+      expect(() => PageFileNameSanitizer.sanitize('   '), throwsA(isA<PageNameInvalidException>()));
     });
 
     test('throws on separator-only input', () {
-      expect(
-        () => PageFileNameSanitizer.sanitize('///'),
-        throwsA(isA<PageNameInvalidException>()),
-      );
+      expect(() => PageFileNameSanitizer.sanitize('///'), throwsA(isA<PageNameInvalidException>()));
     });
 
     test('throws on a single dot', () {
-      expect(
-        () => PageFileNameSanitizer.sanitize('.'),
-        throwsA(isA<PageNameInvalidException>()),
-      );
+      expect(() => PageFileNameSanitizer.sanitize('.'), throwsA(isA<PageNameInvalidException>()));
     });
 
     test('throws on a double dot', () {
-      expect(
-        () => PageFileNameSanitizer.sanitize('..'),
-        throwsA(isA<PageNameInvalidException>()),
-      );
+      expect(() => PageFileNameSanitizer.sanitize('..'), throwsA(isA<PageNameInvalidException>()));
     });
   });
 }

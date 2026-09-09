@@ -20,11 +20,9 @@ class _FakeFs implements IFileSystemService {
   @override
   Future<String> readFile(String path) async => files[path] ?? '';
   @override
-  Future<void> writeFile(String path, String content) async =>
-      files[path] = content;
+  Future<void> writeFile(String path, String content) async => files[path] = content;
   @override
-  Future<void> appendToFile(String path, String content) async =>
-      files[path] = (files[path] ?? '') + content;
+  Future<void> appendToFile(String path, String content) async => files[path] = (files[path] ?? '') + content;
   @override
   Future<void> deleteFile(String path) async => files.remove(path);
   @override
@@ -44,24 +42,11 @@ class _FakeFs implements IFileSystemService {
         final relative = normKey.substring(normalized.length + 1);
         final slashIndex = relative.indexOf('/');
         if (slashIndex < 0) {
-          entries.add(
-            FileEntry(
-              name: relative,
-              path: key,
-              isDirectory: false,
-              lastModified: DateTime.now(),
-            ),
-          );
+          entries.add(FileEntry(name: relative, path: key, isDirectory: false, lastModified: DateTime.now()));
         } else {
           final dirName = relative.substring(0, slashIndex);
           if (seen.add(dirName)) {
-            entries.add(
-              FileEntry(
-                name: dirName,
-                path: '$normalized/$dirName',
-                isDirectory: true,
-              ),
-            );
+            entries.add(FileEntry(name: dirName, path: '$normalized/$dirName', isDirectory: true));
           }
         }
       }
@@ -72,10 +57,7 @@ class _FakeFs implements IFileSystemService {
   @override
   Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
   @override
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  }) => const Stream.empty();
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) => const Stream.empty();
 }
 
 void main() {
@@ -92,12 +74,7 @@ void main() {
       walService = WalService(fs, vaultSystem);
       recoveryService = CrashRecoveryService(walService);
 
-      vaultSystem.currentVault.value = VaultEntity(
-        id: 'vault-1',
-        name: 'TestVault',
-        rootPath: '/vault',
-        createdAt: DateTime(2026),
-      );
+      vaultSystem.currentVault.value = VaultEntity(id: 'vault-1', name: 'TestVault', rootPath: '/vault', createdAt: DateTime(2026));
     });
 
     tearDown(() {
@@ -112,11 +89,7 @@ void main() {
 
     test('findCandidates returns candidate for leftover WAL', () async {
       const serializer = WalActionSerializer();
-      const action = InsertTextAction(
-        blockId: 'b1',
-        flatOffset: 0,
-        text: 'hello',
-      );
+      const action = InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'hello');
       final json = serializer.toJson(action);
       json['ts'] = DateTime.now().millisecondsSinceEpoch;
 
@@ -138,9 +111,7 @@ void main() {
 
       await recoveryService.discardAll();
 
-      final walFiles = fs.files.keys
-          .where((k) => k.startsWith('/vault/.noetec/wal/'))
-          .toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
       expect(walFiles, isEmpty);
     });
   });

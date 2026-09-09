@@ -28,10 +28,7 @@ Future<bool> _preCommit() async {
   final analyzeCheckResult = await runAnalyze();
   final stagedFiles = fetchStagedSourceFiles();
   final copyrightCheckResult = checkCopyrightInFiles(stagedFiles);
-  final allChecksPassed =
-      formattingCheckResult.isSuccess &&
-      analyzeCheckResult &&
-      copyrightCheckResult;
+  final allChecksPassed = formattingCheckResult.isSuccess && analyzeCheckResult && copyrightCheckResult;
 
   if (!allChecksPassed) {
     print('🛑 Commit aborted due to failed checks');

@@ -4,8 +4,7 @@ import 'package:noetec/entity/page/block/block.dart';
 import 'package:noetec/entity/page/page.dart';
 
 class MutableBlock extends BlockEntity {
-  MutableBlock({required super.id, super.parentId, List<BlockEntity>? children})
-    : super(children: children ?? []);
+  MutableBlock({required super.id, super.parentId, List<BlockEntity>? children}) : super(children: children ?? []);
 }
 
 void main() {
@@ -208,10 +207,7 @@ void main() {
     });
 
     test('returns filename without extension for nested path', () {
-      final page = PageEntity(
-        id: 'id',
-        relativePath: 'pages/section/my-doc.md',
-      );
+      final page = PageEntity(id: 'id', relativePath: 'pages/section/my-doc.md');
       expect(page.title, equals('my-doc'));
     });
 

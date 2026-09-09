@@ -9,9 +9,7 @@ void main() {
       final received = <PageEditAction>[];
 
       dispatcher.addListener((action) => received.add(action));
-      dispatcher.dispatch(
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'),
-      );
+      dispatcher.dispatch(const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'));
 
       expect(received, hasLength(1));
       expect(received.first, isA<InsertTextAction>());
@@ -23,13 +21,9 @@ void main() {
       void listener(PageEditAction _) => count++;
 
       dispatcher.addListener(listener);
-      dispatcher.dispatch(
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'),
-      );
+      dispatcher.dispatch(const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'));
       dispatcher.removeListener(listener);
-      dispatcher.dispatch(
-        const InsertTextAction(blockId: 'b1', flatOffset: 1, text: 'b'),
-      );
+      dispatcher.dispatch(const InsertTextAction(blockId: 'b1', flatOffset: 1, text: 'b'));
 
       expect(count, 1);
     });

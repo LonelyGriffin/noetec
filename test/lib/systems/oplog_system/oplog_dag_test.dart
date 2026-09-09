@@ -3,13 +3,7 @@ import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/systems/oplog_system/oplog_dag.dart';
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
 
-OpLogEntry _entry({
-  required String hlcKey,
-  String? parentKey,
-  String? parentBKey,
-  String deviceId = 'device-a',
-  OpEntryType type = OpEntryType.edit,
-}) {
+OpLogEntry _entry({required String hlcKey, String? parentKey, String? parentBKey, String deviceId = 'device-a', OpEntryType type = OpEntryType.edit}) {
   return OpLogEntry(
     version: 1,
     hlc: Hlc.fromKey(hlcKey),
@@ -43,16 +37,8 @@ void main() {
 
       test('single when multi-device linear chain', () {
         final e1 = _entry(hlcKey: '100-0000-dev1', deviceId: 'dev1');
-        final e2 = _entry(
-          hlcKey: '200-0000-dev1',
-          parentKey: '100-0000-dev1',
-          deviceId: 'dev1',
-        );
-        final e3 = _entry(
-          hlcKey: '300-0000-dev2',
-          parentKey: '200-0000-dev1',
-          deviceId: 'dev2',
-        );
+        final e2 = _entry(hlcKey: '200-0000-dev1', parentKey: '100-0000-dev1', deviceId: 'dev1');
+        final e3 = _entry(hlcKey: '300-0000-dev2', parentKey: '200-0000-dev1', deviceId: 'dev2');
         final dag = OpLogDag.fromEntries({
           'dev1': [e1, e2],
           'dev2': [e3],
@@ -62,16 +48,8 @@ void main() {
 
       test('diverged when heads are not ancestor of each other', () {
         final e1 = _entry(hlcKey: '100-0000-dev1', deviceId: 'dev1');
-        final e2 = _entry(
-          hlcKey: '200-0000-dev1',
-          parentKey: '100-0000-dev1',
-          deviceId: 'dev1',
-        );
-        final e3 = _entry(
-          hlcKey: '200-0000-dev2',
-          parentKey: '100-0000-dev1',
-          deviceId: 'dev2',
-        );
+        final e2 = _entry(hlcKey: '200-0000-dev1', parentKey: '100-0000-dev1', deviceId: 'dev1');
+        final e3 = _entry(hlcKey: '200-0000-dev2', parentKey: '100-0000-dev1', deviceId: 'dev2');
         final dag = OpLogDag.fromEntries({
           'dev1': [e1, e2],
           'dev2': [e3],
@@ -109,11 +87,7 @@ void main() {
 
       test('heads are entries with no children', () {
         final e1 = _entry(hlcKey: '100-0000-dev1', deviceId: 'dev1');
-        final e2 = _entry(
-          hlcKey: '200-0000-dev1',
-          parentKey: '100-0000-dev1',
-          deviceId: 'dev1',
-        );
+        final e2 = _entry(hlcKey: '200-0000-dev1', parentKey: '100-0000-dev1', deviceId: 'dev1');
         final dag = OpLogDag.fromEntries({
           'dev1': [e1, e2],
         });
@@ -147,11 +121,7 @@ void main() {
       test('returns children via parentB', () {
         final e1 = _entry(hlcKey: '100-0000-dev1');
         final e2 = _entry(hlcKey: '100-0000-dev2', deviceId: 'dev2');
-        final e3 = _entry(
-          hlcKey: '300-0000-dev1',
-          parentKey: '100-0000-dev1',
-          parentBKey: '100-0000-dev2',
-        );
+        final e3 = _entry(hlcKey: '300-0000-dev1', parentKey: '100-0000-dev1', parentBKey: '100-0000-dev2');
         final dag = OpLogDag.fromEntries({
           'dev1': [e1, e3],
           'dev2': [e2],
@@ -193,16 +163,8 @@ void main() {
 
       test('diverged with common ancestor', () {
         final e1 = _entry(hlcKey: '100-0000-dev1');
-        final e2 = _entry(
-          hlcKey: '200-0000-dev1',
-          parentKey: '100-0000-dev1',
-          deviceId: 'dev1',
-        );
-        final e3 = _entry(
-          hlcKey: '200-0000-dev2',
-          parentKey: '100-0000-dev1',
-          deviceId: 'dev2',
-        );
+        final e2 = _entry(hlcKey: '200-0000-dev1', parentKey: '100-0000-dev1', deviceId: 'dev1');
+        final e3 = _entry(hlcKey: '200-0000-dev2', parentKey: '100-0000-dev1', deviceId: 'dev2');
         final dag = OpLogDag.fromEntries({
           'dev1': [e1, e2],
           'dev2': [e3],
@@ -214,22 +176,9 @@ void main() {
 
       test('merge node has lca through parentB', () {
         final e1 = _entry(hlcKey: '100-0000-dev1', deviceId: 'dev1');
-        final e2 = _entry(
-          hlcKey: '200-0000-dev1',
-          parentKey: '100-0000-dev1',
-          deviceId: 'dev1',
-        );
-        final e3 = _entry(
-          hlcKey: '200-0000-dev2',
-          parentKey: '100-0000-dev1',
-          deviceId: 'dev2',
-        );
-        final e4 = _entry(
-          hlcKey: '300-0000-dev1',
-          parentKey: '200-0000-dev1',
-          parentBKey: '200-0000-dev2',
-          deviceId: 'dev1',
-        );
+        final e2 = _entry(hlcKey: '200-0000-dev1', parentKey: '100-0000-dev1', deviceId: 'dev1');
+        final e3 = _entry(hlcKey: '200-0000-dev2', parentKey: '100-0000-dev1', deviceId: 'dev2');
+        final e4 = _entry(hlcKey: '300-0000-dev1', parentKey: '200-0000-dev1', parentBKey: '200-0000-dev2', deviceId: 'dev1');
         final dag = OpLogDag.fromEntries({
           'dev1': [e1, e2, e4],
           'dev2': [e3],

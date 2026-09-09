@@ -21,20 +21,14 @@ void main() {
   /// one. After saving, verify that the edited page file is updated, the
   /// crash-recovery log only records edits for that page, and the other page's
   /// file content and op log remain untouched.
-  testWidgets('Edits on one page do not affect other page files', (
-    tester,
-  ) async {
+  testWidgets('Edits on one page do not affect other page files', (tester) async {
     final fileSystem = TestFileSystemService();
     final settings = InMemorySettingsService();
     final secureKeyStore = InMemorySecureKeyStore();
     final parentDir = await VaultFolderFixture.createEmpty();
     fileSystem.nextPickPath = parentDir.rootPath;
 
-    await configureDI(
-      fileSystem: fileSystem,
-      settings: settings,
-      secureKeyStore: secureKeyStore,
-    );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
       /* Arrange: launch the app shell */
@@ -90,24 +84,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       // Assert: extra.md tab shows unsaved indicator, welcome.md shows close button
-      expect(
-        findTabUnsavedIndicator('extra'),
-        findsOneWidget,
-        reason: 'Extra tab should show unsaved indicator',
-      );
-      expect(
-        findTabCloseButton('welcome'),
-        findsOneWidget,
-        reason: 'Welcome tab should show close button (not unsaved)',
-      );
+      expect(findTabUnsavedIndicator('extra'), findsOneWidget, reason: 'Extra tab should show unsaved indicator');
+      expect(findTabCloseButton('welcome'), findsOneWidget, reason: 'Welcome tab should show close button (not unsaved)');
 
       // Assert: crash recovery log records edit only for extra.md
-      await expectCrashRecoveryLogContains(
-        vaultPath,
-        'pages/extra.md',
-        actionType: 'insert_text',
-        text: 'my notes',
-      );
+      await expectCrashRecoveryLogContains(vaultPath, 'pages/extra.md', actionType: 'insert_text', text: 'my notes');
       await expectCrashRecoveryLogAbsent(vaultPath, 'pages/welcome.md');
 
       // Act: save with Ctrl+S
@@ -117,40 +98,21 @@ void main() {
       await tester.pumpAndSettle();
 
       // Assert: extra.md unsaved indicator disappears after save
-      expect(
-        findTabUnsavedIndicator('extra'),
-        findsNothing,
-        reason: 'Extra tab should not show unsaved indicator after Ctrl+S',
-      );
+      expect(findTabUnsavedIndicator('extra'), findsNothing, reason: 'Extra tab should not show unsaved indicator after Ctrl+S');
 
       // Assert: recovery log cleared, extra.md file updated
       await expectCrashRecoveryLogAbsent(vaultPath, 'pages/extra.md');
-      await expectPageFileValid(
-        vaultPath,
-        'pages/extra.md',
-        containsText: 'my notes',
-      );
+      await expectPageFileValid(vaultPath, 'pages/extra.md', containsText: 'my notes');
 
       // Assert: welcome page file hash has not changed
-      final welcomeHashAfter = await readContentHash(
-        vaultPath,
-        'pages/welcome.md',
-      );
+      final welcomeHashAfter = await readContentHash(vaultPath, 'pages/welcome.md');
       expect(welcomeHashAfter, equals(welcomeHash));
 
       // Assert: op log only written for extra.md, not welcome.md
       await expectOpLogExists(vaultPath, 'pages/extra.md');
       // welcome.md has file_create from vault init, but no edit/save entries
-      await expectOpLogDoesNotContain(
-        vaultPath,
-        'pages/welcome.md',
-        entryType: 'edit',
-      );
-      await expectOpLogDoesNotContain(
-        vaultPath,
-        'pages/welcome.md',
-        entryType: 'save',
-      );
+      await expectOpLogDoesNotContain(vaultPath, 'pages/welcome.md', entryType: 'edit');
+      await expectOpLogDoesNotContain(vaultPath, 'pages/welcome.md', entryType: 'save');
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await GetIt.instance.reset();

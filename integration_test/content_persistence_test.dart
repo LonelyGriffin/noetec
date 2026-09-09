@@ -24,20 +24,14 @@ void main() {
   /// E2E Scenario: User types text into the welcome page, saves, then closes
   /// and reopens the vault. After reopening, verify that the edited content is
   /// restored in memory and that the on-disk file hash matches the saved hash.
-  testWidgets('Edited content persists after closing and reopening vault', (
-    tester,
-  ) async {
+  testWidgets('Edited content persists after closing and reopening vault', (tester) async {
     final fileSystem = TestFileSystemService();
     final settings = InMemorySettingsService();
     final secureKeyStore = InMemorySecureKeyStore();
     final parentDir = await VaultFolderFixture.createEmpty();
     fileSystem.nextPickPath = parentDir.rootPath;
 
-    await configureDI(
-      fileSystem: fileSystem,
-      settings: settings,
-      secureKeyStore: secureKeyStore,
-    );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
       /* Arrange: launch the app shell */
@@ -68,11 +62,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       // Assert: tab shows unsaved indicator (circle icon) before save
-      expect(
-        findTabUnsavedIndicator('welcome'),
-        findsOneWidget,
-        reason: 'Tab should show unsaved indicator before Ctrl+S',
-      );
+      expect(findTabUnsavedIndicator('welcome'), findsOneWidget, reason: 'Tab should show unsaved indicator before Ctrl+S');
 
       // Act: save with Ctrl+S
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -81,17 +71,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Assert: unsaved indicator disappears after save
-      expect(
-        findTabUnsavedIndicator('welcome'),
-        findsNothing,
-        reason: 'Tab should not show unsaved indicator after Ctrl+S',
-      );
+      expect(findTabUnsavedIndicator('welcome'), findsNothing, reason: 'Tab should not show unsaved indicator after Ctrl+S');
 
       // Arrange: capture hash after save
-      final hashAfterSave = await readContentHash(
-        vaultPath,
-        'pages/welcome.md',
-      );
+      final hashAfterSave = await readContentHash(vaultPath, 'pages/welcome.md');
 
       // Act: close vault via Settings panel
       await tester.tap(findSettingsPanelButton());
@@ -106,9 +89,7 @@ void main() {
       expect(pageSystem.openPages, isEmpty);
 
       // Assert: welcome file on disk still contains "hello"
-      final welcomeContent = await File(
-        p.join(vaultPath, 'pages', 'welcome.md'),
-      ).readAsString();
+      final welcomeContent = await File(p.join(vaultPath, 'pages', 'welcome.md')).readAsString();
       expect(welcomeContent, contains('hello'));
 
       // Act: reopen vault from recent vaults
@@ -117,26 +98,15 @@ void main() {
 
       // Assert: pages restored in memory
       expect(pageSystem.openPages, isNotEmpty);
-      final restoredBlock = pageSystem
-          .getActivePage()!
-          .rootBlocks
-          .whereType<TextBlockEntity>()
-          .first;
+      final restoredBlock = pageSystem.getActivePage()!.rootBlocks.whereType<TextBlockEntity>().first;
       expect(restoredBlock.computeAllSegmentsText(), contains('hello'));
 
       // Assert: file hash unchanged after reopen (content was saved)
-      final hashAfterReopen = await readContentHash(
-        vaultPath,
-        'pages/welcome.md',
-      );
+      final hashAfterReopen = await readContentHash(vaultPath, 'pages/welcome.md');
       expect(hashAfterReopen, equals(hashAfterSave));
 
       // Assert: no unsaved indicator since content was saved before closing
-      expect(
-        findTabUnsavedIndicator('welcome'),
-        findsNothing,
-        reason: 'Tab should not show unsaved indicator (content was saved)',
-      );
+      expect(findTabUnsavedIndicator('welcome'), findsNothing, reason: 'Tab should not show unsaved indicator (content was saved)');
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await GetIt.instance.reset();

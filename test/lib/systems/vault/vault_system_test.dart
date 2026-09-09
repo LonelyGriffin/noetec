@@ -20,8 +20,7 @@ class FakeFileSystemService implements IFileSystemService {
   String _normalize(String path) => path.replaceAll('\\', '/');
 
   @override
-  Future<bool> directoryExists(String path) async =>
-      directories.contains(_normalize(path));
+  Future<bool> directoryExists(String path) async => directories.contains(_normalize(path));
 
   @override
   Future<void> createDirectory(String path) async {
@@ -43,8 +42,7 @@ class FakeFileSystemService implements IFileSystemService {
   }
 
   @override
-  Future<bool> fileExists(String path) async =>
-      files.containsKey(_normalize(path));
+  Future<bool> fileExists(String path) async => files.containsKey(_normalize(path));
 
   @override
   Future<String?> pickDirectory() async => null;
@@ -60,9 +58,7 @@ class FakeFileSystemService implements IFileSystemService {
         final relative = dir.substring(normalized.length + 1);
         final name = relative.split('/').first;
         if (seen.add(name)) {
-          entries.add(
-            FileEntry(name: name, path: '$normalized/$name', isDirectory: true),
-          );
+          entries.add(FileEntry(name: name, path: '$normalized/$name', isDirectory: true));
         }
       }
     }
@@ -71,14 +67,7 @@ class FakeFileSystemService implements IFileSystemService {
       if (file.startsWith('$normalized/')) {
         final relative = file.substring(normalized.length + 1);
         if (!relative.contains('/')) {
-          entries.add(
-            FileEntry(
-              name: relative,
-              path: file,
-              isDirectory: false,
-              lastModified: DateTime.now(),
-            ),
-          );
+          entries.add(FileEntry(name: relative, path: file, isDirectory: false, lastModified: DateTime.now()));
         }
       }
     }
@@ -95,10 +84,7 @@ class FakeFileSystemService implements IFileSystemService {
   Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
 
   @override
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  }) => const Stream.empty();
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) => const Stream.empty();
 
   @override
   Future<void> appendToFile(String path, String content) async {
@@ -144,16 +130,8 @@ class FakeDeviceService implements IDeviceService {
   DeviceIdentity? get currentDevice => _device;
 
   @override
-  Future<DeviceIdentity> ensureDevice(
-    String vaultRootPath,
-    String vaultId,
-  ) async {
-    _device = DeviceIdentity(
-      uuid: 'test-device-uuid',
-      name: 'test',
-      createdAt: DateTime.now(),
-      lastHlc: null,
-    );
+  Future<DeviceIdentity> ensureDevice(String vaultRootPath, String vaultId) async {
+    _device = DeviceIdentity(uuid: 'test-device-uuid', name: 'test', createdAt: DateTime.now(), lastHlc: null);
     return _device!;
   }
 
@@ -180,12 +158,7 @@ void main() {
       fakeRepository = FakeVaultRepository();
       fakeIdService = FakeIdService();
       fakeDeviceService = FakeDeviceService();
-      vaultSystem = VaultSystem(
-        fakeFileSystem,
-        fakeRepository,
-        fakeIdService,
-        fakeDeviceService,
-      );
+      vaultSystem = VaultSystem(fakeFileSystem, fakeRepository, fakeIdService, fakeDeviceService);
     });
 
     tearDown(() {
@@ -194,56 +167,27 @@ void main() {
     });
 
     test('createVault — creates vault on disk and sets currentVault', () async {
-      await vaultSystem.createVaultCommand.runAsync((
-        parentPath: '/test',
-        vaultName: 'my-vault',
-      ));
+      await vaultSystem.createVaultCommand.runAsync((parentPath: '/test', vaultName: 'my-vault'));
 
       expect(vaultSystem.currentVault.value, isNotNull);
       expect(vaultSystem.currentVault.value!.name, equals('my-vault'));
-      expect(
-        vaultSystem.currentVault.value!.rootPath.endsWith('my-vault'),
-        isTrue,
-      );
-      expect(
-        fakeFileSystem.files.keys.any(
-          (key) => key.endsWith('.noetec/vault.json'),
-        ),
-        isTrue,
-      );
-      expect(
-        fakeFileSystem.directories.any((dir) => dir.endsWith('.noetec')),
-        isTrue,
-      );
+      expect(vaultSystem.currentVault.value!.rootPath.endsWith('my-vault'), isTrue);
+      expect(fakeFileSystem.files.keys.any((key) => key.endsWith('.noetec/vault.json')), isTrue);
+      expect(fakeFileSystem.directories.any((dir) => dir.endsWith('.noetec')), isTrue);
     });
 
     test('createVault — adds vault to recentVaults', () async {
-      await vaultSystem.createVaultCommand.runAsync((
-        parentPath: '/test',
-        vaultName: 'my-vault',
-      ));
+      await vaultSystem.createVaultCommand.runAsync((parentPath: '/test', vaultName: 'my-vault'));
 
       expect(vaultSystem.recentVaults, hasLength(1));
-      expect(
-        vaultSystem.recentVaults.first.rootPath.endsWith('my-vault'),
-        isTrue,
-      );
+      expect(vaultSystem.recentVaults.first.rootPath.endsWith('my-vault'), isTrue);
     });
 
-    test(
-      'createVault — throws DirectoryAlreadyExistsException on existing dir',
-      () async {
-        fakeFileSystem.directories.add('/test/existing');
+    test('createVault — throws DirectoryAlreadyExistsException on existing dir', () async {
+      fakeFileSystem.directories.add('/test/existing');
 
-        await expectLater(
-          vaultSystem.createVaultCommand.runAsync((
-            parentPath: '/test',
-            vaultName: 'existing',
-          )),
-          throwsA(isA<DirectoryAlreadyExistsException>()),
-        );
-      },
-    );
+      await expectLater(vaultSystem.createVaultCommand.runAsync((parentPath: '/test', vaultName: 'existing')), throwsA(isA<DirectoryAlreadyExistsException>()));
+    });
 
     test('openVault — opens valid vault and sets currentVault', () async {
       fakeFileSystem.files['/existing/path/.noetec/vault.json'] =
@@ -257,21 +201,12 @@ void main() {
       expect(vaultSystem.currentVault.value!.id, equals('existing-id'));
     });
 
-    test(
-      'openVault — throws InvalidVaultException on non-vault path',
-      () async {
-        await expectLater(
-          vaultSystem.openVaultCommand.runAsync('/non/vault'),
-          throwsA(isA<InvalidVaultException>()),
-        );
-      },
-    );
+    test('openVault — throws InvalidVaultException on non-vault path', () async {
+      await expectLater(vaultSystem.openVaultCommand.runAsync('/non/vault'), throwsA(isA<InvalidVaultException>()));
+    });
 
     test('closeVault — sets currentVault to null', () async {
-      await vaultSystem.createVaultCommand.runAsync((
-        parentPath: '/test',
-        vaultName: 'my-vault',
-      ));
+      await vaultSystem.createVaultCommand.runAsync((parentPath: '/test', vaultName: 'my-vault'));
       expect(vaultSystem.currentVault.value, isNotNull);
 
       await vaultSystem.closeVaultCommand.runAsync();
@@ -279,12 +214,7 @@ void main() {
     });
 
     test('init — loads recent vaults from repository', () async {
-      final vault = VaultEntity(
-        id: 'saved-id',
-        name: 'Saved',
-        rootPath: '/saved/path',
-        createdAt: DateTime.utc(2026, 1, 1),
-      );
+      final vault = VaultEntity(id: 'saved-id', name: 'Saved', rootPath: '/saved/path', createdAt: DateTime.utc(2026, 1, 1));
       await fakeRepository.addToRecent(vault);
 
       await vaultSystem.init();

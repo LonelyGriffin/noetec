@@ -12,30 +12,21 @@ final class SyncChangeEvent {
   final String deviceUuid;
   final DateTime lastModified;
 
-  const SyncChangeEvent({
-    required this.relativePath,
-    required this.deviceUuid,
-    required this.lastModified,
-  });
+  const SyncChangeEvent({required this.relativePath, required this.deviceUuid, required this.lastModified});
 }
 
 class SyncWatcher {
-  SyncWatcher({
-    required IFileSystemService fileSystem,
-    required String vaultRootPath,
-    required String ownDeviceUuid,
-    this.pollInterval = const Duration(seconds: 10),
-  }) : _fileSystem = fileSystem,
-       _syncPagesPath = p.join(vaultRootPath, '.sync'),
-       _ownDeviceUuid = ownDeviceUuid;
+  SyncWatcher({required IFileSystemService fileSystem, required String vaultRootPath, required String ownDeviceUuid, this.pollInterval = const Duration(seconds: 10)})
+    : _fileSystem = fileSystem,
+      _syncPagesPath = p.join(vaultRootPath, '.sync'),
+      _ownDeviceUuid = ownDeviceUuid;
 
   final IFileSystemService _fileSystem;
   final String _syncPagesPath;
   final String _ownDeviceUuid;
   final Duration pollInterval;
 
-  final StreamController<SyncChangeEvent> _controller =
-      StreamController<SyncChangeEvent>.broadcast();
+  final StreamController<SyncChangeEvent> _controller = StreamController<SyncChangeEvent>.broadcast();
   StreamSubscription<FileEntry>? _subscription;
   final Set<String> _acknowledged = {};
 
@@ -70,19 +61,11 @@ class SyncWatcher {
 
     if (deviceUuid == _ownDeviceUuid) return;
 
-    _controller.add(
-      SyncChangeEvent(
-        relativePath: relativePath,
-        deviceUuid: deviceUuid,
-        lastModified: entry.lastModified ?? DateTime.now(),
-      ),
-    );
+    _controller.add(SyncChangeEvent(relativePath: relativePath, deviceUuid: deviceUuid, lastModified: entry.lastModified ?? DateTime.now()));
   }
 
   ({String relativePath, String deviceUuid})? _decode(String absoluteFilePath) {
-    final rel = p
-        .relative(absoluteFilePath, from: _syncPagesPath)
-        .replaceAll('\\', '/');
+    final rel = p.relative(absoluteFilePath, from: _syncPagesPath).replaceAll('\\', '/');
     if (rel.startsWith('..')) return null;
 
     final lastSlash = rel.lastIndexOf('/');
@@ -92,10 +75,7 @@ class SyncWatcher {
     if (!fileName.endsWith('.oplog.jsonl')) return null;
 
     final relativePath = rel.substring(0, lastSlash);
-    final deviceUuid = fileName.substring(
-      0,
-      fileName.length - '.oplog.jsonl'.length,
-    );
+    final deviceUuid = fileName.substring(0, fileName.length - '.oplog.jsonl'.length);
 
     return (relativePath: relativePath, deviceUuid: deviceUuid);
   }

@@ -1,5 +1,12 @@
 include: package:flutter_lints/flutter.yaml
 
+# Single source of truth for `dart format`. The formatter reads this block
+# (page_width + trailing_commas) from analysis_options.yaml — there is no
+# separate dart-format.yaml. Keep this in sync with `.vscode/settings.json`.
+formatter:
+  page_width: 180
+  trailing_commas: automate
+
 analyzer:
   exclude:
     - "**/*.g.dart"

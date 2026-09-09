@@ -7,10 +7,7 @@ import 'package:noetec/entity/page/block/text/text.dart';
 import 'package:noetec/entity/page/block/text/text_format.dart';
 import 'package:noetec/entity/page/block/text/text_segment.dart';
 
-String blocksToMarkdown(
-  List<TextBlockEntity> blocks, {
-  List<(int, int)?>? ranges,
-}) {
+String blocksToMarkdown(List<TextBlockEntity> blocks, {List<(int, int)?>? ranges}) {
   assert(ranges == null || ranges.length == blocks.length);
 
   final buffer = StringBuffer();
@@ -69,11 +66,7 @@ String _segmentsToInlineMarkdown(List<TextSegment> segments) {
   return buffer.toString();
 }
 
-List<TextSegment> _extractSegmentRange(
-  List<TextSegment> segments,
-  int fromFlat,
-  int toFlat,
-) {
+List<TextSegment> _extractSegmentRange(List<TextSegment> segments, int fromFlat, int toFlat) {
   final result = <TextSegment>[];
   int offset = 0;
 
@@ -101,8 +94,5 @@ List<TextSegment> _extractSegmentRange(
 }
 
 String _escapeMarkdownInline(String text) {
-  return text.replaceAllMapped(
-    RegExp(r'[\\*_\[\]()~`>#+\-=|{}.!]'),
-    (m) => '\\${m[0]}',
-  );
+  return text.replaceAllMapped(RegExp(r'[\\*_\[\]()~`>#+\-=|{}.!]'), (m) => '\\${m[0]}');
 }

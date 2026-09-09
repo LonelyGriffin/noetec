@@ -21,10 +21,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   late final _router = createRouter(GetIt.I<VaultSystem>().currentVault);
 
   static const _appTitle = 'Noetec';
-  static final _appTheme = ThemeData(
-    colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-    useMaterial3: true,
-  );
+  static final _appTheme = ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo), useMaterial3: true);
 
   @override
   void initState() {
@@ -40,8 +37,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
   @override
   Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       await GetIt.I<PersistenceSystem>().saveAll();
       await GetIt.I<PageSystem>().saveSession();
     }
@@ -49,10 +45,6 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: _appTitle,
-      theme: _appTheme,
-      routerConfig: _router,
-    );
+    return MaterialApp.router(title: _appTitle, theme: _appTheme, routerConfig: _router);
   }
 }

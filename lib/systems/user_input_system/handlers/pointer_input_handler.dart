@@ -16,22 +16,12 @@ class PointerInputHandler {
     _ime = ime;
   }
 
-  void handleTextClick(
-    String pageId,
-    String blockId,
-    int segmentIndex,
-    int offset,
-  ) {
+  void handleTextClick(String pageId, String blockId, int segmentIndex, int offset) {
     _pageSystem.selection.handleClick(blockId, segmentIndex, offset);
     _ime.syncImeState(pageId);
   }
 
-  void handleShiftClick(
-    String pageId,
-    String blockId,
-    int segmentIndex,
-    int offset,
-  ) {
+  void handleShiftClick(String pageId, String blockId, int segmentIndex, int offset) {
     final page = _pageSystem.getActivePage();
     if (page == null) return;
 
@@ -62,21 +52,11 @@ class PointerInputHandler {
     _ime.syncImeState(pageId);
   }
 
-  void handleDragStart(
-    String pageId,
-    String blockId,
-    int segmentIndex,
-    int offset,
-  ) {
+  void handleDragStart(String pageId, String blockId, int segmentIndex, int offset) {
     _pageSystem.selection.handleClick(blockId, segmentIndex, offset);
   }
 
-  void handleDragUpdate(
-    String pageId,
-    String blockId,
-    int segmentIndex,
-    int offset,
-  ) {
+  void handleDragUpdate(String pageId, String blockId, int segmentIndex, int offset) {
     final page = _pageSystem.getActivePage();
     if (page == null) return;
 

@@ -16,15 +16,11 @@ import 'package:noetec/systems/oplog_system/oplog_writer.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 
 class OpLogSystem {
-  OpLogSystem({
-    required IFileSystemService fileSystem,
-    required HlcService hlcService,
-    required VaultSystem vaultSystem,
-    required IDeviceService deviceService,
-  }) : _fileSystem = fileSystem,
-       _hlcService = hlcService,
-       _vaultSystem = vaultSystem,
-       _deviceService = deviceService {
+  OpLogSystem({required IFileSystemService fileSystem, required HlcService hlcService, required VaultSystem vaultSystem, required IDeviceService deviceService})
+    : _fileSystem = fileSystem,
+      _hlcService = hlcService,
+      _vaultSystem = vaultSystem,
+      _deviceService = deviceService {
     _serializer = const OpLogSerializer();
     _vaultSystem.currentVault.addListener(_onVaultChanged);
   }
@@ -64,12 +60,7 @@ class OpLogSystem {
 
   bool get _isActive => _vaultRootPath != null && _deviceId != null;
 
-  Future<void> recordSave(
-    String relativePath,
-    String pageId,
-    List<TextBlockEntity> currentBlocks,
-    String fileHash,
-  ) async {
+  Future<void> recordSave(String relativePath, String pageId, List<TextBlockEntity> currentBlocks, String fileHash) async {
     if (!_isActive) return;
     final previous = _lastKnownState[pageId] ?? const [];
     final diff = BlockDiffEngine.compute(previous, currentBlocks);
@@ -80,17 +71,7 @@ class OpLogSystem {
       final editHlc = _hlcService.now();
       await _writer!.append(
         relativePath,
-        OpLogEntry(
-          version: 1,
-          hlc: editHlc,
-          parent: parentHlc,
-          parentB: null,
-          type: OpEntryType.edit,
-          blockOps: diff,
-          fileOp: null,
-          fileHash: null,
-          deviceId: _deviceId!,
-        ),
+        OpLogEntry(version: 1, hlc: editHlc, parent: parentHlc, parentB: null, type: OpEntryType.edit, blockOps: diff, fileOp: null, fileHash: null, deviceId: _deviceId!),
       );
       parentHlc = editHlc;
       _lastHlcByFile[relativePath] = editHlc;
@@ -115,22 +96,12 @@ class OpLogSystem {
     _lastKnownState[pageId] = _snapshotBlocks(currentBlocks);
   }
 
-  Future<void> recordFileCreate(
-    String relativePath,
-    String pageId,
-    List<TextBlockEntity> initialBlocks,
-  ) async {
+  Future<void> recordFileCreate(String relativePath, String pageId, List<TextBlockEntity> initialBlocks) async {
     if (!_isActive) return;
     final snapshots = <TextBlockSnapshot>[];
     String? afterId;
     for (final block in initialBlocks) {
-      snapshots.add(
-        TextBlockSnapshot(
-          blockId: block.id,
-          afterBlockId: afterId,
-          segments: List.of(block.segments),
-        ),
-      );
+      snapshots.add(TextBlockSnapshot(blockId: block.id, afterBlockId: afterId, segments: List.of(block.segments)));
       afterId = block.id;
     }
 
@@ -195,15 +166,9 @@ class OpLogSystem {
     _lastHlcByFile[newPath] = hlc;
   }
 
-  Future<void> recordExternalEdit(
-    String relativePath,
-    List<TextBlockEntity> currentBlocks,
-    String fileHash, {
-    String? pageId,
-  }) async {
+  Future<void> recordExternalEdit(String relativePath, List<TextBlockEntity> currentBlocks, String fileHash, {String? pageId}) async {
     if (!_isActive) return;
-    final previous =
-        (pageId != null ? _lastKnownState[pageId] : null) ?? const [];
+    final previous = (pageId != null ? _lastKnownState[pageId] : null) ?? const [];
     final ops = BlockDiffEngine.compute(previous, currentBlocks);
 
     final parentHlc = await _resolveParent(relativePath);
@@ -228,12 +193,7 @@ class OpLogSystem {
     }
   }
 
-  Future<void> recordMerge(
-    String relativePath,
-    Hlc parentA,
-    Hlc parentB,
-    String fileHash,
-  ) async {
+  Future<void> recordMerge(String relativePath, Hlc parentA, Hlc parentB, String fileHash) async {
     if (!_isActive) return;
     final hlc = _hlcService.now();
     await _writer!.append(
@@ -269,18 +229,11 @@ class OpLogSystem {
 
   bool hasLastKnownState(String pageId) => _lastKnownState.containsKey(pageId);
 
-  Future<Hlc?> _resolveParent(
-    String relativePath, {
-    String? fallbackPath,
-  }) async {
-    final cached =
-        _lastHlcByFile[relativePath] ??
-        (fallbackPath != null ? _lastHlcByFile[fallbackPath] : null);
+  Future<Hlc?> _resolveParent(String relativePath, {String? fallbackPath}) async {
+    final cached = _lastHlcByFile[relativePath] ?? (fallbackPath != null ? _lastHlcByFile[fallbackPath] : null);
     if (cached != null) return cached;
 
-    final last =
-        await _lastHlcFromDisk(relativePath) ??
-        (fallbackPath != null ? await _lastHlcFromDisk(fallbackPath) : null);
+    final last = await _lastHlcFromDisk(relativePath) ?? (fallbackPath != null ? await _lastHlcFromDisk(fallbackPath) : null);
     if (last != null) {
       _lastHlcByFile[relativePath] = last;
     }
@@ -298,13 +251,10 @@ class OpLogSystem {
     return last;
   }
 
-  static String _withPrefix(String hash) =>
-      hash.startsWith('sha256:') ? hash : 'sha256:$hash';
+  static String _withPrefix(String hash) => hash.startsWith('sha256:') ? hash : 'sha256:$hash';
 
   static List<TextBlockEntity> _snapshotBlocks(List<TextBlockEntity> blocks) {
-    return blocks
-        .map((b) => TextBlockEntity(id: b.id, segments: List.of(b.segments)))
-        .toList();
+    return blocks.map((b) => TextBlockEntity(id: b.id, segments: List.of(b.segments))).toList();
   }
 
   void dispose() {

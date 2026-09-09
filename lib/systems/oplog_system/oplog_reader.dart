@@ -13,10 +13,7 @@ class OpLogReader {
   final String _vaultRootPath;
   final OpLogSerializer _serializer;
 
-  Future<List<OpLogEntry>> readDeviceLog(
-    String relativePath,
-    String deviceUuid,
-  ) async {
+  Future<List<OpLogEntry>> readDeviceLog(String relativePath, String deviceUuid) async {
     final filePath = _oplogFilePath(relativePath, deviceUuid);
     if (!await _fs.fileExists(filePath)) return [];
 
@@ -38,13 +35,10 @@ class OpLogReader {
     if (!await _fs.directoryExists(dirPath)) return [];
 
     final entries = await _fs.listDirectory(dirPath);
-    return entries
-        .where((e) => !e.isDirectory && e.name.endsWith('.oplog.jsonl'))
-        .map((e) {
-          final name = e.name;
-          return name.substring(0, name.length - '.oplog.jsonl'.length);
-        })
-        .toList();
+    return entries.where((e) => !e.isDirectory && e.name.endsWith('.oplog.jsonl')).map((e) {
+      final name = e.name;
+      return name.substring(0, name.length - '.oplog.jsonl'.length);
+    }).toList();
   }
 
   List<OpLogEntry> _parseLines(String content) {

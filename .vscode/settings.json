@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
         "noetec"
-    ]
+    ],
+    "dart.lineLength": 180
 }

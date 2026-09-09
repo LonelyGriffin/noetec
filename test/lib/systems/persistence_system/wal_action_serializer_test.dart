@@ -7,11 +7,7 @@ void main() {
     const serializer = WalActionSerializer();
 
     test('InsertText roundtrip', () {
-      const action = InsertTextAction(
-        blockId: 'b1',
-        flatOffset: 5,
-        text: 'hello',
-      );
+      const action = InsertTextAction(blockId: 'b1', flatOffset: 5, text: 'hello');
       final json = serializer.toJson(action);
       final restored = serializer.fromJson(json);
 
@@ -23,11 +19,7 @@ void main() {
     });
 
     test('PasteText roundtrip', () {
-      const action = PasteTextAction(
-        blockId: 'b1',
-        clipboardContent: 'pasted text',
-        flatOffset: 0,
-      );
+      const action = PasteTextAction(blockId: 'b1', clipboardContent: 'pasted text', flatOffset: 0);
       final json = serializer.toJson(action);
       final restored = serializer.fromJson(json);
 
@@ -39,10 +31,7 @@ void main() {
     });
 
     test('fromJson throws FormatException for unknown type', () {
-      expect(
-        () => serializer.fromJson({'type': 'unknown_action', 'block_id': 'b1'}),
-        throwsA(isA<FormatException>()),
-      );
+      expect(() => serializer.fromJson({'type': 'unknown_action', 'block_id': 'b1'}), throwsA(isA<FormatException>()));
     });
 
     test('toJson includes type field', () {

@@ -81,9 +81,7 @@ List<String> findFilesWithoutCopyright(String folderPath) {
 
 bool hasCopyrightInFile(String filePath, String expectCopyrightText) {
   try {
-    final fileContent = File(
-      filePath,
-    ).readAsStringSync().replaceAll('\r\n', '\n');
+    final fileContent = File(filePath).readAsStringSync().replaceAll('\r\n', '\n');
 
     return fileContent.startsWith(expectCopyrightText);
   } catch (e) {

@@ -24,12 +24,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
 
 /// Reads a fixture file and returns its raw bytes as a UTF-8 string.
-String _readFixture(String name) =>
-    File('test/fixtures/format/v1/$name.md').readAsStringSync();
+String _readFixture(String name) => File('test/fixtures/format/v1/$name.md').readAsStringSync();
 
 /// Reads a fixture file and normalizes CRLF/CR to LF (spec §2).
-String _readFixtureNormalized(String name) =>
-    _readFixture(name).replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+String _readFixtureNormalized(String name) => _readFixture(name).replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
 /// Returns the expected content body of a fixture per spec §5: strip the
 /// frontmatter block (opening `---`, YAML, closing `---`, and the single
@@ -54,13 +52,7 @@ void main() {
     // reproduce the original file with only the `modified` line allowed to
     // differ (it is preserved verbatim on parse, so it actually round-trips
     // byte-for-byte here).
-    const wellFormedFixtures = [
-      'welcome',
-      'nested-blocks',
-      'inline-formatting',
-      'links',
-      'windows-line-endings',
-    ];
+    const wellFormedFixtures = ['welcome', 'nested-blocks', 'inline-formatting', 'links', 'windows-line-endings'];
 
     for (final name in wellFormedFixtures) {
       test('$name: parse extracts declared id and content body', () {
@@ -73,8 +65,7 @@ void main() {
       test('$name: declared content_hash matches computed hash of body', () {
         final result = PageFrontmatterCodec.parse(_readFixture(name));
 
-        final computed =
-            'sha256:${PageFrontmatterCodec.computeContentHash(result.content)}';
+        final computed = 'sha256:${PageFrontmatterCodec.computeContentHash(result.content)}';
         expect(
           computed,
           result.frontmatter.contentHash,
@@ -86,10 +77,7 @@ void main() {
 
       test('$name: encode(parse(file)) reproduces the LF-normalized file', () {
         final result = PageFrontmatterCodec.parse(_readFixture(name));
-        final reencoded = PageFrontmatterCodec.encode(
-          result.frontmatter,
-          result.content,
-        );
+        final reencoded = PageFrontmatterCodec.encode(result.frontmatter, result.content);
 
         expect(
           reencoded,
@@ -103,17 +91,14 @@ void main() {
   });
 
   group('PageFrontmatterCodec spec §3.4 edge cases —', () {
-    test(
-      'missing frontmatter: synthesizes fresh id, treats whole file as body',
-      () {
-        const input = 'Just some content without frontmatter';
+    test('missing frontmatter: synthesizes fresh id, treats whole file as body', () {
+      const input = 'Just some content without frontmatter';
 
-        final result = PageFrontmatterCodec.parse(input);
+      final result = PageFrontmatterCodec.parse(input);
 
-        expect(result.frontmatter.id, isNotEmpty);
-        expect(result.content, input);
-      },
-    );
+      expect(result.frontmatter.id, isNotEmpty);
+      expect(result.content, input);
+    });
 
     test('malformed YAML: whole file is content, fresh id is synthesized', () {
       const input = '---\nthis is not: [valid yaml\n---\n\nBody text';
@@ -151,21 +136,17 @@ void main() {
       expect(result.content, '');
     });
 
-    test(
-      'whitespace-only file: parses to empty body plus fresh frontmatter',
-      () {
-        final result = PageFrontmatterCodec.parse('   \n\n  \n');
+    test('whitespace-only file: parses to empty body plus fresh frontmatter', () {
+      final result = PageFrontmatterCodec.parse('   \n\n  \n');
 
-        expect(result.frontmatter.id, isNotEmpty);
-        // Spec §3.4.4: a file containing only whitespace MUST parse to an
-        // empty content body.
-        expect(result.content, '');
-      },
-    );
+      expect(result.frontmatter.id, isNotEmpty);
+      // Spec §3.4.4: a file containing only whitespace MUST parse to an
+      // empty content body.
+      expect(result.content, '');
+    });
 
     test('CRLF line endings are normalized to LF before parsing', () {
-      const input =
-          '---\r\nid: test-id\r\ncontent_hash: sha256:abc\r\nmodified: 2026-01-15T10:30:00.000Z\r\n---\r\n\r\nBody text\r\n';
+      const input = '---\r\nid: test-id\r\ncontent_hash: sha256:abc\r\nmodified: 2026-01-15T10:30:00.000Z\r\n---\r\n\r\nBody text\r\n';
 
       final result = PageFrontmatterCodec.parse(input);
 
@@ -176,8 +157,7 @@ void main() {
     });
 
     test('unterminated frontmatter: whole file is content, fresh id', () {
-      const input =
-          '---\nid: abc\ncontent_hash: sha256:xyz\nBody without close';
+      const input = '---\nid: abc\ncontent_hash: sha256:xyz\nBody without close';
 
       final result = PageFrontmatterCodec.parse(input);
 

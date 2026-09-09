@@ -50,24 +50,11 @@ class _FakeFs implements IFileSystemService {
         final relative = normKey.substring(normalized.length + 1);
         final slashIndex = relative.indexOf('/');
         if (slashIndex < 0) {
-          entries.add(
-            FileEntry(
-              name: relative,
-              path: key,
-              isDirectory: false,
-              lastModified: DateTime.now(),
-            ),
-          );
+          entries.add(FileEntry(name: relative, path: key, isDirectory: false, lastModified: DateTime.now()));
         } else {
           final dirName = relative.substring(0, slashIndex);
           if (seen.add(dirName)) {
-            entries.add(
-              FileEntry(
-                name: dirName,
-                path: '$normalized/$dirName',
-                isDirectory: true,
-              ),
-            );
+            entries.add(FileEntry(name: dirName, path: '$normalized/$dirName', isDirectory: true));
           }
         }
       }
@@ -77,9 +64,7 @@ class _FakeFs implements IFileSystemService {
         final relative = dir.substring(normalized.length + 1);
         if (!relative.contains('/')) {
           if (seen.add(relative)) {
-            entries.add(
-              FileEntry(name: relative, path: dir, isDirectory: true),
-            );
+            entries.add(FileEntry(name: relative, path: dir, isDirectory: true));
           }
         }
       }
@@ -91,10 +76,7 @@ class _FakeFs implements IFileSystemService {
   Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
 
   @override
-  Stream<FileEntry> watchDirectory(
-    String path, {
-    Duration pollInterval = const Duration(seconds: 5),
-  }) => const Stream.empty();
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) => const Stream.empty();
 }
 
 void main() {
@@ -109,12 +91,7 @@ void main() {
       vaultSystem = createTestVaultSystem();
       wal = WalService(fs, vaultSystem);
 
-      vaultSystem.currentVault.value = VaultEntity(
-        id: 'vault-1',
-        name: 'TestVault',
-        rootPath: '/vault',
-        createdAt: DateTime(2026),
-      );
+      vaultSystem.currentVault.value = VaultEntity(id: 'vault-1', name: 'TestVault', rootPath: '/vault', createdAt: DateTime(2026));
     });
 
     tearDown(() {
@@ -124,40 +101,27 @@ void main() {
 
     test('register and appendAction writes WAL file after flush', () async {
       wal.register('page1', 'pages/welcome.md');
-      wal.appendAction(
-        'page1',
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'hi'),
-      );
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'hi'));
 
       await wal.flush('page1');
 
-      final walFiles = fs.files.keys
-          .where((k) => k.startsWith('/vault/.noetec/wal/'))
-          .toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
       expect(walFiles, hasLength(1));
     });
 
     test('clear deletes WAL file', () async {
       wal.register('page1', 'pages/welcome.md');
-      wal.appendAction(
-        'page1',
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x'),
-      );
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x'));
       await wal.flush('page1');
       await wal.clear('page1');
 
-      final walFiles = fs.files.keys
-          .where((k) => k.startsWith('/vault/.noetec/wal/'))
-          .toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
       expect(walFiles, isEmpty);
     });
 
     test('readWal returns deserialized actions', () async {
       wal.register('page1', 'pages/welcome.md');
-      wal.appendAction(
-        'page1',
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'test'),
-      );
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'test'));
       await wal.flush('page1');
 
       final pending = await wal.getPendingWals();
@@ -167,38 +131,23 @@ void main() {
       expect(actions.first, isA<InsertTextAction>());
     });
 
-    test(
-      'accumulates consecutive InsertText with same block and contiguous offset',
-      () async {
-        wal.register('page1', 'pages/welcome.md');
-        wal.appendAction(
-          'page1',
-          const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'h'),
-        );
-        wal.appendAction(
-          'page1',
-          const InsertTextAction(blockId: 'b1', flatOffset: 1, text: 'i'),
-        );
+    test('accumulates consecutive InsertText with same block and contiguous offset', () async {
+      wal.register('page1', 'pages/welcome.md');
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'h'));
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 1, text: 'i'));
 
-        await wal.flush('page1');
+      await wal.flush('page1');
 
-        final pending = await wal.getPendingWals();
-        final actions = await wal.readWal(pending.first.walFilePath);
-        expect(actions, hasLength(1));
-        expect((actions.first as InsertTextAction).text, 'hi');
-      },
-    );
+      final pending = await wal.getPendingWals();
+      final actions = await wal.readWal(pending.first.walFilePath);
+      expect(actions, hasLength(1));
+      expect((actions.first as InsertTextAction).text, 'hi');
+    });
 
     test('does not accumulate InsertText with different blocks', () async {
       wal.register('page1', 'pages/welcome.md');
-      wal.appendAction(
-        'page1',
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'),
-      );
-      wal.appendAction(
-        'page1',
-        const InsertTextAction(blockId: 'b2', flatOffset: 0, text: 'b'),
-      );
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'));
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b2', flatOffset: 0, text: 'b'));
 
       await wal.flush('page1');
 
@@ -207,96 +156,59 @@ void main() {
       expect(actions, hasLength(2));
     });
 
-    test(
-      'accumulates consecutive DeleteTextBack with decreasing offset',
-      () async {
-        wal.register('page1', 'pages/welcome.md');
-        wal.appendAction(
-          'page1',
-          const DeleteTextBackAction(blockId: 'b1', flatOffset: 10),
-        );
-        wal.appendAction(
-          'page1',
-          const DeleteTextBackAction(blockId: 'b1', flatOffset: 9),
-        );
-        wal.appendAction(
-          'page1',
-          const DeleteTextBackAction(blockId: 'b1', flatOffset: 8),
-        );
+    test('accumulates consecutive DeleteTextBack with decreasing offset', () async {
+      wal.register('page1', 'pages/welcome.md');
+      wal.appendAction('page1', const DeleteTextBackAction(blockId: 'b1', flatOffset: 10));
+      wal.appendAction('page1', const DeleteTextBackAction(blockId: 'b1', flatOffset: 9));
+      wal.appendAction('page1', const DeleteTextBackAction(blockId: 'b1', flatOffset: 8));
 
-        await wal.flush('page1');
+      await wal.flush('page1');
 
-        final pending = await wal.getPendingWals();
-        final actions = await wal.readWal(pending.first.walFilePath);
-        expect(actions, hasLength(1));
-        expect(actions.first, isA<DeleteTextBackAction>());
-      },
-    );
+      final pending = await wal.getPendingWals();
+      final actions = await wal.readWal(pending.first.walFilePath);
+      expect(actions, hasLength(1));
+      expect(actions.first, isA<DeleteTextBackAction>());
+    });
 
-    test(
-      'accumulates consecutive DeleteTextForward with same offset',
-      () async {
-        wal.register('page1', 'pages/welcome.md');
-        wal.appendAction(
-          'page1',
-          const DeleteTextForwardAction(blockId: 'b1', flatOffset: 5),
-        );
-        wal.appendAction(
-          'page1',
-          const DeleteTextForwardAction(blockId: 'b1', flatOffset: 5),
-        );
+    test('accumulates consecutive DeleteTextForward with same offset', () async {
+      wal.register('page1', 'pages/welcome.md');
+      wal.appendAction('page1', const DeleteTextForwardAction(blockId: 'b1', flatOffset: 5));
+      wal.appendAction('page1', const DeleteTextForwardAction(blockId: 'b1', flatOffset: 5));
 
-        await wal.flush('page1');
+      await wal.flush('page1');
 
-        final pending = await wal.getPendingWals();
-        final actions = await wal.readWal(pending.first.walFilePath);
-        expect(actions, hasLength(1));
-      },
-    );
+      final pending = await wal.getPendingWals();
+      final actions = await wal.readWal(pending.first.walFilePath);
+      expect(actions, hasLength(1));
+    });
 
     test('unregister removes page from tracking', () async {
       wal.register('page1', 'pages/welcome.md');
       wal.unregister('page1');
-      wal.appendAction(
-        'page1',
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x'),
-      );
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x'));
       await wal.flush('page1');
 
-      final walFiles = fs.files.keys
-          .where((k) => k.startsWith('/vault/.noetec/wal/'))
-          .toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
       expect(walFiles, isEmpty);
     });
 
     test('clearAll removes all WAL files and buffers', () async {
       wal.register('page1', 'pages/a.md');
       wal.register('page2', 'pages/b.md');
-      wal.appendAction(
-        'page1',
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'),
-      );
-      wal.appendAction(
-        'page2',
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'b'),
-      );
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'));
+      wal.appendAction('page2', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'b'));
       await wal.flush('page1');
       await wal.flush('page2');
 
       await wal.clearAll();
 
-      final walFiles = fs.files.keys
-          .where((k) => k.startsWith('/vault/.noetec/wal/'))
-          .toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
       expect(walFiles, isEmpty);
     });
 
     test('getPendingWals returns WalEntry for each WAL file', () async {
       wal.register('page1', 'pages/welcome.md');
-      wal.appendAction(
-        'page1',
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'),
-      );
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'a'));
       await wal.flush('page1');
 
       final pending = await wal.getPendingWals();
@@ -306,15 +218,10 @@ void main() {
 
     test('WAL path mirrors page directory structure', () async {
       wal.register('page1', 'pages/notes/idea.md');
-      wal.appendAction(
-        'page1',
-        const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x'),
-      );
+      wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x'));
       await wal.flush('page1');
 
-      final walFiles = fs.files.keys
-          .where((k) => k.startsWith('/vault/.noetec/wal/'))
-          .toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
       expect(walFiles, hasLength(1));
       expect(walFiles.first, equals('/vault/.noetec/wal/pages/notes/idea.md'));
     });
@@ -323,16 +230,12 @@ void main() {
       wal.register('page1', 'pages/welcome.md');
       await wal.flush('page1');
 
-      final walFiles = fs.files.keys
-          .where((k) => k.startsWith('/vault/.noetec/wal/'))
-          .toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
       expect(walFiles, isEmpty);
     });
 
     test('readWal returns empty list for non-existent file', () async {
-      final actions = await wal.readWal(
-        '/vault/.noetec/wal/nonexistent.wal.jsonl',
-      );
+      final actions = await wal.readWal('/vault/.noetec/wal/nonexistent.wal.jsonl');
       expect(actions, isEmpty);
     });
   });

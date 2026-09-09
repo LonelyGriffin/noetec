@@ -14,11 +14,7 @@ final class InsertTextAction extends PageEditAction {
   final int flatOffset;
   final String text;
 
-  const InsertTextAction({
-    required this.blockId,
-    required this.flatOffset,
-    required this.text,
-  });
+  const InsertTextAction({required this.blockId, required this.flatOffset, required this.text});
 }
 
 final class DeleteTextBackAction extends PageEditAction {
@@ -34,10 +30,7 @@ final class DeleteTextForwardAction extends PageEditAction {
   final String blockId;
   final int flatOffset;
 
-  const DeleteTextForwardAction({
-    required this.blockId,
-    required this.flatOffset,
-  });
+  const DeleteTextForwardAction({required this.blockId, required this.flatOffset});
 }
 
 final class BlockSplitAction extends PageEditAction {
@@ -55,12 +48,7 @@ final class ReplaceTextAction extends PageEditAction {
   final int flatEnd;
   final String replacement;
 
-  const ReplaceTextAction({
-    required this.blockId,
-    required this.flatStart,
-    required this.flatEnd,
-    required this.replacement,
-  });
+  const ReplaceTextAction({required this.blockId, required this.flatStart, required this.flatEnd, required this.replacement});
 }
 
 final class DeleteSelectionAction extends PageEditAction {
@@ -76,9 +64,5 @@ final class PasteTextAction extends PageEditAction {
   final String clipboardContent;
   final int flatOffset;
 
-  const PasteTextAction({
-    required this.blockId,
-    required this.clipboardContent,
-    required this.flatOffset,
-  });
+  const PasteTextAction({required this.blockId, required this.clipboardContent, required this.flatOffset});
 }

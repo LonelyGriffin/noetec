@@ -15,8 +15,7 @@ class TextSegment {
   TextSegment cloneWithText(String newText) => TextSegment(text: newText);
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) || (other is TextSegment && other.text == text);
+  bool operator ==(Object other) => identical(this, other) || (other is TextSegment && other.text == text);
 
   @override
   int get hashCode => text.hashCode;
@@ -32,15 +31,10 @@ class FormattedSegment extends TextSegment {
   const FormattedSegment({required super.text, required this.format});
 
   @override
-  FormattedSegment cloneWithText(String newText) =>
-      FormattedSegment(text: newText, format: format);
+  FormattedSegment cloneWithText(String newText) => FormattedSegment(text: newText, format: format);
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is FormattedSegment &&
-          other.text == text &&
-          other.format == format);
+  bool operator ==(Object other) => identical(this, other) || (other is FormattedSegment && other.text == text && other.format == format);
 
   @override
   int get hashCode => text.hashCode ^ format.hashCode;
@@ -56,13 +50,10 @@ class LinkSegment extends TextSegment {
   const LinkSegment({required super.text, required this.url});
 
   @override
-  LinkSegment cloneWithText(String newText) =>
-      LinkSegment(text: newText, url: url);
+  LinkSegment cloneWithText(String newText) => LinkSegment(text: newText, url: url);
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is LinkSegment && other.text == text && other.url == url);
+  bool operator ==(Object other) => identical(this, other) || (other is LinkSegment && other.text == text && other.url == url);
 
   @override
   int get hashCode => text.hashCode ^ url.hashCode;

@@ -26,11 +26,7 @@ void main() {
 
     test('receive() result is greater than both remote and last', () {
       final localLast = Hlc.now(null, 'dev1');
-      final remote = Hlc(
-        physicalMs: localLast.physicalMs + 1000,
-        counter: 5,
-        deviceId: 'dev2',
-      );
+      final remote = Hlc(physicalMs: localLast.physicalMs + 1000, counter: 5, deviceId: 'dev2');
       final received = Hlc.receive(remote, localLast, 'dev1');
 
       expect(received, greaterThan(remote));
@@ -39,11 +35,7 @@ void main() {
     });
 
     test('toKey/fromKey roundtrip', () {
-      const hlc = Hlc(
-        physicalMs: 1705312200000,
-        counter: 42,
-        deviceId: 'a1b2c3d4',
-      );
+      const hlc = Hlc(physicalMs: 1705312200000, counter: 42, deviceId: 'a1b2c3d4');
       final key = hlc.toKey();
       final restored = Hlc.fromKey(key);
 

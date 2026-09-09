@@ -10,11 +10,7 @@ TextBlockEntity _makeBlock(String id, String text) => TextBlockEntity(
   segments: [TextSegment(text: text)],
 );
 
-TextBlockEntity _makeFormattedBlock(
-  String id,
-  String text,
-  TextFormat format,
-) => TextBlockEntity(
+TextBlockEntity _makeFormattedBlock(String id, String text, TextFormat format) => TextBlockEntity(
   id: id,
   segments: [FormattedSegment(text: text, format: format)],
 );
@@ -74,16 +70,8 @@ void main() {
     });
 
     test('reorder produces BlockMove', () {
-      final prev = [
-        _makeBlock('b1', 'a'),
-        _makeBlock('b2', 'b'),
-        _makeBlock('b3', 'c'),
-      ];
-      final current = [
-        _makeBlock('b2', 'b'),
-        _makeBlock('b1', 'a'),
-        _makeBlock('b3', 'c'),
-      ];
+      final prev = [_makeBlock('b1', 'a'), _makeBlock('b2', 'b'), _makeBlock('b3', 'c')];
+      final current = [_makeBlock('b2', 'b'), _makeBlock('b1', 'a'), _makeBlock('b3', 'c')];
       final ops = BlockDiffEngine.compute(prev, current);
 
       expect(ops.whereType<BlockMove>(), isNotEmpty);
@@ -163,11 +151,7 @@ void main() {
 
     test('multiple inserts keep correct afterBlockId chain', () {
       final prev = [_makeBlock('b1', 'a')];
-      final current = [
-        _makeBlock('b1', 'a'),
-        _makeBlock('b2', 'b'),
-        _makeBlock('b3', 'c'),
-      ];
+      final current = [_makeBlock('b1', 'a'), _makeBlock('b2', 'b'), _makeBlock('b3', 'c')];
       final ops = BlockDiffEngine.compute(prev, current);
 
       final inserts = ops.whereType<BlockInsert>().toList();

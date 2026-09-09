@@ -16,13 +16,7 @@ class TestResult {
   final String stderr;
   final Duration duration;
 
-  TestResult({
-    required this.file,
-    required this.exitCode,
-    required this.stdout,
-    required this.stderr,
-    required this.duration,
-  });
+  TestResult({required this.file, required this.exitCode, required this.stdout, required this.stderr, required this.duration});
 
   bool get passed => exitCode == 0;
 }
@@ -70,9 +64,7 @@ class IntegrationTestRunner {
         // On Windows `flutter test` needs an explicit device: Windows desktop,
         // Chrome and Edge all count as "connected", so the tool refuses to
         // guess. Default to the Windows desktop app; override via `-- -d X`.
-        final hasDeviceFlag = passthroughArgs.any(
-          (a) => a == '-d' || a == '--device',
-        );
+        final hasDeviceFlag = passthroughArgs.any((a) => a == '-d' || a == '--device');
         final testArgs = <String>[
           'test',
           file,
@@ -85,22 +77,13 @@ class IntegrationTestRunner {
           runInShell: Platform.isWindows,
           environment: <String, String>{
             ...Platform.environment,
-            if (!Platform.isWindows) ...{
-              'LIBGL_ALWAYS_SOFTWARE': '1',
-              'GALLIUM_DRIVER': 'llvmpipe',
-            },
+            if (!Platform.isWindows) ...{'LIBGL_ALWAYS_SOFTWARE': '1', 'GALLIUM_DRIVER': 'llvmpipe'},
           },
         );
       } catch (e) {
         stopwatch.stop();
         semaphore.release();
-        final result = TestResult(
-          file: file,
-          exitCode: 1,
-          stdout: '',
-          stderr: 'Failed to start flutter: $e',
-          duration: stopwatch.elapsed,
-        );
+        final result = TestResult(file: file, exitCode: 1, stdout: '', stderr: 'Failed to start flutter: $e', duration: stopwatch.elapsed);
         results.add(result);
         onFileComplete?.call(result);
         return;
@@ -122,13 +105,7 @@ class IntegrationTestRunner {
       _activeProcesses.remove(process);
       semaphore.release();
 
-      final result = TestResult(
-        file: file,
-        exitCode: exitCode,
-        stdout: stdoutBuffer.toString(),
-        stderr: stderrBuffer.toString(),
-        duration: stopwatch.elapsed,
-      );
+      final result = TestResult(file: file, exitCode: exitCode, stdout: stdoutBuffer.toString(), stderr: stderrBuffer.toString(), duration: stopwatch.elapsed);
 
       results.add(result);
       onFileComplete?.call(result);

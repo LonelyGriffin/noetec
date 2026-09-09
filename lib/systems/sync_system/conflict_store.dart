@@ -18,13 +18,7 @@ final class PersistentConflictEntry {
   final Hlc theirHead;
   final DateTime detectedAt;
 
-  const PersistentConflictEntry({
-    required this.relativePath,
-    required this.conflicts,
-    required this.ourHead,
-    required this.theirHead,
-    required this.detectedAt,
-  });
+  const PersistentConflictEntry({required this.relativePath, required this.conflicts, required this.ourHead, required this.theirHead, required this.detectedAt});
 
   Map<String, dynamic> toJson() => {
     'relative_path': relativePath,
@@ -34,16 +28,13 @@ final class PersistentConflictEntry {
     'detected_at': detectedAt.toIso8601String(),
   };
 
-  factory PersistentConflictEntry.fromJson(Map<String, dynamic> json) =>
-      PersistentConflictEntry(
-        relativePath: json['relative_path'] as String,
-        conflicts: (json['conflicts'] as List)
-            .map((c) => _blockConflictFromJson(c as Map<String, dynamic>))
-            .toList(),
-        ourHead: Hlc.fromKey(json['our_head'] as String),
-        theirHead: Hlc.fromKey(json['their_head'] as String),
-        detectedAt: DateTime.parse(json['detected_at'] as String),
-      );
+  factory PersistentConflictEntry.fromJson(Map<String, dynamic> json) => PersistentConflictEntry(
+    relativePath: json['relative_path'] as String,
+    conflicts: (json['conflicts'] as List).map((c) => _blockConflictFromJson(c as Map<String, dynamic>)).toList(),
+    ourHead: Hlc.fromKey(json['our_head'] as String),
+    theirHead: Hlc.fromKey(json['their_head'] as String),
+    detectedAt: DateTime.parse(json['detected_at'] as String),
+  );
 }
 
 class ConflictStore {
@@ -66,11 +57,7 @@ class ConflictStore {
     final list = data['conflicts'] as List;
     _entries
       ..clear()
-      ..addAll(
-        list.map(
-          (e) => PersistentConflictEntry.fromJson(e as Map<String, dynamic>),
-        ),
-      );
+      ..addAll(list.map((e) => PersistentConflictEntry.fromJson(e as Map<String, dynamic>)));
   }
 
   Future<void> save(String vaultRootPath) async {
@@ -79,31 +66,16 @@ class ConflictStore {
     await _fileSystem.writeFile(filePath, jsonEncode(data));
   }
 
-  void addConflicts(
-    String relativePath,
-    List<BlockConflict> conflicts,
-    Hlc ourHead,
-    Hlc theirHead,
-  ) {
+  void addConflicts(String relativePath, List<BlockConflict> conflicts, Hlc ourHead, Hlc theirHead) {
     _entries.removeWhere((e) => e.relativePath == relativePath);
-    _entries.add(
-      PersistentConflictEntry(
-        relativePath: relativePath,
-        conflicts: conflicts,
-        ourHead: ourHead,
-        theirHead: theirHead,
-        detectedAt: DateTime.now(),
-      ),
-    );
+    _entries.add(PersistentConflictEntry(relativePath: relativePath, conflicts: conflicts, ourHead: ourHead, theirHead: theirHead, detectedAt: DateTime.now()));
   }
 
   void removeBlockConflict(String relativePath, String blockId) {
     final entry = getByPath(relativePath);
     if (entry == null) return;
 
-    final remaining = entry.conflicts
-        .where((c) => c.blockId != blockId)
-        .toList();
+    final remaining = entry.conflicts.where((c) => c.blockId != blockId).toList();
 
     if (remaining.isEmpty) {
       _entries.remove(entry);
@@ -129,26 +101,15 @@ class ConflictStore {
 
   bool hasConflicts(String relativePath) => getByPath(relativePath) != null;
 
-  static String _conflictsPath(String vaultRootPath) =>
-      p.join(vaultRootPath, '.noetec', 'conflicts.json');
+  static String _conflictsPath(String vaultRootPath) => p.join(vaultRootPath, '.noetec', 'conflicts.json');
 }
 
 Map<String, dynamic> _blockConflictToJson(BlockConflict conflict) {
   switch (conflict) {
     case ContentConflict():
-      return {
-        'type': 'content',
-        'block_id': conflict.blockId,
-        'ours': _reconstructedBlockToJson(conflict.ours),
-        'theirs': _reconstructedBlockToJson(conflict.theirs),
-      };
+      return {'type': 'content', 'block_id': conflict.blockId, 'ours': _reconstructedBlockToJson(conflict.ours), 'theirs': _reconstructedBlockToJson(conflict.theirs)};
     case DeleteModifyConflict():
-      return {
-        'type': 'delete_modify',
-        'block_id': conflict.blockId,
-        'modified_block': _reconstructedBlockToJson(conflict.modifiedBlock),
-        'deleted_by_us': conflict.deletedByUs,
-      };
+      return {'type': 'delete_modify', 'block_id': conflict.blockId, 'modified_block': _reconstructedBlockToJson(conflict.modifiedBlock), 'deleted_by_us': conflict.deletedByUs};
   }
 }
 
@@ -159,16 +120,12 @@ BlockConflict _blockConflictFromJson(Map<String, dynamic> json) {
       return ContentConflict(
         blockId: json['block_id'] as String,
         ours: _reconstructedBlockFromJson(json['ours'] as Map<String, dynamic>),
-        theirs: _reconstructedBlockFromJson(
-          json['theirs'] as Map<String, dynamic>,
-        ),
+        theirs: _reconstructedBlockFromJson(json['theirs'] as Map<String, dynamic>),
       );
     case 'delete_modify':
       return DeleteModifyConflict(
         blockId: json['block_id'] as String,
-        modifiedBlock: _reconstructedBlockFromJson(
-          json['modified_block'] as Map<String, dynamic>,
-        ),
+        modifiedBlock: _reconstructedBlockFromJson(json['modified_block'] as Map<String, dynamic>),
         deletedByUs: json['deleted_by_us'] as bool,
       );
     default:
@@ -176,10 +133,7 @@ BlockConflict _blockConflictFromJson(Map<String, dynamic> json) {
   }
 }
 
-Map<String, dynamic> _reconstructedBlockToJson(ReconstructedBlock block) => {
-  'block_id': block.blockId,
-  'text': block.segmentText,
-};
+Map<String, dynamic> _reconstructedBlockToJson(ReconstructedBlock block) => {'block_id': block.blockId, 'text': block.segmentText};
 
 ReconstructedBlock _reconstructedBlockFromJson(Map<String, dynamic> json) {
   final text = json['text'] as String;

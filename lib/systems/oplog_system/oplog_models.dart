@@ -33,29 +33,18 @@ final class BlockInsert extends BlockOp {
   final String? afterBlockId;
   final List<TextSegment> segments;
 
-  const BlockInsert({
-    required this.blockId,
-    required this.afterBlockId,
-    required this.segments,
-  });
+  const BlockInsert({required this.blockId, required this.afterBlockId, required this.segments});
 
   factory BlockInsert.fromJson(Map<String, dynamic> json) {
     return BlockInsert(
       blockId: json['blockId'] as String,
       afterBlockId: json['afterBlockId'] as String?,
-      segments: (json['segments'] as List)
-          .map((s) => _segmentFromJson(s as Map<String, dynamic>))
-          .toList(),
+      segments: (json['segments'] as List).map((s) => _segmentFromJson(s as Map<String, dynamic>)).toList(),
     );
   }
 
   @override
-  Map<String, dynamic> toJson() => {
-    'type': 'insert',
-    'blockId': blockId,
-    'afterBlockId': afterBlockId,
-    'segments': segments.map(_segmentToJson).toList(),
-  };
+  Map<String, dynamic> toJson() => {'type': 'insert', 'blockId': blockId, 'afterBlockId': afterBlockId, 'segments': segments.map(_segmentToJson).toList()};
 }
 
 final class BlockDelete extends BlockOp {
@@ -78,20 +67,11 @@ final class BlockUpdate extends BlockOp {
   const BlockUpdate({required this.blockId, required this.segments});
 
   factory BlockUpdate.fromJson(Map<String, dynamic> json) {
-    return BlockUpdate(
-      blockId: json['blockId'] as String,
-      segments: (json['segments'] as List)
-          .map((s) => _segmentFromJson(s as Map<String, dynamic>))
-          .toList(),
-    );
+    return BlockUpdate(blockId: json['blockId'] as String, segments: (json['segments'] as List).map((s) => _segmentFromJson(s as Map<String, dynamic>)).toList());
   }
 
   @override
-  Map<String, dynamic> toJson() => {
-    'type': 'update',
-    'blockId': blockId,
-    'segments': segments.map(_segmentToJson).toList(),
-  };
+  Map<String, dynamic> toJson() => {'type': 'update', 'blockId': blockId, 'segments': segments.map(_segmentToJson).toList()};
 }
 
 final class BlockMove extends BlockOp {
@@ -101,18 +81,11 @@ final class BlockMove extends BlockOp {
   const BlockMove({required this.blockId, required this.afterBlockId});
 
   factory BlockMove.fromJson(Map<String, dynamic> json) {
-    return BlockMove(
-      blockId: json['blockId'] as String,
-      afterBlockId: json['afterBlockId'] as String?,
-    );
+    return BlockMove(blockId: json['blockId'] as String, afterBlockId: json['afterBlockId'] as String?);
   }
 
   @override
-  Map<String, dynamic> toJson() => {
-    'type': 'move',
-    'blockId': blockId,
-    'afterBlockId': afterBlockId,
-  };
+  Map<String, dynamic> toJson() => {'type': 'move', 'blockId': blockId, 'afterBlockId': afterBlockId};
 }
 
 sealed class FileOp {
@@ -144,18 +117,12 @@ final class FileCreateOp extends FileOp {
   factory FileCreateOp.fromJson(Map<String, dynamic> json) {
     return FileCreateOp(
       pageId: json['pageId'] as String,
-      initialBlocks: (json['initialBlocks'] as List)
-          .map((b) => TextBlockSnapshot.fromJson(b as Map<String, dynamic>))
-          .toList(),
+      initialBlocks: (json['initialBlocks'] as List).map((b) => TextBlockSnapshot.fromJson(b as Map<String, dynamic>)).toList(),
     );
   }
 
   @override
-  Map<String, dynamic> toJson() => {
-    'type': 'create',
-    'pageId': pageId,
-    'initialBlocks': initialBlocks.map((b) => b.toJson()).toList(),
-  };
+  Map<String, dynamic> toJson() => {'type': 'create', 'pageId': pageId, 'initialBlocks': initialBlocks.map((b) => b.toJson()).toList()};
 }
 
 final class FileDeleteOp extends FileOp {
@@ -172,18 +139,11 @@ final class FileRenameOp extends FileOp {
   const FileRenameOp({required this.oldPath, required this.newPath});
 
   factory FileRenameOp.fromJson(Map<String, dynamic> json) {
-    return FileRenameOp(
-      oldPath: json['oldPath'] as String,
-      newPath: json['newPath'] as String,
-    );
+    return FileRenameOp(oldPath: json['oldPath'] as String, newPath: json['newPath'] as String);
   }
 
   @override
-  Map<String, dynamic> toJson() => {
-    'type': 'rename',
-    'oldPath': oldPath,
-    'newPath': newPath,
-  };
+  Map<String, dynamic> toJson() => {'type': 'rename', 'oldPath': oldPath, 'newPath': newPath};
 }
 
 final class TextBlockSnapshot {
@@ -191,38 +151,20 @@ final class TextBlockSnapshot {
   final String? afterBlockId;
   final List<TextSegment> segments;
 
-  const TextBlockSnapshot({
-    required this.blockId,
-    required this.afterBlockId,
-    required this.segments,
-  });
+  const TextBlockSnapshot({required this.blockId, required this.afterBlockId, required this.segments});
 
   factory TextBlockSnapshot.fromJson(Map<String, dynamic> json) {
     return TextBlockSnapshot(
       blockId: json['blockId'] as String,
       afterBlockId: json['afterBlockId'] as String?,
-      segments: (json['segments'] as List)
-          .map((s) => _segmentFromJson(s as Map<String, dynamic>))
-          .toList(),
+      segments: (json['segments'] as List).map((s) => _segmentFromJson(s as Map<String, dynamic>)).toList(),
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'blockId': blockId,
-    'afterBlockId': afterBlockId,
-    'segments': segments.map(_segmentToJson).toList(),
-  };
+  Map<String, dynamic> toJson() => {'blockId': blockId, 'afterBlockId': afterBlockId, 'segments': segments.map(_segmentToJson).toList()};
 }
 
-enum OpEntryType {
-  fileCreate,
-  fileDelete,
-  fileRename,
-  edit,
-  save,
-  externalEdit,
-  merge,
-}
+enum OpEntryType { fileCreate, fileDelete, fileRename, edit, save, externalEdit, merge }
 
 extension OpEntryTypeWire on OpEntryType {
   String get wireValue {
@@ -297,8 +239,7 @@ final class OpLogEntry {
     if (parent != null) 'parent': parent!.toKey(),
     if (parentB != null) 'parentB': parentB!.toKey(),
     'type': type.name,
-    if (blockOps != null)
-      'blockOps': blockOps!.map((op) => op.toJson()).toList(),
+    if (blockOps != null) 'blockOps': blockOps!.map((op) => op.toJson()).toList(),
     if (fileOp != null) 'fileOp': fileOp!.toJson(),
     if (fileHash != null) 'fileHash': fileHash,
     'deviceId': deviceId,
@@ -308,21 +249,11 @@ final class OpLogEntry {
     return OpLogEntry(
       version: json['version'] as int,
       hlc: Hlc.fromKey(json['hlc'] as String),
-      parent: json['parent'] != null
-          ? Hlc.fromKey(json['parent'] as String)
-          : null,
-      parentB: json['parentB'] != null
-          ? Hlc.fromKey(json['parentB'] as String)
-          : null,
+      parent: json['parent'] != null ? Hlc.fromKey(json['parent'] as String) : null,
+      parentB: json['parentB'] != null ? Hlc.fromKey(json['parentB'] as String) : null,
       type: OpEntryType.values.firstWhere((t) => t.name == json['type']),
-      blockOps: json['blockOps'] != null
-          ? (json['blockOps'] as List)
-                .map((op) => BlockOp.fromJson(op as Map<String, dynamic>))
-                .toList()
-          : null,
-      fileOp: json['fileOp'] != null
-          ? FileOp.fromJson(json['fileOp'] as Map<String, dynamic>)
-          : null,
+      blockOps: json['blockOps'] != null ? (json['blockOps'] as List).map((op) => BlockOp.fromJson(op as Map<String, dynamic>)).toList() : null,
+      fileOp: json['fileOp'] != null ? FileOp.fromJson(json['fileOp'] as Map<String, dynamic>) : null,
       fileHash: json['fileHash'] as String?,
       deviceId: json['deviceId'] as String,
     );
@@ -331,11 +262,7 @@ final class OpLogEntry {
 
 Map<String, dynamic> _segmentToJson(TextSegment segment) {
   if (segment is FormattedSegment) {
-    return {
-      'type': 'formatted',
-      'text': segment.text,
-      'format': segment.format.flags,
-    };
+    return {'type': 'formatted', 'text': segment.text, 'format': segment.format.flags};
   } else if (segment is LinkSegment) {
     return {'type': 'link', 'text': segment.text, 'url': segment.url};
   } else {
@@ -347,15 +274,9 @@ TextSegment _segmentFromJson(Map<String, dynamic> json) {
   final type = json['type'] as String;
   switch (type) {
     case 'formatted':
-      return FormattedSegment(
-        text: json['text'] as String,
-        format: TextFormat.fromFlags(json['format'] as int),
-      );
+      return FormattedSegment(text: json['text'] as String, format: TextFormat.fromFlags(json['format'] as int));
     case 'link':
-      return LinkSegment(
-        text: json['text'] as String,
-        url: json['url'] as String,
-      );
+      return LinkSegment(text: json['text'] as String, url: json['url'] as String);
     default:
       return TextSegment(text: json['text'] as String);
   }

@@ -16,15 +16,13 @@ class FakeSettingsService implements ISettingsService {
   Future<String?> getString(String key) async => _stringStore[key];
 
   @override
-  Future<void> setString(String key, String value) async =>
-      _stringStore[key] = value;
+  Future<void> setString(String key, String value) async => _stringStore[key] = value;
 
   @override
   Future<List<String>> getStringList(String key) async => _listStore[key] ?? [];
 
   @override
-  Future<void> setStringList(String key, List<String> value) async =>
-      _listStore[key] = value;
+  Future<void> setStringList(String key, List<String> value) async => _listStore[key] = value;
 }
 
 void main() {
@@ -34,17 +32,8 @@ void main() {
 
     final fixedDate = DateTime.utc(2026, 1, 15, 12, 0, 0);
 
-    VaultEntity makeVault({
-      String id = 'vault-1',
-      String name = 'Test Vault',
-      String rootPath = '/path/to/vault',
-    }) {
-      return VaultEntity(
-        id: id,
-        name: name,
-        rootPath: rootPath,
-        createdAt: fixedDate,
-      );
+    VaultEntity makeVault({String id = 'vault-1', String name = 'Test Vault', String rootPath = '/path/to/vault'}) {
+      return VaultEntity(id: id, name: name, rootPath: rootPath, createdAt: fixedDate);
     }
 
     setUp(() {

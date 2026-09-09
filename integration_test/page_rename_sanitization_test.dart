@@ -20,12 +20,7 @@ import 'helpers/widget_finders.dart';
 Future<List<String>> listPages(String vaultPath) async {
   final pagesDir = Directory(p.join(vaultPath, 'pages'));
   if (!await pagesDir.exists()) return [];
-  return (await pagesDir.list(recursive: true).toList())
-      .whereType<File>()
-      .where((f) => f.path.endsWith('.md'))
-      .map((f) => p.relative(f.path, from: vaultPath))
-      .toList()
-    ..sort();
+  return (await pagesDir.list(recursive: true).toList()).whereType<File>().where((f) => f.path.endsWith('.md')).map((f) => p.relative(f.path, from: vaultPath)).toList()..sort();
 }
 
 void main() {
@@ -42,11 +37,7 @@ void main() {
     final parentDir = await VaultFolderFixture.createEmpty();
     fileSystem.nextPickPath = parentDir.rootPath;
 
-    await configureDI(
-      fileSystem: fileSystem,
-      settings: settings,
-      secureKeyStore: secureKeyStore,
-    );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
       /* Arrange: launch app shell and create a vault */
@@ -78,27 +69,15 @@ void main() {
       await commitRenameInPanel('a/b');
 
       // Assert: file exists under the sanitized name, no nested directory
-      expect(
-        await File(p.join(vaultPath, 'pages', 'a-b.md')).exists(),
-        isTrue,
-        reason: 'separator in name must be flattened to a dash',
-      );
-      expect(
-        await Directory(p.join(vaultPath, 'pages', 'a')).exists(),
-        isFalse,
-        reason: 'no nested directory may be created',
-      );
+      expect(await File(p.join(vaultPath, 'pages', 'a-b.md')).exists(), isTrue, reason: 'separator in name must be flattened to a dash');
+      expect(await Directory(p.join(vaultPath, 'pages', 'a')).exists(), isFalse, reason: 'no nested directory may be created');
       expect(findPageInPanel('a-b.md'), findsOneWidget);
 
       // Act 2: rename to a name with backslash, colon and wildcards
       await commitRenameInPanel(r'a\b:c*');
 
       // Assert: all invalid characters become one collapsed dash
-      expect(
-        await File(p.join(vaultPath, 'pages', 'a-b-c.md')).exists(),
-        isTrue,
-        reason: 'invalid chars \\ : * must become a single dash',
-      );
+      expect(await File(p.join(vaultPath, 'pages', 'a-b-c.md')).exists(), isTrue, reason: 'invalid chars \\ : * must become a single dash');
       expect(findPageInPanel('a-b-c.md'), findsOneWidget);
 
       // Act 3: reject a name that sanitizes to empty (///)
@@ -143,28 +122,13 @@ void main() {
       await commitRenameInPanel('final');
 
       // Assert: source renamed away, panel updated
-      expect(
-        await File(p.join(vaultPath, 'pages', 'final.md')).exists(),
-        isTrue,
-        reason: 'plain rename must still work',
-      );
+      expect(await File(p.join(vaultPath, 'pages', 'final.md')).exists(), isTrue, reason: 'plain rename must still work');
       expect(findPageInPanel('final.md'), findsOneWidget);
 
       // Assert: all pages survived, session file intact
       final pages = await listPages(vaultPath);
-      expect(
-        pages,
-        containsAll([
-          p.join('pages', 'a-b-c.md'),
-          p.join('pages', 'a-b.md'),
-          p.join('pages', 'final.md'),
-          p.join('pages', 'welcome.md'),
-        ]),
-      );
-      expect(
-        await File(p.join(vaultPath, '.noetec', 'session.json')).exists(),
-        isTrue,
-      );
+      expect(pages, containsAll([p.join('pages', 'a-b-c.md'), p.join('pages', 'a-b.md'), p.join('pages', 'final.md'), p.join('pages', 'welcome.md')]));
+      expect(await File(p.join(vaultPath, '.noetec', 'session.json')).exists(), isTrue);
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await GetIt.instance.reset();
@@ -185,19 +149,14 @@ void main() {
   /// Soundness of "exactly once": a second commit would throw (target
   /// exists) -> takeException() non-null; zero commits -> file not renamed
   /// -> contains('entered.md') fails. Only exactly-once satisfies all.
-  testWidgets('Enter commit renames exactly once (no double-commit error)',
-      (tester) async {
+  testWidgets('Enter commit renames exactly once (no double-commit error)', (tester) async {
     final fileSystem = TestFileSystemService();
     final settings = InMemorySettingsService();
     final secureKeyStore = InMemorySecureKeyStore();
     final parentDir = await VaultFolderFixture.createEmpty();
     fileSystem.nextPickPath = parentDir.rootPath;
 
-    await configureDI(
-      fileSystem: fileSystem,
-      settings: settings,
-      secureKeyStore: secureKeyStore,
-    );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
       await tester.pumpWidget(const MainApp());
@@ -226,21 +185,13 @@ void main() {
 
       // AC: no error surfaced (the second commit used to throw
       // PageNameConflictException / PathNotFoundException).
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: 'Enter commit must not surface a double-commit error',
-      );
+      expect(tester.takeException(), isNull, reason: 'Enter commit must not surface a double-commit error');
 
       // AC: renamed exactly once — new path present, no duplicate, and the
       // panel now shows the page name (rename field cleared, commit done).
       final pages = await listPages(vaultPath);
       expect(pages, contains(p.join('pages', 'entered.md')));
-      expect(
-        pages.where((e) => e.contains('untitled')).isEmpty,
-        isTrue,
-        reason: 'the suggested-name placeholder must be gone, not duplicated',
-      );
+      expect(pages.where((e) => e.contains('untitled')).isEmpty, isTrue, reason: 'the suggested-name placeholder must be gone, not duplicated');
       expect(findPageInPanel('entered.md'), findsOneWidget);
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -261,11 +212,7 @@ void main() {
     final parentDir = await VaultFolderFixture.createEmpty();
     fileSystem.nextPickPath = parentDir.rootPath;
 
-    await configureDI(
-      fileSystem: fileSystem,
-      settings: settings,
-      secureKeyStore: secureKeyStore,
-    );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
       await tester.pumpWidget(const MainApp());
@@ -292,24 +239,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // AC: no error surfaced.
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: 'Escape cancel must not surface an error',
-      );
+      expect(tester.takeException(), isNull, reason: 'Escape cancel must not surface an error');
 
       // AC: NOT committed — typed name absent, placeholder (untitled*) remains.
       final pages = await listPages(vaultPath);
-      expect(
-        pages.where((e) => e.contains('canceled')).isEmpty,
-        isTrue,
-        reason: 'Escape must cancel — the typed name must not be written',
-      );
-      expect(
-        pages.where((e) => e.contains('untitled')).isNotEmpty,
-        isTrue,
-        reason: 'the created placeholder page must survive the cancel',
-      );
+      expect(pages.where((e) => e.contains('canceled')).isEmpty, isTrue, reason: 'Escape must cancel — the typed name must not be written');
+      expect(pages.where((e) => e.contains('untitled')).isNotEmpty, isTrue, reason: 'the created placeholder page must survive the cancel');
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await GetIt.instance.reset();

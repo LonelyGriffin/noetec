@@ -11,11 +11,7 @@ import 'package:noetec/entity/page/selection.dart';
 class TextBlockEntity extends BlockEntity {
   final ListNotifier<TextSegment> segments;
 
-  TextBlockEntity({
-    required super.id,
-    super.parentId,
-    List<TextSegment>? segments,
-  }) : segments = ListNotifier(data: segments ?? [const TextSegment(text: '')]);
+  TextBlockEntity({required super.id, super.parentId, List<TextSegment>? segments}) : segments = ListNotifier(data: segments ?? [const TextSegment(text: '')]);
 
   String computeAllSegmentsText() {
     final buffer = StringBuffer();
@@ -38,19 +34,11 @@ class TextBlockEntity extends BlockEntity {
     for (var i = 0; i < segments.length; i++) {
       final segLen = segments[i].text.length;
       if (remaining <= segLen) {
-        return CursorPositionInTextBlock(
-          blockId: id,
-          segmentIndex: i,
-          offset: remaining,
-        );
+        return CursorPositionInTextBlock(blockId: id, segmentIndex: i, offset: remaining);
       }
       remaining -= segLen;
     }
-    return CursorPositionInTextBlock(
-      blockId: id,
-      segmentIndex: segments.length - 1,
-      offset: segments.last.text.length,
-    );
+    return CursorPositionInTextBlock(blockId: id, segmentIndex: segments.length - 1, offset: segments.last.text.length);
   }
 
   ({int segmentIndex, int offset})? charPosFromFlatOffset(int flatOffset) {

@@ -6,10 +6,7 @@ import '../../entity/page/page_edit_action.dart';
 import 'wal_service.dart';
 
 class RecoveryCandidate {
-  const RecoveryCandidate({
-    required this.relativePath,
-    required this.pendingActions,
-  });
+  const RecoveryCandidate({required this.relativePath, required this.pendingActions});
 
   final String relativePath;
   final List<PageEditAction> pendingActions;
@@ -29,12 +26,7 @@ class CrashRecoveryService {
       try {
         final actions = await _wal.readWal(entry.walFilePath);
         if (actions.isNotEmpty) {
-          candidates.add(
-            RecoveryCandidate(
-              relativePath: entry.relativePath,
-              pendingActions: actions,
-            ),
-          );
+          candidates.add(RecoveryCandidate(relativePath: entry.relativePath, pendingActions: actions));
         }
       } catch (_) {}
     }

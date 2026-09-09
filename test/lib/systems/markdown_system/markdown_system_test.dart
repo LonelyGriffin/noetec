@@ -48,9 +48,7 @@ void main() {
       });
 
       test('parses link into LinkSegment', () {
-        final blocks = markdownSystem.parseMarkdown(
-          '[click](https://example.com)',
-        );
+        final blocks = markdownSystem.parseMarkdown('[click](https://example.com)');
         expect(blocks.length, 1);
         final segments = blocks.first.segments;
         expect(segments.first, isA<LinkSegment>());
@@ -89,9 +87,7 @@ void main() {
       test('serializes bold formatted segment', () {
         final block = TextBlockEntity(
           id: 'b1',
-          segments: [
-            const FormattedSegment(text: 'bold', format: TextFormat.bold),
-          ],
+          segments: [const FormattedSegment(text: 'bold', format: TextFormat.bold)],
         );
         final md = markdownSystem.serializeBlocks([block]);
         expect(md, contains('**bold**'));
@@ -100,9 +96,7 @@ void main() {
       test('serializes link segment', () {
         final block = TextBlockEntity(
           id: 'b1',
-          segments: [
-            const LinkSegment(text: 'click', url: 'https://example.com'),
-          ],
+          segments: [const LinkSegment(text: 'click', url: 'https://example.com')],
         );
         final md = markdownSystem.serializeBlocks([block]);
         expect(md, contains('[click](https://example.com)'));

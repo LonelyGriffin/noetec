@@ -31,11 +31,7 @@ void main() {
     final parentDir = await VaultFolderFixture.createEmpty();
     fileSystem.nextPickPath = parentDir.rootPath;
 
-    await configureDI(
-      fileSystem: fileSystem,
-      settings: settings,
-      secureKeyStore: secureKeyStore,
-    );
+    await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
       /* Arrange: launch the app shell */
@@ -53,11 +49,7 @@ void main() {
       final vaultAlphaPath = p.join(parentDir.rootPath, 'VaultAlpha');
 
       // Assert: Alpha session has welcome page
-      await expectSessionJsonValid(
-        vaultAlphaPath,
-        expectedOpenPagePaths: ['pages/welcome.md'],
-        expectedActivePagePath: 'pages/welcome.md',
-      );
+      await expectSessionJsonValid(vaultAlphaPath, expectedOpenPagePaths: ['pages/welcome.md'], expectedActivePagePath: 'pages/welcome.md');
 
       // Act: close Alpha via Settings panel
       await tester.tap(findSettingsPanelButton());
@@ -78,11 +70,7 @@ void main() {
       final vaultBetaPath = p.join(parentDir.rootPath, 'VaultBeta');
 
       // Assert: Beta session has its own welcome page
-      await expectSessionJsonValid(
-        vaultBetaPath,
-        expectedOpenPagePaths: ['pages/welcome.md'],
-        expectedActivePagePath: 'pages/welcome.md',
-      );
+      await expectSessionJsonValid(vaultBetaPath, expectedOpenPagePaths: ['pages/welcome.md'], expectedActivePagePath: 'pages/welcome.md');
 
       // Assert: each vault has a unique ID
       final alphaVaultId = await readVaultId(vaultAlphaPath);
@@ -90,13 +78,10 @@ void main() {
       expect(alphaVaultId, isNot(equals(betaVaultId)));
 
       // Assert: Alpha's session.json does not contain Beta's pages
-      final alphaSessionFile = File(
-        p.join(vaultAlphaPath, '.noetec', 'session.json'),
-      );
+      final alphaSessionFile = File(p.join(vaultAlphaPath, '.noetec', 'session.json'));
       final alphaRaw = await alphaSessionFile.readAsString();
       final alphaContent = jsonDecode(alphaRaw) as Map<String, dynamic>;
-      final alphaOpenPages = (alphaContent['open_pages'] as List)
-          .cast<String>();
+      final alphaOpenPages = (alphaContent['open_pages'] as List).cast<String>();
       expect(alphaOpenPages, contains('pages/welcome.md'));
       expect(alphaOpenPages, isNot(contains('pages/beta-b.md')));
 
@@ -114,9 +99,7 @@ void main() {
 
       // Assert: Alpha restores only its own pages, no Beta leakage
       final pageSystem = GetIt.instance<PageSystem>();
-      final alphaRestoredPaths = pageSystem.openPages.values
-          .map((e) => e.relativePath)
-          .toSet();
+      final alphaRestoredPaths = pageSystem.openPages.values.map((e) => e.relativePath).toSet();
       expect(alphaRestoredPaths, contains('pages/welcome.md'));
       expect(alphaRestoredPaths, isNot(contains('pages/beta-b.md')));
     } finally {

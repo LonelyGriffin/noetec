@@ -12,12 +12,7 @@ import 'package:noetec/service/crypto_service.dart';
 
 /// Reference HKDF-SHA256 (RFC 5869) implemented with `package:crypto`'s HMAC,
 /// independent of `package:cryptography`, to cross-validate the derivation.
-Uint8List hkdfSha256Reference(
-  List<int> ikm,
-  List<int> salt,
-  List<int> info,
-  int length,
-) {
+Uint8List hkdfSha256Reference(List<int> ikm, List<int> salt, List<int> info, int length) {
   final prk = crypto.Hmac(crypto.sha256, salt).convert(ikm).bytes;
   var t = <int>[];
   final okm = <int>[];
@@ -38,12 +33,7 @@ void main() {
     test('derives the Ed25519 seed via HKDF-SHA256 (ADR-0007 §1)', () async {
       final pair = await service.deriveIdentityKeyPair(entropy32);
 
-      final expectedSeed = hkdfSha256Reference(
-        entropy32,
-        utf8.encode('noetec.identity.v1'),
-        utf8.encode('noetec-identity-key'),
-        32,
-      );
+      final expectedSeed = hkdfSha256Reference(entropy32, utf8.encode('noetec.identity.v1'), utf8.encode('noetec-identity-key'), 32);
       final actualSeed = base64UrlDecode(pair.privateKeyBase64Url);
 
       expect(actualSeed, expectedSeed);
@@ -51,9 +41,7 @@ void main() {
 
     test('is deterministic: same entropy → same key pair', () async {
       final a = await service.deriveIdentityKeyPair(entropy32);
-      final b = await service.deriveIdentityKeyPair(
-        Uint8List.fromList(entropy32),
-      );
+      final b = await service.deriveIdentityKeyPair(Uint8List.fromList(entropy32));
 
       expect(a.publicKeyBase64Url, b.publicKeyBase64Url);
       expect(a.privateKeyBase64Url, b.privateKeyBase64Url);
@@ -86,10 +74,7 @@ void main() {
     });
 
     test('rejects entropy that is not 32 bytes', () {
-      expect(
-        () => service.deriveIdentityKeyPair(<int>[1, 2, 3]),
-        throwsArgumentError,
-      );
+      expect(() => service.deriveIdentityKeyPair(<int>[1, 2, 3]), throwsArgumentError);
     });
   });
 }

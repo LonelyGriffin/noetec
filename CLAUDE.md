@@ -35,8 +35,9 @@ All commands run from the repo root.
 | Command | Purpose |
 |---|---|
 | `dart run scripts/lint.dart` | Full lint: format check + `dart analyze` + copyright headers (changed files) |
-| `dart run scripts/format.dart` | Format the project (page width 180, from `dart-format.yaml`) |
+| `dart run scripts/format.dart` | Format the project (page width 180 + trailing commas, from `formatter:` in `analysis_options.yaml`) |
 | `dart analyze` | Static analysis (`analysis_options.yaml`, flutter_lints + extra rules) |
+| `dart run scripts/setup_project.dart` | Install the git pre-commit hook (format + analyze + copyright on staged files) |
 | `flutter test` | Run the unit/widget test suite (`test/`) |
 | `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) — see the `integration-testing` skill |
 | `dart run build_runner build` | Code generation (json_serializable etc.) |

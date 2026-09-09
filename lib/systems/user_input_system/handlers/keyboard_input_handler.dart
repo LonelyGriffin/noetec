@@ -27,12 +27,7 @@ class KeyboardInputHandler {
   bool get altPressed => _altPressed;
   bool get metaPressed => _metaPressed;
 
-  void init(
-    PageSystem pageSystem,
-    PersistenceSystem persistence,
-    ImeInputHandler ime,
-    ClipboardInputHandler clipboard,
-  ) {
+  void init(PageSystem pageSystem, PersistenceSystem persistence, ImeInputHandler ime, ClipboardInputHandler clipboard) {
     _pageSystem = pageSystem;
     _persistence = persistence;
     _ime = ime;
@@ -50,17 +45,13 @@ class KeyboardInputHandler {
 
   void handleKeyUp(KeyUpEvent event) {
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.controlLeft ||
-        key == LogicalKeyboardKey.controlRight) {
+    if (key == LogicalKeyboardKey.controlLeft || key == LogicalKeyboardKey.controlRight) {
       _ctrlPressed = false;
-    } else if (key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight) {
+    } else if (key == LogicalKeyboardKey.shiftLeft || key == LogicalKeyboardKey.shiftRight) {
       _shiftPressed = false;
-    } else if (key == LogicalKeyboardKey.altLeft ||
-        key == LogicalKeyboardKey.altRight) {
+    } else if (key == LogicalKeyboardKey.altLeft || key == LogicalKeyboardKey.altRight) {
       _altPressed = false;
-    } else if (key == LogicalKeyboardKey.metaLeft ||
-        key == LogicalKeyboardKey.metaRight) {
+    } else if (key == LogicalKeyboardKey.metaLeft || key == LogicalKeyboardKey.metaRight) {
       _metaPressed = false;
     }
   }
@@ -100,9 +91,7 @@ class KeyboardInputHandler {
       } else {
         character = null;
       }
-      if (character != null &&
-          character.isNotEmpty &&
-          !_isControlCharacter(character)) {
+      if (character != null && character.isNotEmpty && !_isControlCharacter(character)) {
         _handleHardwareCharacterInput(character);
         return;
       }
@@ -163,10 +152,7 @@ class KeyboardInputHandler {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
+    final flatOffset = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
 
     _pageSystem.editing.insertText(flatOffset, character);
 
@@ -193,10 +179,7 @@ class KeyboardInputHandler {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
+    final flatOffset = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
 
     _pageSystem.editing.deleteTextBack(flatOffset);
 
@@ -223,10 +206,7 @@ class KeyboardInputHandler {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
+    final flatOffset = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
 
     _pageSystem.editing.deleteTextForward(flatOffset);
 
@@ -252,10 +232,7 @@ class KeyboardInputHandler {
     final block = page.getBlockById(cursor.blockId);
     if (block is! TextBlockEntity) return;
 
-    final flatOffset = block.flatOffsetFromCursor(
-      cursor.segmentIndex,
-      cursor.offset,
-    );
+    final flatOffset = block.flatOffsetFromCursor(cursor.segmentIndex, cursor.offset);
 
     _pageSystem.editing.splitBlock(flatOffset);
 
@@ -264,17 +241,13 @@ class KeyboardInputHandler {
 
   void _updateModifierKeys(KeyDownEvent event) {
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.controlLeft ||
-        key == LogicalKeyboardKey.controlRight) {
+    if (key == LogicalKeyboardKey.controlLeft || key == LogicalKeyboardKey.controlRight) {
       _ctrlPressed = true;
-    } else if (key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight) {
+    } else if (key == LogicalKeyboardKey.shiftLeft || key == LogicalKeyboardKey.shiftRight) {
       _shiftPressed = true;
-    } else if (key == LogicalKeyboardKey.altLeft ||
-        key == LogicalKeyboardKey.altRight) {
+    } else if (key == LogicalKeyboardKey.altLeft || key == LogicalKeyboardKey.altRight) {
       _altPressed = true;
-    } else if (key == LogicalKeyboardKey.metaLeft ||
-        key == LogicalKeyboardKey.metaRight) {
+    } else if (key == LogicalKeyboardKey.metaLeft || key == LogicalKeyboardKey.metaRight) {
       _metaPressed = true;
     }
   }

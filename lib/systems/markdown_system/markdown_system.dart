@@ -6,8 +6,7 @@
 import 'package:noetec/entity/page/block/text/text.dart';
 import 'package:noetec/service/id_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_parser.dart' as parser;
-import 'package:noetec/systems/markdown_system/markdown_serializer.dart'
-    as serializer;
+import 'package:noetec/systems/markdown_system/markdown_serializer.dart' as serializer;
 
 class MarkdownSystem {
   final IIdService idService;
@@ -15,17 +14,10 @@ class MarkdownSystem {
   MarkdownSystem(this.idService);
 
   List<TextBlockEntity> parseMarkdown(String markdown, {String? parentId}) {
-    return parser.markdownToBlocks(
-      markdown,
-      idService: idService,
-      parentId: parentId,
-    );
+    return parser.markdownToBlocks(markdown, idService: idService, parentId: parentId);
   }
 
-  String serializeBlocks(
-    List<TextBlockEntity> blocks, {
-    List<(int, int)?>? ranges,
-  }) {
+  String serializeBlocks(List<TextBlockEntity> blocks, {List<(int, int)?>? ranges}) {
     return serializer.blocksToMarkdown(blocks, ranges: ranges);
   }
 }

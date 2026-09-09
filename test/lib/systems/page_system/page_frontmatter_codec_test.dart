@@ -51,11 +51,7 @@ modified: 2026-01-15T10:30:00.000Z
 
     group('encode —', () {
       test('produces valid frontmatter block followed by content', () {
-        final frontmatter = PageFrontmatter(
-          id: 'enc-id',
-          contentHash: 'sha256:def456',
-          modified: DateTime.utc(2026, 6, 12, 10, 0),
-        );
+        final frontmatter = PageFrontmatter(id: 'enc-id', contentHash: 'sha256:def456', modified: DateTime.utc(2026, 6, 12, 10, 0));
 
         final encoded = PageFrontmatterCodec.encode(frontmatter, 'Hello');
 
@@ -66,11 +62,7 @@ modified: 2026-01-15T10:30:00.000Z
       });
 
       test('roundtrip: encode then parse produces same data', () {
-        final original = PageFrontmatter(
-          id: 'round-trip-id',
-          contentHash: 'sha256:xyz',
-          modified: DateTime.utc(2026, 3, 1, 12, 0),
-        );
+        final original = PageFrontmatter(id: 'round-trip-id', contentHash: 'sha256:xyz', modified: DateTime.utc(2026, 3, 1, 12, 0));
         const content = 'Round trip content';
 
         final encoded = PageFrontmatterCodec.encode(original, content);
