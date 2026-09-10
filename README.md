@@ -43,6 +43,7 @@ Requires a recent Flutter SDK (Dart 3.10+). Full setup — including git hooks �
 - [CONTRIBUTING.md](CONTRIBUTING.md) — set up, report bugs, and contribute
 - [SECURITY.md](SECURITY.md) — report a security issue privately
 - [SUPPORT.md](SUPPORT.md) — where to ask questions
+- [docs/architecture.md](docs/architecture.md) — high-level code map (where each concern lives)
 - [docs/](docs/) — product vision, architecture decisions, and specs
 
 ## License
