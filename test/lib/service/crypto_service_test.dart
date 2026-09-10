@@ -163,4 +163,52 @@ void main() {
       expect(base64UrlDecode(url), bytes);
     });
   });
+
+  group('CryptoServiceImpl.generateDeviceKeyPair — sign→verify round-trip (NOET-28)', () {
+    test('a device key can sign and its public key can verify', () async {
+      final pair = await service.generateDeviceKeyPair();
+
+      final bytes = utf8.encode('oplog entry signing input');
+      final sig = await service.sign(pair.privateKeyBase64Url, bytes);
+
+      expect(await service.verify(pair.publicKeyBase64Url, bytes, sig), isTrue, reason: 'a genuine device-key signature must verify under its own public key');
+    });
+
+    test('a device-key signature does not verify under a different key', () async {
+      final pair = await service.generateDeviceKeyPair();
+      final other = await service.generateDeviceKeyPair();
+
+      final bytes = utf8.encode('oplog entry signing input');
+      final sig = await service.sign(pair.privateKeyBase64Url, bytes);
+
+      expect(await service.verify(other.publicKeyBase64Url, bytes, sig), isFalse, reason: 'a signature must not verify under another device key');
+    });
+
+    test('device keys are independent across generations (not derived from the identity seed)', () async {
+      final a = await service.generateDeviceKeyPair();
+      final b = await service.generateDeviceKeyPair();
+      expect(a.publicKeyBase64Url, isNot(b.publicKeyBase64Url));
+    });
+  });
+
+  group('normalizeToBase64Url (sync-security.md §2.1 encoding migration) —', () {
+    test('re-encodes a legacy padded standard-base64 value to base64url no-pad', () {
+      final bytes = List<int>.generate(32, (i) => (i * 13) % 251);
+      final legacy = base64Encode(Uint8List.fromList(bytes));
+      expect(legacy.contains('='), isTrue, reason: 'precondition: padded legacy form');
+
+      final normalized = normalizeToBase64Url(legacy);
+      expect(normalized.contains('='), isFalse);
+      expect(normalized.contains('+'), isFalse);
+      expect(normalized.contains('/'), isFalse);
+      expect(base64UrlDecode(normalized), bytes);
+      expect(normalized, base64UrlEncodeNoPad(bytes));
+    });
+
+    test('leaves an already-base64url no-pad value unchanged', () {
+      final bytes = List<int>.generate(32, (i) => (i * 7) % 251);
+      final url = base64UrlEncodeNoPad(bytes);
+      expect(normalizeToBase64Url(url), url);
+    });
+  });
 }

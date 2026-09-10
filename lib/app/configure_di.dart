@@ -53,7 +53,14 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
   getIt.registerSingleton<WalService>(WalService(getIt<IFileSystemService>(), getIt<VaultSystem>()));
 
   getIt.registerSingleton<OpLogSystem>(
-    OpLogSystem(fileSystem: getIt<IFileSystemService>(), hlcService: getIt<HlcService>(), vaultSystem: getIt<VaultSystem>(), deviceService: getIt<IDeviceService>()),
+    OpLogSystem(
+      fileSystem: getIt<IFileSystemService>(),
+      hlcService: getIt<HlcService>(),
+      vaultSystem: getIt<VaultSystem>(),
+      deviceService: getIt<IDeviceService>(),
+      crypto: getIt<ICryptoService>(),
+      secureKeyStore: getIt<ISecureKeyStore>(),
+    ),
   );
 
   getIt.registerSingleton<PersistenceSystem>(

@@ -28,6 +28,15 @@ List<int> base64UrlDecode(String value) {
   return base64Decode(padded);
 }
 
+/// Re-encodes a base64 (standard or base64url, padded or not) value as
+/// base64url **without** padding (RFC 4648 §5).
+///
+/// Used to normalize legacy `device.json` `public_key` values — written in
+/// padded standard base64 by pre-Phase-1 versions — before they are stored on
+/// the first entry's `pubKey` (sync-security.md §2.1 "Encoding migration"). A
+/// value already in base64url no-pad form is returned unchanged.
+String normalizeToBase64Url(String value) => base64UrlEncodeNoPad(base64UrlDecode(value));
+
 /// A derived Ed25519 identity key pair.
 ///
 /// [publicKeyBase64Url] is base64url (RFC 4648 §5, no padding) — the form

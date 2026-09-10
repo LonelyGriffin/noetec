@@ -5,20 +5,30 @@
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
 import 'package:noetec/systems/oplog_system/oplog_serializer.dart';
+import 'package:noetec/systems/oplog_system/oplog_verifier.dart';
 
 class OpLogReader {
-  const OpLogReader(this._fs, this._vaultRootPath, this._serializer);
+  const OpLogReader(this._fs, this._vaultRootPath, this._serializer, {OpLogVerifier? verifier}) : _verifier = verifier;
 
   final IFileSystemService _fs;
   final String _vaultRootPath;
   final OpLogSerializer _serializer;
+
+  /// When set, each device file is verified on read (sync-security.md §2.4)
+  /// and chain rejection drops the rejected tail. When `null` (e.g. low-level
+  /// IO tests) the raw parsed entries are returned, preserving the historical
+  /// behavior.
+  final OpLogVerifier? _verifier;
 
   Future<List<OpLogEntry>> readDeviceLog(String relativePath, String deviceUuid) async {
     final filePath = _oplogFilePath(relativePath, deviceUuid);
     if (!await _fs.fileExists(filePath)) return [];
 
     final content = await _fs.readFile(filePath);
-    return _parseLines(content);
+    final entries = _parseLines(content);
+    final verifier = _verifier;
+    if (verifier == null) return entries;
+    return verifier.verifyFile(relativePath, entries);
   }
 
   Future<Map<String, List<OpLogEntry>>> readAllLogs(String relativePath) async {

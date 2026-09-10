@@ -4,6 +4,7 @@ import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/entity/page/block/text/text.dart';
 import 'package:noetec/entity/page/block/text/text_segment.dart';
 import 'package:noetec/entity/vault.dart';
+import 'package:noetec/service/crypto_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/hlc_service.dart';
 import 'package:noetec/systems/oplog_system/oplog_dag.dart';
@@ -70,16 +71,31 @@ void main() {
     late FakeDeviceService deviceService;
     late HlcService hlcService;
     late OpLogSystem opLog;
+    late CryptoServiceImpl crypto;
+    late FakeSecureKeyStore secureKeyStore;
 
-    setUp(() {
+    const vaultId = 'vault-1';
+
+    setUp(() async {
       fs = _FakeFs();
+      crypto = CryptoServiceImpl();
+      secureKeyStore = FakeSecureKeyStore();
       deviceService = FakeDeviceService();
-      deviceService.setDevice(DeviceIdentity(uuid: 'dev1-uuid-here-xxxx-xxxxxxxxxxxx', name: 'Test Device', createdAt: DateTime(2026), lastHlc: null, publicKey: 'test-key'));
+
+      // A real device key pair: the public key is published on the first
+      // entry (pubKey) and the private key lives in secure storage, so the
+      // system's write path signs and the read path verifies end-to-end.
+      final keyPair = await crypto.generateDeviceKeyPair();
+      await secureKeyStore.storeDevicePrivateKey(vaultId, keyPair.privateKeyBase64Url);
+      deviceService.setDevice(
+        DeviceIdentity(uuid: 'dev1-uuid-here-xxxx-xxxxxxxxxxxx', name: 'Test Device', createdAt: DateTime(2026), lastHlc: null, publicKey: keyPair.publicKeyBase64Url),
+      );
+
       vaultSystem = createTestVaultSystem(deviceService: deviceService);
       hlcService = HlcService(vaultSystem, deviceService);
-      opLog = OpLogSystem(fileSystem: fs, hlcService: hlcService, vaultSystem: vaultSystem, deviceService: deviceService);
+      opLog = OpLogSystem(fileSystem: fs, hlcService: hlcService, vaultSystem: vaultSystem, deviceService: deviceService, crypto: crypto, secureKeyStore: secureKeyStore);
 
-      vaultSystem.currentVault.value = VaultEntity(id: 'vault-1', name: 'TestVault', rootPath: '/vault', createdAt: DateTime(2026));
+      vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'TestVault', rootPath: '/vault', createdAt: DateTime(2026));
     });
 
     tearDown(() {

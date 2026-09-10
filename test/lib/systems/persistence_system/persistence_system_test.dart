@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/entity/page/page_edit_action.dart';
 import 'package:noetec/entity/vault.dart';
+import 'package:noetec/service/crypto_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/hlc_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
@@ -63,7 +64,14 @@ Hello world''';
       walService = WalService(fs, vaultSystem);
 
       final hlcService = HlcService(vaultSystem, FakeDeviceService());
-      final realOplog = OpLogSystem(fileSystem: fs, hlcService: hlcService, vaultSystem: vaultSystem, deviceService: FakeDeviceService());
+      final realOplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: FakeDeviceService(),
+        crypto: CryptoServiceImpl(),
+        secureKeyStore: FakeSecureKeyStore(),
+      );
 
       persistenceSystem = PersistenceSystem(wal: walService, oplog: realOplog, pageSystem: pageSystem, vaultSystem: vaultSystem);
 

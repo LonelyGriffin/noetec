@@ -4,24 +4,43 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/entity/page/block/text/text.dart';
+import 'package:noetec/service/crypto_service.dart';
 import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/hlc_service.dart';
+import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/systems/oplog_system/block_diff_engine.dart';
 import 'package:noetec/systems/oplog_system/oplog_dag.dart';
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
 import 'package:noetec/systems/oplog_system/oplog_reader.dart';
 import 'package:noetec/systems/oplog_system/oplog_serializer.dart';
+import 'package:noetec/systems/oplog_system/oplog_signer.dart';
+import 'package:noetec/systems/oplog_system/oplog_verifier.dart';
 import 'package:noetec/systems/oplog_system/oplog_writer.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 
 class OpLogSystem {
-  OpLogSystem({required IFileSystemService fileSystem, required HlcService hlcService, required VaultSystem vaultSystem, required IDeviceService deviceService})
-    : _fileSystem = fileSystem,
-      _hlcService = hlcService,
-      _vaultSystem = vaultSystem,
-      _deviceService = deviceService {
+  OpLogSystem({
+    required IFileSystemService fileSystem,
+    required HlcService hlcService,
+    required VaultSystem vaultSystem,
+    required IDeviceService deviceService,
+    required ICryptoService crypto,
+    required ISecureKeyStore secureKeyStore,
+  }) : _fileSystem = fileSystem,
+       _hlcService = hlcService,
+       _vaultSystem = vaultSystem,
+       _deviceService = deviceService,
+       _crypto = crypto,
+       _secureKeyStore = secureKeyStore {
     _serializer = const OpLogSerializer();
+    _signer = OpLogSigner(crypto: _crypto, secureKeyStore: _secureKeyStore, serializer: _serializer);
+    // The key resolver supplies the authoring device's public key for a device
+    // file that carries no `pubKey` on any entry (a mixed legacy/signed file).
+    // In Phase 1 the only trusted source is `device.json` for the *local*
+    // device; remote-device key trust arrives with the Phase-4 TOFU store
+    // (NOET-30). A signed entry whose key cannot be resolved is rejected.
+    _verifier = OpLogVerifier(crypto: _crypto, serializer: _serializer, keyResolver: _resolveDeviceKey);
     _vaultSystem.currentVault.addListener(_onVaultChanged);
   }
 
@@ -29,15 +48,31 @@ class OpLogSystem {
   final HlcService _hlcService;
   final VaultSystem _vaultSystem;
   final IDeviceService _deviceService;
+  final ICryptoService _crypto;
+  final ISecureKeyStore _secureKeyStore;
 
   String? _vaultRootPath;
+  String? _vaultId;
   String? _deviceId;
   late final OpLogSerializer _serializer;
+  late final OpLogSigner _signer;
+  late final OpLogVerifier _verifier;
   OpLogWriter? _writer;
   OpLogReader? _reader;
 
   final Map<String, List<TextBlockEntity>> _lastKnownState = {};
   final Map<String, Hlc> _lastHlcByFile = {};
+
+  /// Phase-1 key resolution for a device file with no `pubKey`: returns the
+  /// local device's base64url public key (from `device.json`) when [deviceId]
+  /// is this device, else `null`.
+  Future<String?> _resolveDeviceKey(String deviceId) async {
+    final device = _deviceService.currentDevice;
+    if (device == null || device.uuid != deviceId) return null;
+    final pubKey = device.publicKey;
+    if (pubKey == null || pubKey.isEmpty) return null;
+    return normalizeToBase64Url(pubKey);
+  }
 
   void _onVaultChanged() {
     final vault = _vaultSystem.currentVault.value;
@@ -45,11 +80,18 @@ class OpLogSystem {
       final device = _deviceService.currentDevice;
       if (device == null) return;
       _vaultRootPath = vault.rootPath;
+      _vaultId = vault.id;
       _deviceId = device.uuid;
-      _writer = OpLogWriter(_fileSystem, _vaultRootPath!, _serializer);
-      _reader = OpLogReader(_fileSystem, _vaultRootPath!, _serializer);
+      // A Phase-1 device that cannot publish its key (no publicKey) degrades
+      // to writing legacy (unsigned) entries rather than emit un-verifiable
+      // ones.
+      final pubKey = device.publicKey;
+      final signer = (pubKey == null || pubKey.isEmpty) ? null : _signer;
+      _writer = OpLogWriter(_fileSystem, _vaultRootPath!, _serializer, signer: signer, vaultId: _vaultId, devicePublicKeyBase64Url: pubKey);
+      _reader = OpLogReader(_fileSystem, _vaultRootPath!, _serializer, verifier: _verifier);
     } else {
       _vaultRootPath = null;
+      _vaultId = null;
       _deviceId = null;
       _writer = null;
       _reader = null;
