@@ -60,6 +60,7 @@ All commands run from the repo root.
 
 | When the task involves… | Read first |
 |---|---|
+| Releasing, versioning, tags, `CHANGELOG.md` entries | `docs/release-process.md` |
 | Running integration tests / WSL / GPU-EGL issues | `integration-testing` skill |
 | Committing, pushing, PRs, code review | `git-github-workflow` skill |
 | Markdown parser/serializer, frontmatter, page file format, block IDs | `docs/specs/file-format.md` |
