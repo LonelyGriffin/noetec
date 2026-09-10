@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
+import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/trust_store.dart';
 
 import '../../helpers/test_fakes.dart';
@@ -196,4 +197,82 @@ void main() {
       expect(fs.files, isEmpty);
     });
   });
+
+  group('TrustStoreImpl — concurrent observations (per-vault lock) —', () {
+    test('concurrent first observations on one vault do not lose a pin', () async {
+      // A file system that yields to the event loop inside readFile/writeFile,
+      // so the three read-modify-write cycles interleave. A broken per-vault
+      // lock (head registered *after* awaiting the predecessor) lets two
+      // observers read the same store and the later write clobbers the
+      // earlier pin.
+      final concurrentFs = _YieldingFileSystemService();
+      final concurrentStore = TrustStoreImpl(concurrentFs);
+
+      final decisions = await Future.wait([
+        concurrentStore.observeKey(vaultRoot, deviceA, keyA),
+        concurrentStore.observeKey(vaultRoot, deviceB, keyB),
+        concurrentStore.observeKey(vaultRoot, userA, keyAAlt),
+      ]);
+
+      // Every one of these is a first sighting, so each reports TrustPinned.
+      expect(decisions, everyElement(isA<TrustPinned>()));
+
+      // The discriminating check: none of the three pins may be lost to the
+      // read-modify-write race.
+      expect(await concurrentStore.pinnedKeys(vaultRoot), {deviceA: keyA, deviceB: keyB, userA: keyAAlt});
+    });
+  });
+}
+
+/// An in-memory [IFileSystemService] that yields a macro-task inside
+/// [readFile] and [writeFile], widening the read-modify-write window so that
+/// concurrent calls interleave deterministically. Used to prove that the
+/// trust store's per-vault lock actually provides mutual exclusion.
+class _YieldingFileSystemService implements IFileSystemService {
+  final Map<String, String> files = {};
+  final Set<String> dirs = {};
+
+  Future<void> _yield() => Future<void>.delayed(Duration.zero);
+
+  @override
+  Future<bool> fileExists(String path) async => files.containsKey(path);
+
+  @override
+  Future<String> readFile(String path) async {
+    await _yield();
+    return files[path] ?? '';
+  }
+
+  @override
+  Future<void> writeFile(String path, String content) async {
+    await _yield();
+    files[path] = content;
+  }
+
+  @override
+  Future<void> appendToFile(String path, String content) async {
+    await _yield();
+    files[path] = (files[path] ?? '') + content;
+  }
+
+  @override
+  Future<void> deleteFile(String path) async => files.remove(path);
+
+  @override
+  Future<bool> directoryExists(String path) async => dirs.contains(path);
+
+  @override
+  Future<void> createDirectory(String path) async => dirs.add(path);
+
+  @override
+  Future<String?> pickDirectory() async => null;
+
+  @override
+  Future<List<FileEntry>> listDirectory(String path) async => [];
+
+  @override
+  Future<void> renameFileOrDirectory(String oldPath, String newPath) async {}
+
+  @override
+  Stream<FileEntry> watchDirectory(String path, {Duration pollInterval = const Duration(seconds: 5)}) => const Stream.empty();
 }

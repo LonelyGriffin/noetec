@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:logging/logging.dart';
+import 'package:path/path.dart' as p;
 
 import 'file_system_service.dart';
 
@@ -84,7 +85,7 @@ class TrustStoreImpl implements ITrustStore {
 
   /// `.noetec/trusted_keys.json` — deliberately outside the syncable
   /// `.sync/` area (§5.1).
-  String _storePath(String vaultRootPath) => '$vaultRootPath/.noetec/trusted_keys.json';
+  String _storePath(String vaultRootPath) => p.join(vaultRootPath, '.noetec', 'trusted_keys.json');
 
   @override
   Future<TrustDecision> observeKey(String vaultRootPath, String identifier, String publicKeyBase64Url) => _withVaultLock(vaultRootPath, () async {
@@ -120,13 +121,13 @@ class TrustStoreImpl implements ITrustStore {
   });
 
   @override
-  Future<void> reset(String vaultRootPath) async {
+  Future<void> reset(String vaultRootPath) => _withVaultLock(vaultRootPath, () async {
     final path = _storePath(vaultRootPath);
     if (await _fileSystem.fileExists(path)) {
       await _fileSystem.deleteFile(path);
       _logger.info('TOFU trust store reset — first-observation trust re-armed');
     }
-  }
+  });
 
   @override
   Future<Map<String, String>> pinnedKeys(String vaultRootPath) => _withVaultLock(vaultRootPath, () async {
@@ -158,7 +159,7 @@ class TrustStoreImpl implements ITrustStore {
   }
 
   Future<void> _saveStore(String vaultRootPath, Map<String, String> store) async {
-    final noetecDir = '$vaultRootPath/.noetec';
+    final noetecDir = p.join(vaultRootPath, '.noetec');
     if (!await _fileSystem.directoryExists(noetecDir)) {
       await _fileSystem.createDirectory(noetecDir);
     }
@@ -168,19 +169,25 @@ class TrustStoreImpl implements ITrustStore {
   /// Serializes read-modify-write cycles per vault: the file store has no
   /// atomicity, so concurrent observations (e.g. several device files in one
   /// sync cycle) must not lose a pin.
+  ///
+  /// The new head is registered **synchronously, before** awaiting the
+  /// predecessor, so every waiter in the same burst chains onto the most
+  /// recent one and the actions run strictly one at a time. (Registering the
+  /// head *after* the await lets every waiter capture the same predecessor
+  /// and then resume together — interleaving their read-modify-write cycles.)
   Future<T> _withVaultLock<T>(String vaultRootPath, Future<T> Function() action) async {
     final previous = _vaultLocks[vaultRootPath];
-    if (previous != null) {
-      try {
-        await previous;
-      } catch (_) {
-        // The previous operation reports its own failure; do not cascade it
-        // into unrelated observations.
-      }
-    }
     final owner = Completer<void>();
-    _vaultLocks[vaultRootPath] = owner.future;
+    _vaultLocks[vaultRootPath] = owner.future; // new head first
     try {
+      if (previous != null) {
+        try {
+          await previous;
+        } catch (_) {
+          // The previous operation reports its own failure; do not cascade it
+          // into unrelated observations.
+        }
+      }
       return await action();
     } finally {
       owner.complete();
