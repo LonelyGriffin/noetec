@@ -25,6 +25,8 @@ Noetec is **local-first**: it works fully offline, and the network is an enhance
 
 Noetec is in **pre-alpha**: under active development, and not yet ready for daily, critical use. APIs and file formats may change without notice. Follow along via the [roadmap](ROADMAP.md), and see [CONTRIBUTING.md](CONTRIBUTING.md) if you'd like to help.
 
+Noetec is a personal experiment, built by its owner with the assistance of AI agents.
+
 ## Quick start
 
 ```bash
@@ -39,7 +41,6 @@ Requires a recent Flutter SDK (Dart 3.10+). Full setup — including git hooks �
 
 - [ROADMAP.md](ROADMAP.md) — what's done and what's planned
 - [CONTRIBUTING.md](CONTRIBUTING.md) — set up, report bugs, and contribute
-- [docs/how-we-work.md](docs/how-we-work.md) — how this project is built
 - [SECURITY.md](SECURITY.md) — report a security issue privately
 - [SUPPORT.md](SUPPORT.md) — where to ask questions
 - [docs/](docs/) — product vision, architecture decisions, and specs
