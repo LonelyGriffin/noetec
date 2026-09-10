@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest an idea for Noetec
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an idea! Please check the
+        [roadmap](https://github.com/LonelyGriffin/noetec/blob/main/ROADMAP.md) and
+        existing issues first to see whether it's already planned or covered.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Is your request related to a problem? Describe it clearly.
+      placeholder: e.g. "I can't easily link between two related notes."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: A clear description of what you'd like to see happen.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches or workarounds you've already tried or thought about.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might help — mockups, links, or examples from other apps.
