@@ -25,7 +25,7 @@ Noetec is **local-first**: it works fully offline, and the network is an enhance
 
 Noetec is in **pre-alpha**: under active development, and not yet ready for daily, critical use. APIs and file formats may change without notice. Follow along via the [roadmap](ROADMAP.md), and see [CONTRIBUTING.md](CONTRIBUTING.md) if you'd like to help.
 
-Noetec is a personal experiment, built by its owner with the assistance of AI agents.
+Hi! I'm a frontend developer, and Noetec is my experimental project — a personal note-taking app. Anyone will be welcome to join once the project matures. I'm also open to AI assistance where it's used sensibly, since I rely on AI heavily myself.
 
 ## Quick start
 
