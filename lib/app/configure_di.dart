@@ -21,6 +21,7 @@ import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/systems/persistence_system/crash_recovery_service.dart';
 import 'package:noetec/systems/persistence_system/persistence_system.dart';
 import 'package:noetec/systems/persistence_system/wal_service.dart';
+import 'package:noetec/systems/sync_system/registry/registry_service.dart';
 import 'package:noetec/systems/sync_system/sync_system.dart';
 import 'package:noetec/systems/user_input_system/user_input_service.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';
@@ -80,6 +81,16 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
       markdownSystem: getIt<MarkdownSystem>(),
       vaultSystem: getIt<VaultSystem>(),
       deviceService: getIt<IDeviceService>(),
+    ),
+  );
+
+  getIt.registerSingleton<IRegistryService>(
+    RegistryServiceImpl(
+      fileSystem: getIt<IFileSystemService>(),
+      hlcService: getIt<HlcService>(),
+      crypto: getIt<ICryptoService>(),
+      secureKeyStore: getIt<ISecureKeyStore>(),
+      vaultSystem: getIt<VaultSystem>(),
     ),
   );
 }
