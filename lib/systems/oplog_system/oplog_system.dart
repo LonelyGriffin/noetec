@@ -2,6 +2,7 @@
 // Copyright (c) 2026 The Noetec Authors.
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+import 'package:logging/logging.dart';
 import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/entity/page/block/text/text.dart';
 import 'package:noetec/service/crypto_service.dart';
@@ -10,6 +11,7 @@ import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/hlc_service.dart';
 import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/systems/oplog_system/block_diff_engine.dart';
+import 'package:noetec/systems/oplog_system/oplog_authorizer.dart';
 import 'package:noetec/systems/oplog_system/oplog_dag.dart';
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
 import 'package:noetec/systems/oplog_system/oplog_reader.dart';
@@ -27,12 +29,14 @@ class OpLogSystem {
     required IDeviceService deviceService,
     required ICryptoService crypto,
     required ISecureKeyStore secureKeyStore,
+    OpLogAuthorizer? authorizer,
   }) : _fileSystem = fileSystem,
        _hlcService = hlcService,
        _vaultSystem = vaultSystem,
        _deviceService = deviceService,
        _crypto = crypto,
-       _secureKeyStore = secureKeyStore {
+       _secureKeyStore = secureKeyStore,
+       _authorizer = authorizer {
     _serializer = const OpLogSerializer();
     _signer = OpLogSigner(crypto: _crypto, secureKeyStore: _secureKeyStore, serializer: _serializer);
     // The key resolver supplies the authoring device's public key for a device
@@ -50,6 +54,13 @@ class OpLogSystem {
   final IDeviceService _deviceService;
   final ICryptoService _crypto;
   final ISecureKeyStore _secureKeyStore;
+
+  /// Runs the attribution/authorization chain (sync-security.md §7 steps 3–5:
+  /// TOFU → certificate → registry filter) over the entries read by
+  /// [buildDag]. When `null` (e.g. low-level tests) the DAG is built from every
+  /// signature-verified entry, preserving the pre-gate behavior.
+  final OpLogAuthorizer? _authorizer;
+  static final Logger _log = Logger('OpLogSystem');
 
   String? _vaultRootPath;
   String? _vaultId;
@@ -256,9 +267,23 @@ class OpLogSystem {
   }
 
   Future<OpLogDag> buildDag(String relativePath) async {
-    if (!_isActive) return OpLogDag.fromEntries(const {});
+    final root = _vaultRootPath;
+    if (root == null || _deviceId == null || _reader == null) return OpLogDag.fromEntries(const {});
     final logs = await _reader!.readAllLogs(relativePath);
-    return OpLogDag.fromEntries(logs);
+    final authorizer = _authorizer;
+    if (authorizer == null) {
+      return OpLogDag.fromEntries(logs);
+    }
+    // Verification gate (sync-security.md §7, §2.4 rule 6): entries are
+    // filtered through the attribution/authorization chain (TOFU →
+    // certificate → registry filter) *before* they contribute to the DAG,
+    // merge decisions, or witness state. Rejected entries never enter the DAG
+    // and are reported via [OpLogAuthorizer] (never silently dropped).
+    final outcome = await authorizer.authorize(vaultRootPath: root, relativePath: relativePath, entriesByDevice: logs);
+    if (outcome.rejections.isNotEmpty) {
+      _log.warning('Verification gate for $relativePath rejected: ${outcome.rejections.map((r) => r.toString()).join('; ')}');
+    }
+    return OpLogDag.fromEntries(outcome.accepted);
   }
 
   void initLastKnownState(String pageId, List<TextBlockEntity> blocks) {
