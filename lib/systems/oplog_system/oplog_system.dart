@@ -62,6 +62,13 @@ class OpLogSystem {
   final OpLogAuthorizer? _authorizer;
   static final Logger _log = Logger('OpLogSystem');
 
+  /// The rejection reports from the most recent [buildDag] that ran the gate
+  /// (sync-security.md §9 — rejections are surfaced, never silently dropped).
+  /// Exposed for the sync-status UI (NOET-33); empty when no gate ran or
+  /// nothing was rejected.
+  final List<EntryRejectionReport> _lastRejections = [];
+  List<EntryRejectionReport> get lastRejections => List.unmodifiable(_lastRejections);
+
   String? _vaultRootPath;
   String? _vaultId;
   String? _deviceId;
@@ -266,12 +273,27 @@ class OpLogSystem {
     _lastHlcByFile[relativePath] = hlc;
   }
 
-  Future<OpLogDag> buildDag(String relativePath) async {
+  /// Loads the registry snapshot **once per sync cycle** for the
+  /// attribution/authorization gate (sync-security.md §7 steps 3–5).
+  ///
+  /// [SyncSystem] calls this at the start of a `checkAll` cycle and threads the
+  /// result through every [buildDag] of the cycle, so the expensive
+  /// registry read+verify pass is performed once per cycle rather than once
+  /// per `.oplog.jsonl` file. Returns `null` when no gate is installed (the
+  /// pre-gate behavior is preserved) or no vault is active.
+  Future<RegistrySnapshot?> prepareVerification() async {
+    final authorizer = _authorizer;
+    if (authorizer == null || _vaultRootPath == null || _deviceId == null || _reader == null) return null;
+    return authorizer.loadSnapshot();
+  }
+
+  Future<OpLogDag> buildDag(String relativePath, {RegistrySnapshot? verification}) async {
     final root = _vaultRootPath;
     if (root == null || _deviceId == null || _reader == null) return OpLogDag.fromEntries(const {});
     final logs = await _reader!.readAllLogs(relativePath);
     final authorizer = _authorizer;
     if (authorizer == null) {
+      _lastRejections.clear();
       return OpLogDag.fromEntries(logs);
     }
     // Verification gate (sync-security.md §7, §2.4 rule 6): entries are
@@ -279,7 +301,13 @@ class OpLogSystem {
     // certificate → registry filter) *before* they contribute to the DAG,
     // merge decisions, or witness state. Rejected entries never enter the DAG
     // and are reported via [OpLogAuthorizer] (never silently dropped).
-    final outcome = await authorizer.authorize(vaultRootPath: root, relativePath: relativePath, entriesByDevice: logs);
+    //
+    // [verification] is the cycle's registry snapshot (see
+    // [prepareVerification]); when omitted it is loaded on demand.
+    final outcome = await authorizer.authorize(vaultRootPath: root, relativePath: relativePath, entriesByDevice: logs, snapshot: verification);
+    _lastRejections
+      ..clear()
+      ..addAll(outcome.rejections);
     if (outcome.rejections.isNotEmpty) {
       _log.warning('Verification gate for $relativePath rejected: ${outcome.rejections.map((r) => r.toString()).join('; ')}');
     }

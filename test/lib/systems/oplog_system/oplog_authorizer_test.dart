@@ -60,13 +60,44 @@ final class _FakeRegistry implements IRegistryService {
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
+/// A [_FakeRegistry] that counts how often its load methods are called —
+/// used to prove the gate reads the registry once per sync cycle, not once
+/// per oplog file (NOET-31 review: registry snapshot memoization).
+final class _CountingRegistry extends _FakeRegistry {
+  _CountingRegistry({required super.users, required super.devices});
+
+  int loadUserRegistryCalls = 0;
+  int loadDeviceRegistryCalls = 0;
+
+  @override
+  Future<UserRegistry?> loadUserRegistry() async {
+    loadUserRegistryCalls++;
+    return super.loadUserRegistry();
+  }
+
+  @override
+  Future<DeviceRegistry?> loadDeviceRegistry(String userId) async {
+    loadDeviceRegistryCalls++;
+    return super.loadDeviceRegistry(userId);
+  }
+}
+
 /// TOFU store that pins on first observation and reports substitution on a
 /// differing key (mirrors [TrustStoreImpl]'s decision logic without a file).
 final class _FakeTrustStore implements ITrustStore {
+  _FakeTrustStore({this.throwOnObserve = false});
+
+  /// When true, [observeKey] throws (models a malformed `trusted_keys.json`,
+  /// §8.4) so the gate's trust-store-error path can be exercised.
+  final bool throwOnObserve;
+
   final Map<String, String> pinned = {};
 
   @override
   Future<TrustDecision> observeKey(String vaultRootPath, String identifier, String publicKeyBase64Url) async {
+    if (throwOnObserve) {
+      throw const FormatException('trusted_keys.json is malformed');
+    }
     final stored = pinned[identifier];
     if (stored == null) {
       pinned[identifier] = publicKeyBase64Url;
@@ -303,6 +334,107 @@ void main() {
 
       expect(outcome.accepted.containsKey('devA'), isTrue);
       expect(outcome.rejections, isEmpty);
+    });
+  });
+
+  group('OpLogAuthorizer registry memoization (NOET-31 review: once per sync cycle) —', () {
+    const vault = '/vault';
+    const vaultId = 'vault-1';
+    const relPath = 'pages/notes/ideas.md';
+    OpLogSystem? oplogRef;
+
+    test('the registry snapshot is loaded once and shared across buildDag calls of a cycle', () async {
+      final a = await crypto.generateDeviceKeyPair();
+      final b = await crypto.generateDeviceKeyPair();
+      final users = _users([_user('owner', owner: true), _user('alice')]);
+      final registry = _CountingRegistry(
+        users: users,
+        devices: {
+          'alice': _devices('alice', [_device('devA', a.publicKeyBase64Url), _device('devB', b.publicKeyBase64Url)]),
+        },
+      );
+      final fs = _FakeFs();
+      final local = await crypto.generateDeviceKeyPair();
+      final keyStore = FakeSecureKeyStore();
+      await keyStore.storeDevicePrivateKey(vaultId, local.privateKeyBase64Url);
+      final deviceService = FakeDeviceService()
+        ..setDevice(DeviceIdentity(uuid: 'local-device', name: 'Local', createdAt: DateTime(2026), lastHlc: null, publicKey: local.publicKeyBase64Url));
+      final vaultSystem = createTestVaultSystem(fileSystem: fs, deviceService: deviceService);
+      final hlcService = HlcService(vaultSystem, deviceService);
+      addTearDown(() {
+        oplogRef?.dispose();
+        oplogRef = null;
+        vaultSystem.dispose();
+      });
+
+      final authorizer = OpLogAuthorizer(registry: registry, trustStore: _FakeTrustStore());
+      final oplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: deviceService,
+        crypto: crypto,
+        secureKeyStore: keyStore,
+        authorizer: authorizer,
+      );
+      vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'V', rootPath: '/vault', createdAt: DateTime(2026));
+      oplogRef = oplog;
+
+      Future<void> writeFile(String deviceId, ({String publicKeyBase64Url, String privateKeyBase64Url}) key, Hlc hlc) async {
+        await keyStore.storeDevicePrivateKey('vault-$deviceId', key.privateKeyBase64Url);
+        final signer = OpLogSigner(crypto: crypto, secureKeyStore: keyStore, serializer: const OpLogSerializer());
+        final signed = await signer.sign(
+          _entry(hlc: hlc, device: deviceId),
+          relPath,
+          vaultId: 'vault-$deviceId',
+          devicePublicKeyBase64Url: key.publicKeyBase64Url,
+        );
+        const dir = '/vault/.sync/$relPath';
+        if (!fs.dirs.contains(dir)) fs.dirs.add(dir);
+        await fs.appendToFile('$dir/$deviceId.oplog.jsonl', '${const OpLogSerializer().encode(signed)}\n');
+      }
+
+      await writeFile('devA', a, _h(100, 'devA'));
+      await writeFile('devB', b, _h(200, 'devB'));
+
+      // One sync cycle: the snapshot is prepared ONCE, then shared by every
+      // buildDag call of the cycle (mirrors SyncSystem.checkAll).
+      final snapshot = await oplog.prepareVerification();
+      expect(snapshot, isNotNull, reason: 'the gate is installed and the vault is active');
+      expect(registry.loadUserRegistryCalls, 1);
+      expect(registry.loadDeviceRegistryCalls, 2, reason: 'one device file per user in users.json (owner + alice)');
+
+      final dagA = await oplog.buildDag(relPath, verification: snapshot);
+      final dagB = await oplog.buildDag(relPath, verification: snapshot);
+
+      // No extra registry reads happened for the second (or first) file:
+      // the expensive read+verify pass ran exactly once for the whole cycle.
+      expect(registry.loadUserRegistryCalls, 1, reason: 'the shared snapshot must not re-read users.json per file');
+      expect(registry.loadDeviceRegistryCalls, 2, reason: 'the shared snapshot must not re-read device files per file');
+      expect(dagA.topology, DagTopology.diverged);
+      expect(dagB.topology, DagTopology.diverged);
+    });
+
+    test('a gate failure to read the TOFU store is reported as trust-store-error, not key-substitution', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      final registry = _FakeRegistry(
+        users: _users([_user('owner', owner: true), _user('alice')]),
+        devices: {
+          'alice': _devices('alice', [_device('devA', pair.publicKeyBase64Url)]),
+        },
+      );
+      final authorizer = OpLogAuthorizer(registry: registry, trustStore: _FakeTrustStore(throwOnObserve: true));
+
+      final outcome = await authorizer.authorize(
+        vaultRootPath: vault,
+        relativePath: relPath,
+        entriesByDevice: {
+          'devA': [_entry(hlc: _h(100, 'a'), device: 'devA', pubKey: pair.publicKeyBase64Url)],
+        },
+      );
+
+      expect(outcome.accepted, isEmpty, reason: 'a device whose key cannot be TOFU-verified is rejected (§8.4)');
+      expect(outcome.rejections.single.reason, 'trust-store-error');
     });
   });
 

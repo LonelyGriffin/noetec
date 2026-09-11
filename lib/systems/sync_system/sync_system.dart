@@ -9,6 +9,7 @@ import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
+import 'package:noetec/systems/oplog_system/oplog_authorizer.dart';
 import 'package:noetec/systems/oplog_system/oplog_dag.dart';
 import 'package:noetec/systems/oplog_system/oplog_system.dart';
 import 'package:noetec/systems/oplog_system/state_reconstruction_engine.dart';
@@ -110,10 +111,15 @@ class SyncSystem {
     final syncDir = '$_vaultRootPath/.sync';
     if (!await _fileSystem.directoryExists(syncDir)) return;
 
+    // The attribution gate's registry input is loaded once per sync cycle and
+    // shared by every file checked in it (sync-security.md §7), so the
+    // registry is read+verified once per cycle, not once per oplog file.
+    final verification = await _oplogSystem.prepareVerification();
+
     final oplogPaths = await _findAllOplogPaths(syncDir);
     for (final oplogPath in oplogPaths) {
       final relativePath = _extractOplogRelativePath(oplogPath);
-      await checkFile(relativePath);
+      await checkFile(relativePath, verification: verification);
     }
   }
 
@@ -136,7 +142,7 @@ class SyncSystem {
     return rel.substring(0, lastSlash);
   }
 
-  Future<void> checkFile(String relativePath) async {
+  Future<void> checkFile(String relativePath, {RegistrySnapshot? verification}) async {
     if (_conflictStore.hasConflicts(relativePath)) {
       _documentStates[relativePath] = DocumentSyncState.conflict;
       status.value = SyncStatus.conflict;
@@ -147,7 +153,10 @@ class SyncSystem {
     status.value = SyncStatus.checking;
 
     try {
-      final dag = await _oplogSystem.buildDag(relativePath);
+      // [verification] is the cycle's shared registry snapshot from
+      // [checkAll]; a watcher-triggered single-file check (no snapshot)
+      // falls back to a fresh gate load.
+      final dag = await _oplogSystem.buildDag(relativePath, verification: verification);
       final topology = dag.topology;
 
       if (topology == DagTopology.empty || topology == DagTopology.single) {

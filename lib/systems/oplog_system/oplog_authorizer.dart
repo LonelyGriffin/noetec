@@ -22,10 +22,7 @@ sealed class EntryAuthorization {
 
 /// The entry passed the full attribution chain and may contribute to the DAG.
 final class EntryAuthorized extends EntryAuthorization {
-  const EntryAuthorized({required this.userId});
-
-  /// The user the device is bound to (attribution: entry → device → user).
-  final String userId;
+  const EntryAuthorized();
 }
 
 /// The entry was rejected: the device's observed key differs from the
@@ -35,6 +32,14 @@ final class EntryKeySubstituted extends EntryAuthorization {
 
   final String storedKey;
   final String observedKey;
+}
+
+/// The entry was rejected: the TOFU trust store could not be read for the
+/// device (malformed `trusted_keys.json`, §8.4). Distinct from key
+/// substitution — a store failure must not prompt the user to "confirm a new
+/// key". The device is conservatively rejected; the failure is logged.
+final class EntryTrustStoreError extends EntryAuthorization {
+  const EntryTrustStoreError();
 }
 
 /// The entry was rejected: the device is not bound to a user by a valid
@@ -55,8 +60,8 @@ final class EntryUnauthorizedUser extends EntryAuthorization {
 final class EntryRejectionReport {
   const EntryRejectionReport({required this.reason, required this.devices, required this.entryCount});
 
-  /// A short reason token (`key-substitution`, `unbound-device`,
-  /// `unauthorized-user`) for grouping and matching.
+  /// A short reason token (`key-substitution`, `trust-store-error`,
+  /// `unbound-device`, `unauthorized-user`) for grouping and matching.
   final String reason;
 
   /// The affected device UUIDs, sorted for stable output.
@@ -84,6 +89,34 @@ final class AuthorizationOutcome {
   final List<EntryRejectionReport> rejections;
 
   bool get hasRejections => rejections.isNotEmpty;
+}
+
+/// The registry input of the attribution gate: the canonical `users.json`
+/// plus every user's canonical `devices/<userId>.json`.
+///
+/// A [RegistrySnapshot] is the result of one full load+verify pass over the
+/// registry area ([loadSnapshot]). The sync pipeline loads it **once per sync
+/// cycle** ([OpLogSystem.prepareVerification]) and threads it through every
+/// [OpLogAuthorizer.authorize] call of that cycle, so the expensive
+/// read-parse-verify work (O(users), with whole-file and per-record
+/// signature checks) is not repeated for every `.oplog.jsonl` file.
+///
+/// A snapshot is a point-in-time read of the registry, and the gate is
+/// stateless with respect to it: it does not observe or mutate the registry,
+/// so a snapshot loaded at the start of a cycle remains valid for the whole
+/// cycle.
+final class RegistrySnapshot {
+  const RegistrySnapshot({required this.users, required this.deviceFiles});
+
+  /// The canonical user registry, or `null` when absent/unreadable (the vault
+  /// is public, §8.2).
+  final UserRegistry? users;
+
+  /// The canonical device registries, keyed by `userId` — loaded for every
+  /// user listed in [users] (including revoked users, so a device bound to a
+  /// revoked user resolves to that user and is rejected as
+  /// `unauthorized-user` rather than merely unbound).
+  final Map<String, DeviceRegistry> deviceFiles;
 }
 
 /// Runs the attribution/authorization portion of the verification chain
@@ -116,27 +149,68 @@ class OpLogAuthorizer {
 
   static final Logger _log = Logger('OpLogAuthorizer');
 
+  /// Loads the registry input of the attribution gate exactly once: the
+  /// canonical `users.json` and, for every user listed in it, the canonical
+  /// `devices/<userId>.json`.
+  ///
+  /// This is the expensive step (a disk read + JSON parse + whole-file and
+  /// per-record signature verification per file, via
+  /// [IRegistryService.loadUserRegistry] / [IRegistryService.loadDeviceRegistry]).
+  /// The sync pipeline calls it **once per sync cycle**
+  /// ([OpLogSystem.prepareVerification]) and passes the result to every
+  /// [authorize] call of that cycle — not once per `.oplog.jsonl` file.
+  ///
+  /// Any load failure degrades to "absent" (public vault semantics, §8.2)
+  /// rather than locking out devices; a registry cycle is treated as absent
+  /// (§11).
+  Future<RegistrySnapshot> loadSnapshot() async {
+    UserRegistry? users;
+    try {
+      users = await _registry.loadUserRegistry();
+    } on Exception catch (e) {
+      _log.warning('user registry could not be loaded — treating the vault as public (§8.2): $e');
+    }
+    final deviceFiles = <String, DeviceRegistry>{};
+    if (users != null) {
+      for (final user in users.users) {
+        try {
+          final file = await _registry.loadDeviceRegistry(user.userId);
+          if (file != null) deviceFiles[user.userId] = file;
+        } on Exception catch (e) {
+          _log.warning('device registry for user ${user.userId} could not be loaded: $e');
+        }
+      }
+    }
+    return RegistrySnapshot(users: users, deviceFiles: deviceFiles);
+  }
+
   /// Runs TOFU, certificate and registry-filter over [entriesByDevice] (one
   /// device file's entries per device, as produced by the read path after §7
   /// steps 1–2) for the page at [relativePath].
   ///
-  /// [vaultRootPath] is the active vault root (scoping the TOFU store). The
-  /// registries are loaded once per call (a small, constant cost per sync
-  /// cycle, §11) and treated as absent on failure, per §8.2.
-  Future<AuthorizationOutcome> authorize({required String vaultRootPath, required String relativePath, required Map<String, List<OpLogEntry>> entriesByDevice}) async {
+  /// [vaultRootPath] is the active vault root (scoping the TOFU store).
+  /// [snapshot] is the cycle's registry input, as produced by
+  /// [loadSnapshot] / [OpLogSystem.prepareVerification]; when omitted it is
+  /// loaded on demand (low-level use — the sync pipeline always supplies it).
+  Future<AuthorizationOutcome> authorize({
+    required String vaultRootPath,
+    required String relativePath,
+    required Map<String, List<OpLogEntry>> entriesByDevice,
+    RegistrySnapshot? snapshot,
+  }) async {
     final accepted = <String, List<OpLogEntry>>{};
     final countsByReason = <String, int>{};
     final devicesByReason = <String, Set<String>>{};
 
-    final registries = await _loadRegistries();
-    final users = registries.users;
-    final deviceFiles = registries.deviceFiles;
+    final snap = snapshot ?? await loadSnapshot();
+    final users = snap.users;
+    final deviceFiles = snap.deviceFiles;
 
     for (final device in entriesByDevice.keys) {
       final entries = entriesByDevice[device]!;
       if (entries.isEmpty) continue;
 
-      final result = await _authorizeDevice(device: device, entries: entries, relativePath: relativePath, vaultRootPath: vaultRootPath, users: users, deviceFiles: deviceFiles);
+      final result = await _authorizeDevice(device: device, entries: entries, vaultRootPath: vaultRootPath, users: users, deviceFiles: deviceFiles);
 
       if (result.authorization is EntryAuthorized) {
         accepted[device] = entries;
@@ -163,37 +237,9 @@ class OpLogAuthorizer {
     return AuthorizationOutcome(accepted: accepted, rejections: rejections);
   }
 
-  /// Loads the canonical `users.json` and, for every user listed in it, the
-  /// canonical `devices/<userId>.json` — including revoked users, so a device
-  /// bound to a revoked user resolves to that user and is rejected by the
-  /// registry filter as `unauthorized-user` (rather than merely unbound). Any
-  /// load failure degrades to "absent" (public vault semantics, §8.2) rather
-  /// than locking out devices.
-  Future<({UserRegistry? users, Map<String, DeviceRegistry> deviceFiles})> _loadRegistries() async {
-    UserRegistry? users;
-    try {
-      users = await _registry.loadUserRegistry();
-    } on Exception catch (e) {
-      _log.warning('user registry could not be loaded — treating the vault as public (§8.2): $e');
-    }
-    final deviceFiles = <String, DeviceRegistry>{};
-    if (users != null) {
-      for (final user in users.users) {
-        try {
-          final file = await _registry.loadDeviceRegistry(user.userId);
-          if (file != null) deviceFiles[user.userId] = file;
-        } on Exception catch (e) {
-          _log.warning('device registry for user ${user.userId} could not be loaded: $e');
-        }
-      }
-    }
-    return (users: users, deviceFiles: deviceFiles);
-  }
-
-  Future<({EntryAuthorization authorization, String? userId})> _authorizeDevice({
+  Future<({EntryAuthorization authorization})> _authorizeDevice({
     required String device,
     required List<OpLogEntry> entries,
-    required String relativePath,
     required String vaultRootPath,
     required UserRegistry? users,
     required Map<String, DeviceRegistry> deviceFiles,
@@ -204,7 +250,7 @@ class OpLogAuthorizer {
     // migration.
     final observedKey = _observedKey(entries);
     if (observedKey == null) {
-      return (authorization: const EntryAuthorized(userId: ''), userId: null);
+      return (authorization: const EntryAuthorized());
     }
 
     // §7 step 3 — TOFU. Pin or reject the device key before any registry
@@ -213,13 +259,15 @@ class OpLogAuthorizer {
     try {
       tofu = await _trustStore.observeKey(vaultRootPath, device, observedKey);
     } on Exception catch (e) {
-      _log.warning('TOFU observation failed for device $device: $e');
-      return (authorization: EntryKeySubstituted(storedKey: '<store-error>', observedKey: observedKey), userId: null);
+      // A store failure (e.g. a malformed trusted_keys.json, §8.4) is NOT key
+      // substitution: reject the device and report the distinct reason.
+      _log.warning('TOFU store could not be read for device $device — entry rejected (trust-store-error): $e');
+      return (authorization: const EntryTrustStoreError());
     }
     if (tofu is TrustSubstituted) {
       // §5.2 rule 3 / §3.5: a substituted key is NOT trusted and the file's
       // entries MUST NOT be merged (applies even in a public vault).
-      return (authorization: EntryKeySubstituted(storedKey: tofu.storedKey, observedKey: observedKey), userId: null);
+      return (authorization: EntryKeySubstituted(storedKey: tofu.storedKey, observedKey: observedKey));
     }
 
     // §7 step 4 — certificate. Resolve the device to its user by a live
@@ -238,19 +286,13 @@ class OpLogAuthorizer {
       // No live certificate binds this device to an authorized user.
       // Public vault (§8.2): no users.json ⇒ no registry ⇒ any device with a
       // valid (TOFU-cleared) key may contribute.
-      if (users == null) {
-        return (authorization: const EntryAuthorized(userId: ''), userId: null);
-      }
-      return (authorization: const EntryUnboundDevice(), userId: null);
+      return users == null ? (authorization: const EntryAuthorized()) : (authorization: const EntryUnboundDevice());
     }
-    if (users == null) {
-      return (authorization: EntryAuthorized(userId: boundUser), userId: boundUser);
-    }
-    final userRecord = users.usersById[boundUser];
+    final userRecord = users?.usersById[boundUser];
     if (userRecord == null || userRecord.isRemoved) {
-      return (authorization: const EntryUnauthorizedUser(), userId: boundUser);
+      return (authorization: const EntryUnauthorizedUser());
     }
-    return (authorization: EntryAuthorized(userId: boundUser), userId: boundUser);
+    return (authorization: const EntryAuthorized());
   }
 
   /// The key the entries verified under: the first non-null `pubKey` in file
@@ -264,6 +306,7 @@ class OpLogAuthorizer {
 
   static String _reasonOf(EntryAuthorization authorization) {
     if (authorization is EntryKeySubstituted) return 'key-substitution';
+    if (authorization is EntryTrustStoreError) return 'trust-store-error';
     if (authorization is EntryUnboundDevice) return 'unbound-device';
     if (authorization is EntryUnauthorizedUser) return 'unauthorized-user';
     return 'authorized';
@@ -282,6 +325,7 @@ class OpLogAuthorizer {
     final detail = switch (authorization) {
       EntryKeySubstituted(:final storedKey, :final observedKey) =>
         ': key substitution detected (TOFU §5.2) — stored=$storedKey observed=$observedKey. Confirm the new key to adopt it.',
+      EntryTrustStoreError() => ': the TOFU trust store could not be read (trust-store-error, §8.4) — the device was not trusted.',
       EntryUnboundDevice() => ': device is not bound to any user by a valid certificate (registry §3.5).',
       EntryUnauthorizedUser() => ': the device\'s user is not authorized in users.json (absent or revoked, registry §3.5).',
       _ => '.',
