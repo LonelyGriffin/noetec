@@ -16,6 +16,8 @@ final class DeviceIdentity {
 
   DeviceIdentity withLastHlc(String hlcKey) => DeviceIdentity(uuid: uuid, name: name, createdAt: createdAt, lastHlc: hlcKey, publicKey: publicKey);
 
+  DeviceIdentity withName(String newName) => DeviceIdentity(uuid: uuid, name: newName, createdAt: createdAt, lastHlc: lastHlc, publicKey: publicKey);
+
   Map<String, dynamic> toJson() => {'uuid': uuid, 'name': name, 'created_at': createdAt.toIso8601String(), 'last_hlc': lastHlc, 'public_key': publicKey};
 
   factory DeviceIdentity.fromJson(Map<String, dynamic> json) => DeviceIdentity(

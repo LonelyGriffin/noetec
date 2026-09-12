@@ -14,6 +14,14 @@ import 'secure_key_store.dart';
 abstract interface class IDeviceService {
   DeviceIdentity? get currentDevice;
   Future<DeviceIdentity> ensureDevice(String vaultRootPath, String vaultId);
+
+  /// Renames the local device in `.noetec/device.json` and updates the
+  /// in-memory [currentDevice]. The device's `lastHlc` is preserved.
+  ///
+  /// The display name is a local label only (it does not rebind the device
+  /// certificate in the synced registry — renaming the device in the
+  /// `devices/<userId>.json` certificate is a separate registry operation).
+  Future<DeviceIdentity> renameDevice(String vaultRootPath, String newName);
   Future<void> updateLastHlc(String vaultRootPath, String hlcKey);
   void clear();
 }
@@ -52,6 +60,19 @@ class DeviceServiceImpl implements IDeviceService {
     _currentDevice = _currentDevice!.withLastHlc(hlcKey);
     final devicePath = '$vaultRootPath/.noetec/device.json';
     await _fileSystem.writeFile(devicePath, jsonEncode(_currentDevice!.toJson()));
+  }
+
+  @override
+  Future<DeviceIdentity> renameDevice(String vaultRootPath, String newName) async {
+    final device = _currentDevice;
+    if (device == null) {
+      throw StateError('no local device to rename (call ensureDevice first)');
+    }
+    final renamed = device.withName(newName);
+    _currentDevice = renamed;
+    final devicePath = '$vaultRootPath/.noetec/device.json';
+    await _fileSystem.writeFile(devicePath, jsonEncode(renamed.toJson()));
+    return renamed;
   }
 
   @override
