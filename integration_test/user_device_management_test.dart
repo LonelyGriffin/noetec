@@ -25,12 +25,15 @@ import 'helpers/widget_finders.dart';
 /// user-facing behavior of the NOET-33 user & device management panel from the
 /// user's perspective.
 ///
-/// Two scenarios:
-///  - "fresh vault"  — a real user creating a vault through the UI, with NO
-///    onboarding. Documents that the identity/registries are never created, so
-///    add/revoke/seed are unreachable (the user cannot exercise the core
-///    acceptance criteria).
-///  - "on-boarded"   — the same panel given an on-boarded vault, proving the
+/// Three scenarios:
+///  - "fresh vault"     — a real user creating a vault through the UI. The
+///    identity/registries do not yet exist, and the panel now offers the
+///    onboarding entry point ("Become the owner") that makes them reachable.
+///  - "become the owner" — drives the NOET-33 rework: from a fresh vault, the
+///    user taps "Become the owner", sees the one-time 24-word seed, and after
+///    that the management surface (owner badge, add user, revoke, show seed)
+///    becomes reachable — the exact gap flagged in the first QA run.
+///  - "on-boarded"      — the same panel given an on-boarded vault, proving the
 ///    NOET-33 UI (rename / add user / revoke / show seed) is correct.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -121,6 +124,75 @@ void main() {
       expect(await File(p.join(vaultPath, '.noetec', 'identity.json')).exists(), isFalse, reason: 'identity is never created for a real user');
       expect(await File(p.join(vaultPath, '.sync', 'users.json')).exists(), isFalse, reason: 'users.json is never created');
       expect(await Directory(p.join(vaultPath, '.sync', 'devices')).exists(), isFalse, reason: 'device registry is never created');
+    });
+
+    testWidgets('fresh vault: "Become the owner" onboards and makes management reachable', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(const MainApp());
+      await tester.pumpAndSettle();
+
+      final vaultPath = await createVaultViaUi(tester, fileSystem, 'OnboardVault');
+      await openSettingsAndWait(tester);
+
+      // --- The rework's entry point: a fresh vault offers onboarding ---
+      expect(find.text('Your identity'), findsOneWidget, reason: 'no local identity -> the "Your identity" section is shown');
+      expect(find.widgetWithText(FilledButton, 'Become the owner'), findsOneWidget, reason: 'no owner yet -> bootstrap path offered');
+
+      // --- Tap "Become the owner" -> the setup dialog ---
+      await tester.tap(find.widgetWithText(FilledButton, 'Become the owner'));
+      await tester.pumpAndSettle();
+      expect(find.text('Become the owner').evaluate().length, greaterThan(1), reason: 'section title + dialog title both present');
+
+      // --- Enter the owner name and submit ("Create") ---
+      await tester.enterText(find.byWidgetPredicate((w) => w is TextField && w.decoration?.labelText == 'Your name'), 'Jane');
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      // --- The one-time 24-word recovery seed is revealed (ADR-0007 §2) ---
+      expect(find.text('Recovery seed'), findsOneWidget, reason: 'the seed reveal dialog is shown');
+      final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+      final words = selectable.data!.trim().split(RegExp(r'\s+'));
+      expect(words.length, 24, reason: 'BIP39 24-word mnemonic is shown once after onboarding');
+      await tester.tap(find.widgetWithText(TextButton, 'Close'));
+      await tester.pumpAndSettle();
+
+      // --- The setup dialog is dismissed; the panel now reflects an owner ---
+      expect(find.text('Your identity'), findsNothing, reason: 'identity now set -> the onboarding section is gone');
+      expect(find.byTooltip('Add user'), findsOneWidget, reason: 'operator is now the owner -> owner-only actions are enabled');
+
+      // --- Add a user by public key (now reachable) ---
+      await tester.tap(find.byTooltip('Add user'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == "Alice's key"), 'Alice');
+      await tester.enterText(find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == 'Ed25519 identity key'), validPublicKey(1));
+      await tester.tap(find.widgetWithText(FilledButton, 'Add user'));
+      await pumpUntil(tester, () => find.text('Alice').evaluate().isNotEmpty, what: 'added user');
+
+      // --- Revoke the added user (now reachable) ---
+      final aliceTile = find.ancestor(of: find.text('Alice'), matching: find.byType(Card)).first;
+      await tester.tap(find.descendant(of: aliceTile, matching: find.byTooltip('Revoke user')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Revoke'));
+      await pumpUntil(tester, () => find.text('Revoked').evaluate().isNotEmpty, what: 'revoked user state');
+
+      // --- Show the recovery seed on demand (now reachable) ---
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Show recovery seed'));
+      await tester.pumpAndSettle();
+      expect(find.text('Recovery seed'), findsOneWidget);
+      final seedWords = tester.widget<SelectableText>(find.byType(SelectableText)).data!.trim().split(RegExp(r'\s+'));
+      expect(seedWords.length, 24, reason: 'seed is retrievable on demand after onboarding');
+      await tester.tap(find.widgetWithText(TextButton, 'Close'));
+      await tester.pumpAndSettle();
+
+      // --- On-disk proof: the registries the gap was missing now exist ---
+      expect(await File(p.join(vaultPath, '.noetec', 'identity.json')).exists(), isTrue, reason: 'onboarding created the identity');
+      expect(await File(p.join(vaultPath, '.sync', 'users.json')).exists(), isTrue, reason: 'onboarding created users.json');
+      final usersRaw = await File(p.join(vaultPath, '.sync', 'users.json')).readAsString();
+      expect(usersRaw, contains('Jane'), reason: 'the owner is recorded in users.json');
+      expect(await Directory(p.join(vaultPath, '.sync', 'devices')).exists(), isTrue, reason: 'onboarding created the device registry');
     });
 
     testWidgets('on-boarded vault: rename / add user / revoke / show seed all work', (tester) async {
