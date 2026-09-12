@@ -92,6 +92,12 @@ class _RecordingDeviceService implements IDeviceService {
   }
 
   @override
+  Future<DeviceIdentity> renameDevice(String vaultRootPath, String newName) async {
+    _device = _device.withName(newName);
+    return _device;
+  }
+
+  @override
   void clear() {}
 }
 

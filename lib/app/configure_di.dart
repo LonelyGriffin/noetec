@@ -14,6 +14,7 @@ import 'package:noetec/service/rename_controller.dart';
 import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/service/settings_service.dart';
 import 'package:noetec/service/trust_store.dart';
+import 'package:noetec/service/user_device_controller.dart';
 import 'package:noetec/service/user_service.dart';
 import 'package:noetec/service/vault_file_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
@@ -76,6 +77,17 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
       crypto: getIt<ICryptoService>(),
       idService: getIt<IIdService>(),
       vaultSystem: getIt<VaultSystem>(),
+    ),
+  );
+
+  getIt.registerSingleton<UserDeviceController>(
+    UserDeviceController(
+      vaultSystem: getIt<VaultSystem>(),
+      userService: getIt<IUserService>(),
+      deviceService: getIt<IDeviceService>(),
+      registry: getIt<IRegistryService>(),
+      onboarding: getIt<IOnboardingService>(),
+      secureKeyStore: getIt<ISecureKeyStore>(),
     ),
   );
 

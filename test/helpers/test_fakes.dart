@@ -1,3 +1,8 @@
+// Noetec.
+// Copyright (c) 2026 The Noetec Authors.
+// See the AUTHORS file for the full list of contributors.
+// AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+
 import 'dart:async';
 
 import 'package:noetec/entity/device/device_identity.dart';
@@ -73,6 +78,14 @@ class FakeDeviceService implements IDeviceService {
     if (_device != null) {
       _device = _device!.withLastHlc(hlcKey);
     }
+  }
+
+  @override
+  Future<DeviceIdentity> renameDevice(String vaultRootPath, String newName) async {
+    final d = _device;
+    if (d == null) throw StateError('no device');
+    _device = d.withName(newName);
+    return _device!;
   }
 
   @override

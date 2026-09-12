@@ -139,6 +139,14 @@ class FakeDeviceService implements IDeviceService {
   Future<void> updateLastHlc(String vaultRootPath, String hlcKey) async {}
 
   @override
+  Future<DeviceIdentity> renameDevice(String vaultRootPath, String newName) async {
+    final d = _device;
+    if (d == null) throw StateError('no device');
+    _device = d.withName(newName);
+    return _device!;
+  }
+
+  @override
   void clear() {
     _device = null;
   }
