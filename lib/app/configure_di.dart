@@ -9,6 +9,7 @@ import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/hlc_service.dart';
 import 'package:noetec/service/id_service.dart';
+import 'package:noetec/service/onboarding_service.dart';
 import 'package:noetec/service/rename_controller.dart';
 import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/service/settings_service.dart';
@@ -62,6 +63,18 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
       hlcService: getIt<HlcService>(),
       crypto: getIt<ICryptoService>(),
       secureKeyStore: getIt<ISecureKeyStore>(),
+      vaultSystem: getIt<VaultSystem>(),
+    ),
+  );
+
+  getIt.registerSingleton<IOnboardingService>(
+    OnboardingServiceImpl(
+      fileSystem: getIt<IFileSystemService>(),
+      deviceService: getIt<IDeviceService>(),
+      userService: getIt<IUserService>(),
+      registry: getIt<IRegistryService>(),
+      crypto: getIt<ICryptoService>(),
+      idService: getIt<IIdService>(),
       vaultSystem: getIt<VaultSystem>(),
     ),
   );
