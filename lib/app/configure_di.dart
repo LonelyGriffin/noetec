@@ -16,6 +16,7 @@ import 'package:noetec/service/trust_store.dart';
 import 'package:noetec/service/user_service.dart';
 import 'package:noetec/service/vault_file_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
+import 'package:noetec/systems/oplog_system/oplog_authorizer.dart';
 import 'package:noetec/systems/oplog_system/oplog_system.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/systems/persistence_system/crash_recovery_service.dart';
@@ -55,6 +56,16 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
 
   getIt.registerSingleton<WalService>(WalService(getIt<IFileSystemService>(), getIt<VaultSystem>()));
 
+  getIt.registerSingleton<IRegistryService>(
+    RegistryServiceImpl(
+      fileSystem: getIt<IFileSystemService>(),
+      hlcService: getIt<HlcService>(),
+      crypto: getIt<ICryptoService>(),
+      secureKeyStore: getIt<ISecureKeyStore>(),
+      vaultSystem: getIt<VaultSystem>(),
+    ),
+  );
+
   getIt.registerSingleton<OpLogSystem>(
     OpLogSystem(
       fileSystem: getIt<IFileSystemService>(),
@@ -63,6 +74,7 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
       deviceService: getIt<IDeviceService>(),
       crypto: getIt<ICryptoService>(),
       secureKeyStore: getIt<ISecureKeyStore>(),
+      authorizer: OpLogAuthorizer(registry: getIt<IRegistryService>(), trustStore: getIt<ITrustStore>()),
     ),
   );
 
@@ -81,16 +93,6 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
       markdownSystem: getIt<MarkdownSystem>(),
       vaultSystem: getIt<VaultSystem>(),
       deviceService: getIt<IDeviceService>(),
-    ),
-  );
-
-  getIt.registerSingleton<IRegistryService>(
-    RegistryServiceImpl(
-      fileSystem: getIt<IFileSystemService>(),
-      hlcService: getIt<HlcService>(),
-      crypto: getIt<ICryptoService>(),
-      secureKeyStore: getIt<ISecureKeyStore>(),
-      vaultSystem: getIt<VaultSystem>(),
     ),
   );
 }
