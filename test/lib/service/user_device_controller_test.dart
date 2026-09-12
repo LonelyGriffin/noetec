@@ -216,4 +216,124 @@ void main() {
       expect(h.controller.state.value, isNull);
     });
   });
+
+  group('bootstrap/restore affordances —', () {
+    test('canBootstrapOwner is true for an un-onboarded vault', () async {
+      final h = await buildUserDeviceHarness();
+      await h.controller.refreshCommand.runAsync();
+
+      // No identity and no users.json: the vault has no owner yet.
+      expect(h.controller.canBootstrapOwner, isTrue);
+      expect(h.controller.canRestoreIdentity, isFalse);
+    });
+
+    test('canRestoreIdentity is true when users.json exists but there is no local identity', () async {
+      // Device A: create an on-boarded vault (owner + registries).
+      final a = await buildOnboardedHarness();
+      // Device B: same synced registry, but a fresh machine (no identity, no
+      // local device) — the "restore from seed" case.
+      final b = await buildFreshDeviceOf(a.$1, a.$2.owner.userId);
+      await b.controller.refreshCommand.runAsync();
+
+      expect(b.controller.state.value!.operator, isNull);
+      expect(b.controller.state.value!.users, isNotNull);
+      expect(b.controller.canBootstrapOwner, isFalse);
+      expect(b.controller.canRestoreIdentity, isTrue);
+    });
+
+    test('both are false once the operator is onboarded', () async {
+      final (h, _) = await buildOnboardedHarness();
+      await h.controller.refreshCommand.runAsync();
+
+      expect(h.controller.canBootstrapOwner, isFalse);
+      expect(h.controller.canRestoreIdentity, isFalse);
+    });
+  });
+
+  group('bootstrapOwnerCommand —', () {
+    test('creates the owner identity + registries and returns the 24-word seed', () async {
+      final h = await buildUserDeviceHarness();
+      await h.controller.refreshCommand.runAsync();
+
+      final mnemonic = await h.controller.bootstrapOwnerCommand.runAsync((ownerName: 'Owner', deviceName: 'My Device'));
+
+      // The one-time backup seed is returned (24 BIP39 words) ...
+      expect(bip39.validateMnemonic(mnemonic), isTrue);
+      expect(mnemonic.split(' ').length, 24);
+      // ... and the snapshot now shows the owner + populated registries.
+      final snapshot = h.controller.state.value!;
+      expect(snapshot.operator, isNotNull);
+      expect(snapshot.operator!.name, 'Owner');
+      expect(snapshot.operator!.role, 'owner');
+      expect(snapshot.users, isNotNull);
+      expect(snapshot.users!.ownerUserId, snapshot.operator!.userId);
+      expect(snapshot.users!.users, hasLength(1));
+      expect(snapshot.devices, isNotNull);
+      expect(snapshot.devices!.devices, hasLength(1));
+      // The identity is persisted to disk.
+      expect(h.fs.files.containsKey('${UserDeviceHarness.root}/.noetec/identity.json'), isTrue);
+      // The one-time seed is NOT stored in reactive state.
+      expect(snapshot.operator?.toString().contains(mnemonic), isFalse);
+    });
+
+    test('rejects an empty owner name', () async {
+      final h = await buildUserDeviceHarness();
+      await h.controller.refreshCommand.runAsync();
+
+      await runSwallow(() => h.controller.bootstrapOwnerCommand.runAsync((ownerName: '   ', deviceName: null)));
+      await settleErrors(h.controller.bootstrapOwnerCommand);
+
+      expect(h.controller.bootstrapOwnerCommand.errors.value, isNotNull);
+      expect(h.controller.bootstrapOwnerCommand.errors.value!.error, isA<UserDeviceError>());
+      expect(h.controller.state.value!.operator, isNull);
+    });
+
+    test('refuses to bootstrap a vault that already has an owner', () async {
+      final (h, _) = await buildOnboardedHarness();
+      await h.controller.refreshCommand.runAsync();
+
+      await runSwallow(() => h.controller.bootstrapOwnerCommand.runAsync((ownerName: 'Sneaky', deviceName: null)));
+      await settleErrors(h.controller.bootstrapOwnerCommand);
+
+      expect(h.controller.bootstrapOwnerCommand.errors.value, isNotNull);
+      final err = h.controller.bootstrapOwnerCommand.errors.value!.error as UserDeviceError;
+      expect(err.message, 'This vault already has an owner.');
+      // The original owner is unchanged.
+      expect(h.controller.state.value!.users!.users, hasLength(1));
+    });
+  });
+
+  group('restoreIdentityCommand —', () {
+    test('restores the identity from the seed and binds the device', () async {
+      final (h, result) = await buildOnboardedHarness();
+      // A fresh machine: same synced registry, no local identity/device.
+      final b = await buildFreshDeviceOf(h, result.owner.userId);
+
+      await b.controller.restoreIdentityCommand.runAsync((mnemonic: result.mnemonic, deviceName: null));
+
+      expect(b.controller.restoreIdentityCommand.errors.value, isNull);
+      final snapshot = b.controller.state.value!;
+      // The restored identity matches the owner by public key / userId.
+      expect(snapshot.operator, isNotNull);
+      expect(snapshot.operator!.userId, result.owner.userId);
+      expect(snapshot.operator!.publicKey, result.owner.publicKey);
+      // The local device is bound (a certificate in the operator's registry).
+      expect(snapshot.devices, isNotNull);
+      expect(snapshot.devices!.devices, isNotEmpty);
+      expect(b.fs.files.containsKey('${UserDeviceHarness.root}/.noetec/identity.json'), isTrue);
+    });
+
+    test('rejects an empty seed', () async {
+      final (h, result) = await buildOnboardedHarness();
+      final b = await buildFreshDeviceOf(h, result.owner.userId);
+      await b.controller.refreshCommand.runAsync();
+
+      await runSwallow(() => b.controller.restoreIdentityCommand.runAsync((mnemonic: '   ', deviceName: null)));
+      await settleErrors(b.controller.restoreIdentityCommand);
+
+      expect(b.controller.restoreIdentityCommand.errors.value, isNotNull);
+      expect(b.controller.restoreIdentityCommand.errors.value!.error, isA<UserDeviceError>());
+      expect(b.controller.state.value!.operator, isNull);
+    });
+  });
 }

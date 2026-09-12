@@ -14,6 +14,23 @@ import 'package:noetec/view/widgets/content_panel/settings_panel.dart';
 
 import '../../../../helpers/user_device_harness.dart';
 
+/// Finds a [TextField] by the label text of its decoration (dialogs reuse the
+/// same widget type, so type-based finders are ambiguous).
+Finder _textFieldWithLabel(String label) => find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.labelText == label);
+
+/// Renders the [SettingsPanel] over a vault the given [harness] manages (the
+/// harness's [UserDeviceController] and [VaultSystem] are wired into get_it,
+/// which the panel resolves via `di<...>()`).
+Future<UserDeviceHarness> _pumpBareSettings(WidgetTester tester, [UserDeviceHarness? harness]) async {
+  await GetIt.instance.reset();
+  final h = harness ?? await buildUserDeviceHarness();
+  GetIt.instance.registerSingleton<VaultSystem>(h.vault);
+  GetIt.instance.registerSingleton<UserDeviceController>(h.controller);
+  await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SettingsPanel())));
+  await tester.pumpAndSettle();
+  return h;
+}
+
 /// Renders the [SettingsPanel] over the real in-memory harness, wiring the
 /// harness's [UserDeviceController] and [VaultSystem] into get_it (the panel
 /// resolves both via `di<...>()`).
@@ -127,5 +144,73 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(find.text('Add user'), findsNothing);
+  });
+
+  group('identity setup —', () {
+    testWidgets('new vault: "Become the owner" creates the identity and reveals the seed once', (tester) async {
+      final h = await _pumpBareSettings(tester);
+
+      // The identity section offers setup (no owner yet) — and no restore.
+      expect(find.text('Your identity'), findsOneWidget);
+      expect(find.text('Become the owner'), findsOneWidget);
+      expect(find.text('Restore from recovery seed'), findsNothing);
+
+      // The management sections are present but unmanaged (no identity).
+      expect(find.text('No user registry yet'), findsOneWidget);
+
+      // Set up the owner.
+      await tester.tap(find.text('Become the owner'));
+      await tester.pumpAndSettle();
+      expect(find.text('Become the owner'), findsNWidgets(2)); // section button + dialog title
+      await tester.enterText(_textFieldWithLabel('Your name'), 'Owner');
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      // The setup dialog closes, the command runs, the seed dialog opens.
+      await tester.pumpAndSettle();
+
+      // The one-time 24-word seed is revealed (and only via this dialog).
+      expect(find.text('Recovery seed'), findsOneWidget);
+      final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+      expect(selectable.data!.trim().split(RegExp(r'\s+')), hasLength(24));
+      await tester.tap(find.widgetWithText(TextButton, 'Close'));
+      await tester.pumpAndSettle();
+      expect(find.text('Recovery seed'), findsNothing);
+
+      // The identity section is gone; the owner is now listed and the device
+      // registry is populated.
+      expect(find.text('Your identity'), findsNothing);
+      expect(find.text('Owner'), findsOneWidget);
+      expect(find.text('No user registry yet'), findsNothing);
+      expect(h.controller.state.value!.operator?.name, 'Owner');
+    });
+
+    testWidgets('owned vault, fresh device: "Restore from recovery seed" re-joins the owner', (tester) async {
+      // Device A onboards; device B is a fresh machine with the synced registry.
+      final (a, result) = await buildOnboardedHarness();
+      final b = await buildFreshDeviceOf(a, result.owner.userId);
+      await _pumpBareSettings(tester, b);
+
+      // The restore offer (the vault already has an owner, so no bootstrap).
+      expect(find.text('Restore from recovery seed'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Become the owner'), findsNothing);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Restore from recovery seed'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_textFieldWithLabel('Recovery seed (24 words)'), result.mnemonic);
+      await tester.tap(find.widgetWithText(FilledButton, 'Restore'));
+      await tester.pumpAndSettle();
+
+      // The identity is restored: the owner is listed again and the identity
+      // section disappears.
+      expect(find.text('Your identity'), findsNothing);
+      expect(find.text('Owner'), findsOneWidget);
+      expect(b.controller.state.value!.operator?.userId, result.owner.userId);
+    });
+
+    testWidgets('onboarded vault: the identity section is hidden', (tester) async {
+      await _pumpSettings(tester);
+      expect(find.text('Your identity'), findsNothing);
+      expect(find.text('Become the owner'), findsNothing);
+      expect(find.text('Restore from recovery seed'), findsNothing);
+    });
   });
 }

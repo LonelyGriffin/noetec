@@ -142,3 +142,29 @@ String validPublicKey(int seed) {
   final bytes = List<int>.generate(32, (i) => (seed + i * 7) & 0xff);
   return base64UrlEncodeNoPad(bytes);
 }
+
+/// Builds a "fresh machine" harness: a brand-new device/identity state but the
+/// same synced `.sync/` registry files as [onboarded], so the restore-from-seed
+/// path (a `users.json` owner exists but this device has no identity) is
+/// exercised. Mirrors the onboarding restore test's device-B setup.
+Future<UserDeviceHarness> buildFreshDeviceOf(UserDeviceHarness onboarded, String ownerUserId) async {
+  final b = await buildUserDeviceHarness();
+  // Bring over the synced registry files (users.json + the owner's device file).
+  b.fs.dirs.addAll({'${UserDeviceHarness.root}/.noetec', '${UserDeviceHarness.root}/.sync', '${UserDeviceHarness.root}/.sync/devices'});
+  final usersJson = onboarded.fs.files['${UserDeviceHarness.root}/.sync/users.json'];
+  if (usersJson != null) {
+    b.fs.files['${UserDeviceHarness.root}/.sync/users.json'] = usersJson;
+  }
+  final deviceFile = onboarded.fs.files['${UserDeviceHarness.root}/.sync/devices/$ownerUserId.json'];
+  if (deviceFile != null) {
+    b.fs.files['${UserDeviceHarness.root}/.sync/devices/$ownerUserId.json'] = deviceFile;
+  }
+  // Wipe the local identity/device so this is a clean machine (restore
+  // regenerates the device and re-binds it). This harness's key store is fresh
+  // (buildUserDeviceHarness creates a new one), so no identity secret lingers.
+  b.fs.files.remove('${UserDeviceHarness.root}/.noetec/identity.json');
+  b.fs.files.remove('${UserDeviceHarness.root}/.noetec/device.json');
+  b.deviceService.clear();
+  await b.keyStore.deleteDevicePrivateKey(UserDeviceHarness.vaultId);
+  return b;
+}

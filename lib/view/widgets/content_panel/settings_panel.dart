@@ -47,15 +47,25 @@ class SettingsPanel extends WatchingWidget {
           const SizedBox(height: 24),
           if (snapshot == null)
             const Expanded(child: Center(child: CircularProgressIndicator()))
-          else ...[
-            _DeviceSection(controller: controller, snapshot: snapshot),
-            const SizedBox(height: 20),
-            _UsersSection(controller: controller, snapshot: snapshot),
-            const SizedBox(height: 8),
+          else
             Expanded(
-              child: _DevicesSection(controller: controller, snapshot: snapshot),
+              // The panel's content is variable (identity setup, users, devices)
+              // and can exceed the available height; scroll it instead of
+              // letting it overflow.
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (snapshot.operator == null) ...[_IdentitySection(controller: controller), const SizedBox(height: 20)],
+                    _DeviceSection(controller: controller, snapshot: snapshot),
+                    const SizedBox(height: 20),
+                    _UsersSection(controller: controller, snapshot: snapshot),
+                    const SizedBox(height: 8),
+                    _DevicesSection(controller: controller, snapshot: snapshot),
+                  ],
+                ),
+              ),
             ),
-          ],
         ],
       ),
     );
@@ -68,6 +78,8 @@ class SettingsPanel extends WatchingWidget {
     _onCommandError<UserDeviceController, String?>(context, (c) => c.revokeUserCommand.errors);
     _onCommandError<UserDeviceController, String?>(context, (c) => c.revokeDeviceCommand.errors);
     _onCommandError<UserDeviceController, String?>(context, (c) => c.renameDeviceCommand.errors);
+    _onCommandError<UserDeviceController, ({String ownerName, String? deviceName})?>(context, (c) => c.bootstrapOwnerCommand.errors);
+    _onCommandError<UserDeviceController, ({String mnemonic, String? deviceName})?>(context, (c) => c.restoreIdentityCommand.errors);
   }
 
   void _onCommandError<T extends Object, P>(BuildContext context, ValueListenable<CommandError<P>?> Function(T) select) {
@@ -78,6 +90,280 @@ class SettingsPanel extends WatchingWidget {
         final message = error.error is UserDeviceError ? (error.error as UserDeviceError).message : 'Something went wrong. Please try again.';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       },
+    );
+  }
+}
+
+/// A one-time display of the 24-word recovery seed (ADR-0007 §2).
+///
+/// Shared by the "show seed on demand" action and the one-time backup shown
+/// after a fresh identity is created. The seed is only ever passed in by the
+/// caller and never stored in the widget tree or the controller's state.
+class SeedRevealDialog extends StatelessWidget {
+  const SeedRevealDialog({super.key, required this.seed});
+
+  final String seed;
+
+  @override
+  Widget build(BuildContext context) {
+    final messenger = ScaffoldMessenger.of(context);
+    return AlertDialog(
+      title: const Text('Recovery seed'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Write these 24 words down and store them safely. They are the only backup of your identity — anyone with this seed can restore your identity.'),
+          const SizedBox(height: 12),
+          SelectableText(seed, style: const TextStyle(fontFamily: 'monospace')),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+        FilledButton(
+          onPressed: () async {
+            // Copying the seed to the clipboard is an explicit user action;
+            // the dialog stays open so the user can close it deliberately.
+            await Clipboard.setData(ClipboardData(text: seed));
+            messenger.showSnackBar(const SnackBar(content: Text('Seed copied to clipboard')));
+          },
+          child: const Text('Copy'),
+        ),
+      ],
+    );
+  }
+}
+
+/// The "Your identity" area, shown only while the open vault has no local
+/// identity (the operator is `null`). It makes the otherwise-unreachable
+/// management surface usable for a real user:
+///
+/// - a vault with **no owner** (`users.json` absent) can become the owner —
+///   this generates the owner identity + first device and writes the registry
+///   files, then shows the 24-word seed once;
+/// - a vault that **already has an owner** but whose local device has no
+///   identity can be restored from the user's 24-word seed.
+///
+/// The user/device management sections below are always rendered; without a
+/// local identity they simply show no operator and the owner-only actions.
+class _IdentitySection extends WatchingWidget {
+  const _IdentitySection({required this.controller});
+
+  final UserDeviceController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final canBootstrap = controller.canBootstrapOwner;
+
+    // Only reached when the local identity is absent (the section is hidden
+    // otherwise). In that state the vault either has no owner yet (bootstrap)
+    // or has an owner this device can re-join via its seed (restore).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle(icon: Icons.key, title: 'Your identity'),
+        Card(
+          margin: const EdgeInsets.only(top: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No identity is set up for this device in this vault yet. Set up or restore your identity to manage users and devices.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 12),
+                if (canBootstrap)
+                  FilledButton.icon(
+                    icon: const Icon(Icons.person_add_alt_1, size: 18),
+                    label: const Text('Become the owner'),
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (dialogContext) => _SetupOwnerDialog(controller: controller),
+                    ),
+                  )
+                else
+                  FilledButton.icon(
+                    icon: const Icon(Icons.restore, size: 18),
+                    label: const Text('Restore from recovery seed'),
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (dialogContext) => _RestoreSeedDialog(controller: controller),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The "become the owner" dialog. Collects an owner name (and optional device
+/// name) and runs the [UserDeviceController.bootstrapOwnerCommand]; on success
+/// the panel's [SeedRevealDialog] (wired via the command results) reveals the
+/// 24-word seed. The dialog pops itself immediately so the panel's seed
+/// handler is the sole dialog on screen.
+class _SetupOwnerDialog extends StatefulWidget {
+  const _SetupOwnerDialog({required this.controller});
+
+  final UserDeviceController controller;
+
+  @override
+  State<_SetupOwnerDialog> createState() => _SetupOwnerDialogState();
+}
+
+class _SetupOwnerDialogState extends State<_SetupOwnerDialog> {
+  final _nameController = TextEditingController();
+  final _deviceController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _deviceController.dispose();
+    super.dispose();
+  }
+
+  /// Submits the owner name, creates the identity, and reveals the one-time
+  /// 24-word seed. The command is awaited ([Command.runAsync]) so the mnemonic
+  /// is returned directly (no result-routing); the seed is then pushed on the
+  /// root navigator, which stays valid after this dialog pops. Errors are
+  /// surfaced by the panel's error snackbar (registered on the command's
+  /// `.errors`), so the rethrow here is swallowed.
+  Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    final deviceName = _deviceController.text.trim();
+    try {
+      final mnemonic = await widget.controller.bootstrapOwnerCommand.runAsync((ownerName: name, deviceName: deviceName.isEmpty ? null : deviceName));
+      if (!mounted) return;
+      // Reveal the one-time 24-word seed (ADR-0007 §2) on top of this dialog;
+      // the setup dialog stays open underneath and is dismissed once the seed
+      // is closed.
+      await showDialog<void>(
+        context: context,
+        builder: (_) => SeedRevealDialog(seed: mnemonic),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (_) {
+      // Already surfaced as a snackbar by the panel's error handler.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Become the owner'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameController,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Your name', hintText: 'e.g. Jane'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _deviceController,
+            decoration: const InputDecoration(labelText: 'Device name (optional)', hintText: 'e.g. My Laptop'),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'This creates your identity and makes you the owner of this vault. A 24-word recovery seed will be shown once for backup.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        // Always enabled; an empty name is a no-op in [_submit] (the
+        // controller text is not reactive, so gating `onPressed` on it would
+        // leave the button dead until an unrelated rebuild).
+        FilledButton(onPressed: _submit, child: const Text('Create')),
+      ],
+    );
+  }
+}
+
+/// The "restore from seed" dialog. Collects the 24-word BIP39 mnemonic (and an
+/// optional device name) and runs the
+/// [UserDeviceController.restoreIdentityCommand]. The derived identity key is
+/// deterministic; the registry matches it to the user in `users.json`.
+class _RestoreSeedDialog extends StatefulWidget {
+  const _RestoreSeedDialog({required this.controller});
+
+  final UserDeviceController controller;
+
+  @override
+  State<_RestoreSeedDialog> createState() => _RestoreSeedDialogState();
+}
+
+class _RestoreSeedDialogState extends State<_RestoreSeedDialog> {
+  final _mnemonicController = TextEditingController();
+  final _deviceController = TextEditingController();
+  bool _invalid = false;
+
+  @override
+  void dispose() {
+    _mnemonicController.dispose();
+    _deviceController.dispose();
+    super.dispose();
+  }
+
+  bool _looksLikeSeed(String value) {
+    final words = value.trim().split(RegExp(r'\s+'));
+    return words.length == 24;
+  }
+
+  void _submit() {
+    final mnemonic = _mnemonicController.text.trim();
+    if (!_looksLikeSeed(mnemonic)) {
+      setState(() => _invalid = true);
+      return;
+    }
+    final deviceName = _deviceController.text.trim();
+    Navigator.of(context).pop();
+    widget.controller.restoreIdentityCommand.run((mnemonic: mnemonic, deviceName: deviceName.isEmpty ? null : deviceName));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Restore from recovery seed'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _mnemonicController,
+            autofocus: true,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: 'Recovery seed (24 words)',
+              hintText: '24 space-separated words',
+              errorText: _invalid ? 'Enter the 24-word recovery seed' : null,
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _deviceController,
+            decoration: const InputDecoration(labelText: 'Device name (optional)', hintText: 'e.g. My Laptop'),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'The recovery seed is the backup you saved when the identity was created. It re-derives the identity key and re-binds this device.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        FilledButton(onPressed: _submit, child: const Text('Restore')),
+      ],
     );
   }
 }
@@ -147,37 +433,9 @@ class _DeviceSection extends WatchingWidget {
   void _showSeed(BuildContext context) async {
     final seed = await controller.showSeed();
     if (seed == null || !context.mounted) return;
-    await _showSeedDialog(context, seed);
-  }
-
-  Future<void> _showSeedDialog(BuildContext context, String seed) async {
-    final messenger = ScaffoldMessenger.of(context);
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Recovery seed'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Write these 24 words down and store them safely. They are the only backup of your identity — anyone with this seed can restore your identity.'),
-            const SizedBox(height: 12),
-            SelectableText(seed, style: const TextStyle(fontFamily: 'monospace')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Close')),
-          FilledButton(
-            onPressed: () async {
-              // Copying the seed to the clipboard is an explicit user action;
-              // the dialog stays open so the user can close it deliberately.
-              await Clipboard.setData(ClipboardData(text: seed));
-              messenger.showSnackBar(const SnackBar(content: Text('Seed copied to clipboard')));
-            },
-            child: const Text('Copy'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) => SeedRevealDialog(seed: seed),
     );
   }
 }
@@ -309,21 +567,14 @@ class _DevicesSectionState extends State<_DevicesSection> {
           )
         else ...[
           const SizedBox(height: 8),
-          Flexible(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                for (final device in registry.devices)
-                  _DeviceTile(
-                    device: device,
-                    isLocal: device.deviceUuid == localDeviceUuid,
-                    isRevealed: _revealed.contains(device.deviceUuid),
-                    onToggleRevealed: () => _toggleRevealed(device.deviceUuid),
-                    onRevoke: () => _revokeDevice(context, device),
-                  ),
-              ],
+          for (final device in registry.devices)
+            _DeviceTile(
+              device: device,
+              isLocal: device.deviceUuid == localDeviceUuid,
+              isRevealed: _revealed.contains(device.deviceUuid),
+              onToggleRevealed: () => _toggleRevealed(device.deviceUuid),
+              onRevoke: () => _revokeDevice(context, device),
             ),
-          ),
         ],
       ],
     );

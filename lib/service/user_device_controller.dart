@@ -121,6 +121,26 @@ final class UserDeviceController {
   /// Renames the local device (persisted to `.noetec/device.json`).
   late final renameDeviceCommand = Command.createAsyncNoResult<String>(_renameDevice, debugName: 'userDeviceRenameDevice');
 
+  /// Creates the owner identity + first device and writes the two registry
+  /// files for a vault that has neither (a new vault, or an existing vault
+  /// opened without an identity). Returns the 24-word BIP39 mnemonic for a
+  /// one-time backup display (ADR-0007 §2). The mnemonic is **not** stored in
+  /// [state] — the caller shows it immediately and drops it.
+  ///
+  /// Safe against hijacking: the underlying `bootstrapOwnerIdentity` rejects
+  /// the call when the vault already has an identity or an established
+  /// `users.json` (i.e. an existing owner).
+  late final bootstrapOwnerCommand = Command.createAsync<({String ownerName, String? deviceName}), String>(
+    _bootstrapOwner,
+    initialValue: '',
+    debugName: 'userDeviceBootstrapOwner',
+  );
+
+  /// Restores the local identity from a 24-word BIP39 [mnemonic] and binds the
+  /// local device. For vaults that already have an owner (`users.json`
+  /// exists) but whose local device has no identity of its own.
+  late final restoreIdentityCommand = Command.createAsyncNoResult<({String mnemonic, String? deviceName})>(_restoreIdentity, debugName: 'userDeviceRestoreIdentity');
+
   /// The currently open vault; user/device management requires one.
   VaultEntity get _activeVault {
     final vault = _vaultSystem.currentVault.value;
@@ -246,6 +266,67 @@ final class UserDeviceController {
     }
   }
 
+  /// Creates the owner identity + first device and writes the two registry
+  /// files. Only valid for a vault without an identity/owner; the underlying
+  /// `bootstrapOwnerIdentity` throws [StateError] otherwise (surfaced as a
+  /// short [UserDeviceError]).
+  ///
+  /// Returns the 24-word mnemonic for a one-time backup display. The panel
+  /// shows it in a dialog immediately and does not persist it.
+  Future<String> _bootstrapOwner(({String ownerName, String? deviceName}) params) async {
+    final ownerName = params.ownerName.trim();
+    if (ownerName.isEmpty) {
+      throw UserDeviceError('Name must not be empty.');
+    }
+    final deviceName = _trimmedOr(params.deviceName);
+    try {
+      final result = await _onboarding.bootstrapOwnerIdentity(ownerName: ownerName, deviceName: deviceName);
+      await _refresh();
+      return result.mnemonic;
+    } catch (e) {
+      throw _mapError(e);
+    }
+  }
+
+  /// Restores the local identity from a 24-word BIP39 mnemonic and binds the
+  /// local device. The derived identity key is deterministic; `restoreFromSeed`
+  /// resolves the `userId` from the vault's `users.json` by public key.
+  Future<void> _restoreIdentity(({String mnemonic, String? deviceName}) params) async {
+    final trimmed = params.mnemonic.trim();
+    if (trimmed.isEmpty) {
+      throw UserDeviceError('Recovery seed must not be empty.');
+    }
+    final deviceName = _trimmedOr(params.deviceName);
+    try {
+      await _onboarding.restoreFromSeed(mnemonic: trimmed, deviceName: deviceName);
+      await _refresh();
+    } catch (e) {
+      throw _mapError(e, argumentMessage: 'Invalid recovery seed or this seed does not belong to the vault.');
+    }
+  }
+
+  String? _trimmedOr(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  /// True when the active vault has no identity and no established `users.json`
+  /// owner — the case where the user can (and must) become the owner before any
+  /// management is possible.
+  bool get canBootstrapOwner {
+    final snapshot = state.value;
+    return snapshot != null && snapshot.operator == null && snapshot.users == null;
+  }
+
+  /// True when the active vault has an established owner (`users.json`) but the
+  /// local device has no identity of its own — the case where the user restores
+  /// their own identity from a 24-word seed.
+  bool get canRestoreIdentity {
+    final snapshot = state.value;
+    return snapshot != null && snapshot.operator == null && snapshot.users != null;
+  }
+
   /// Translates a raw error from the services into a short, non-sensitive
   /// [UserDeviceError] for the UI. The domain services throw [ArgumentError]
   /// (bad input, e.g. an invalid public key) and [StateError] (no vault,
@@ -274,6 +355,12 @@ final class UserDeviceController {
     if (raw.contains('no local identity')) {
       return 'No identity for this vault yet.';
     }
+    if (raw.contains('does not belong to the vault')) {
+      return 'This seed does not belong to the vault.';
+    }
+    if (raw.contains('already has identity') || raw.contains('users.json already exists')) {
+      return 'This vault already has an owner.';
+    }
     return 'Something went wrong. Please try again.';
   }
 
@@ -285,6 +372,8 @@ final class UserDeviceController {
     revokeUserCommand.dispose();
     revokeDeviceCommand.dispose();
     renameDeviceCommand.dispose();
+    bootstrapOwnerCommand.dispose();
+    restoreIdentityCommand.dispose();
     state.dispose();
   }
 }
