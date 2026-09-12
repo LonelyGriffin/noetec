@@ -11,13 +11,14 @@ import 'common/integration_test_runner.dart';
 /// CLI entry point for running integration tests.
 ///
 /// Runs each `integration_test/*_test.dart` file in its own `flutter test`
-/// process, one file at a time by default (`--jobs 1`). This is the supported
-/// way to run the integration suite on the WSL daemon box: under WSLg the
-/// second app launch within a single `flutter test` session fails ("Failed
-/// to load" / "The log reader stopped unexpectedly"), so every file gets its
-/// own `flutter test` process with software rendering forced
-/// (`LIBGL_ALWAYS_SOFTWARE=1`, `GALLIUM_DRIVER=llvmpipe`). See the
-/// "Environment (headless WSL)" section in CLAUDE.md.
+/// process, one file at a time by default (`--jobs 1`). Sequential (`--jobs 1`)
+/// is the only supported mode on the WSL daemon box: under WSLg the second
+/// app launch within a single `flutter test` session fails ("Failed to load" /
+/// "The log reader stopped unexpectedly"), so every file gets its own
+/// `flutter test` process with software rendering forced
+/// (`LIBGL_ALWAYS_SOFTWARE=1`, `GALLIUM_DRIVER=llvmpipe`). `--jobs > 1` is
+/// experimental and flakes under GPU/EGL contention. See the
+/// `integration-testing` skill.
 ///
 /// Usage:
 ///   dart run scripts/run_integration_tests.dart
@@ -72,10 +73,15 @@ Future<void> main(List<String> args) async {
   print('🧪 Integration tests — ${files.length} file(s), jobs=$jobs');
   if (jobs > 1) {
     print(
-      'ℹ️ jobs>1 runs files in parallel (separate flutter test processes) — '
-      'supported on the WSL box; retry a failing file with --jobs 1.',
+      '⚠️ jobs>1 is EXPERIMENTAL and unsupported on WSLg: parallel runs '
+      'flake under GPU/EGL contention. Prefer --jobs 1.',
     );
   }
+  print(
+    'ℹ️ Run the full suite with --jobs 1. If a file fails, re-run it alone '
+    'in clean single-file isolation before reporting it as a regression — '
+    'batch failures are usually WSLg contention, not code bugs.',
+  );
   print('');
 
   final runner = IntegrationTestRunner();
@@ -102,6 +108,11 @@ Future<void> main(List<String> args) async {
     for (final r in failed) {
       print('   ❌ ${r.file}');
     }
+    print(
+      '💡 Re-run each failed file alone (--jobs 1, single file) before '
+      'treating it as a regression — batch failures are usually WSLg '
+      'contention.',
+    );
     exit(1);
   }
   print('🚀 All integration tests passed');
