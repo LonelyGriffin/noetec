@@ -368,13 +368,20 @@ record**, **not** per file:
 An entry **MAY** carry `seen: Map<String, String>?` — `{deviceId:
 lastSeenHlcKey}`.
 
-- The key is another device's `deviceUuid` (never the entry's own).
-- The value is the HLC key of the latest entry the author saw from that
-  device: `<physicalMs>-<counter>-<deviceId>` — decimal `physicalMs`,
-  lowercase-hex `counter` zero-padded to ≥4 chars, `deviceId` as UUID (e.g.
-  `1756293123456-0001-7c1e2d3a-4b5f-4a6b-8c9d-0e1f2a3b4c5d`). This is the same
-  string form as `hlc`/
-  `parent`.
+- The **key** is another device's `deviceUuid` — the full UUID used in
+  `device`, in HLC *ordering*, and as the oplog file name (never the entry's
+  own `device`).
+- The **value** is the HLC key of the latest entry the author saw from that
+  device, in exactly the `hlc`/`parent` string form:
+  `<physicalMs>-<counter>-<nodeId>` — decimal `physicalMs`, lowercase-hex
+  `counter` zero-padded to ≥4 chars, and `nodeId` the referenced device's
+  **hyphen-free 8-hex** id (`DeviceIdentity.truncatedDeviceId`), e.g.
+  `1756293123456-0001-7c1e2d3a`. The value **MUST NOT** carry the full UUID:
+  it would not parse as an HLC key.
+- The key is **omitted** from the entry when `seen` is null or empty and
+  **MUST NOT** be serialized as `"seen": null` — the same rule as `parent` and
+  `file_hash` (§2.2, where the null-preservation rule applies to the object as
+  serialized). Absent and empty are equivalent on read.
 - **HLC ordering** is component-wise numeric — `physicalMs`, then `counter`,
   then `deviceId` — **not** lexicographic (variable-width `physicalMs` breaks
   string monotonicity). Implementations **MUST** parse components before
@@ -391,16 +398,49 @@ lastSeenHlcKey}`.
 ### 4.3 Verification (truncation detection)
 
 Witness references live in files the attacker does not control, so truncation
-of *another* device's file becomes detectable:
+of *another* device's file becomes detectable. The check runs after the
+authorization steps of §7 and before the entries contribute to the DAG (§7
+step 7):
 
-- After building the DAG, for each `(d, hlcKey)` in an entry's `seen`: if
-  device `d`'s file exists but has no entry HLC-ordered at or after `hlcKey`,
-  the reference is **dangling**.
-- Dangling references indicate the referenced file was truncated (attack or
-  unrecoverable corruption). **MUST NOT** ignore silently: report the file and
-  reference(s), and **SHOULD** treat that file's entries as untrusted (§9).
+- **References** are the `seen` pairs of entries that passed the complete §7
+  chain (steps 2–5). A rejected entry's references **MUST NOT** count.
+- **Evidence** is evaluated per referenced device `d` over the
+  **signature-verified** entries read from `d`'s file (§2.4) — *before* the
+  authorization filter, because existence, not authorization, is what a
+  reference attests. A file that exists but yields no verified entries counts
+  as containing none.
+- If device `d`'s file **exists** but no verified entry of `d` is HLC-ordered
+  at or after `hlcKey`, the reference is **dangling**: the referenced file was
+  truncated (attack or unrecoverable corruption).
+- A dangling reference **MUST NOT** be ignored silently: report the referenced
+  file, the key and the referencing entry (§9), and the referenced device's
+  entries **MUST** be treated as untrusted — they **MUST NOT** contribute to
+  the DAG or to merge decisions for that document.
+- **Exception.** When the referenced file is the **local** device's own file,
+  an implementation **MUST NOT** discard it; it **MUST** report the violation
+  and flag the document instead.
+- The referencing device is unaffected: its entries remain valid.
 - A `seen` reference to a device whose file does not exist is **not** dangling
-  (the device may be gone); **MAY** be ignored.
+  (the device may be gone); it **MAY** be ignored.
+
+### 4.4 Structural rules
+
+`seen` is covered by the entry signature, so these rules guard against defects
+and against an authorized device overstating what it saw — not against forgery:
+
+- An entry **MUST NOT** list its own `device` in `seen`.
+- Every key **MUST** be a device UUID and every value **MUST** parse as an HLC
+  key (§4.1) whose `nodeId` equals the referenced device's hyphen-free id.
+- A malformed reference **MUST** be reported (§9) and **MUST NOT** be used as
+  evidence under §4.3. It **MUST NOT** by itself cause the referencing entry to
+  be rejected — that entry is signature-valid.
+- `seen[d]` **MUST** be non-decreasing in component-wise HLC order along a
+  device's file, or absent (§4.2).
+
+Sanity-checking a reference's timestamp against the referencing entry's own
+timestamp is deliberately **not** required here: an implementation that
+fabricates references also controls its own `hlc`, and the future-dating
+dimension is §6's concern (Phase 4b).
 
 ---
 
@@ -483,7 +523,8 @@ entries:
 5. **Registry filter** (§3.5) — reject devices whose user is not authorized in
    `users.json`.
 6. **HLC drift** (§6) — reject/flag future timestamps.
-7. **Witness consistency** (§4.3) — report dangling references.
+7. **Witness consistency** (§4.3) — exclude the untrusted referenced file's
+   entries and report dangling and malformed references (§4.4).
 
 Phases an implementation has not adopted are simply absent from the pipeline.
 
@@ -547,7 +588,9 @@ silently drop:
 2. Non-registry device or user (§3.5).
 3. TOFU key mismatch (§5.2) — show both keys, offer confirmation.
 4. HLC drift violation (§6).
-5. Dangling witness reference (§4.3) — name the file and key.
+5. Dangling witness reference (§4.3) — name the referenced file and key and
+   the referencing entry; malformed references (§4.4) — name the referencing
+   entry and the offending pair.
 6. Legacy entries in a migrated document (§8.1).
 
 ---
@@ -567,7 +610,10 @@ Coverage of §1.3. Legend: ✅ fully, ⚠️ partially, ❌ not covered.
 
 - Threat 3 is only partially detected by Phase 1 (truncating the last entries
   can be invisible while the chain verifies); Phase 3's cross-references make
-  it detectable.
+  it detectable. Phase 3 reconstructs a truncated tail only once another
+  device has witnessed it: a tail cut before any peer read it — and every
+  single-device vault — stays invisible, and a *consistent* rollback of the
+  whole `.sync/` tree produces no dangling reference at all (see ADR-0009).
 - Threat 4 is closed by Phase 1 itself: `documentPath` is in the signing
   input (§2.2), so a copied signature does not verify in another document.
   Phase 4 adds nothing here (TOFU pins a key per *device*, not per document).
@@ -592,7 +638,10 @@ Order-of-magnitude guidance on a mid-range mobile device:
 
 The registries add a small, constant number of signature verifications per
 sync cycle (negligible); `seen` adds at most `O(other devices)` pairs per
-entry.
+entry — roughly 75 bytes per referenced device (full UUID + HLC key + JSON
+syntax), i.e. on a ≈700-byte signed entry ≈ +10% with 2 devices, ≈ +35% with
+4 and ≈ +85% with 10 — and its verification costs one extra `O(entries)` pass
+per device file plus `O(references)` comparisons per document.
 
 ---
 
@@ -615,3 +664,6 @@ entry.
 - `docs/specs/file-format.md` — page file format (style reference).
 - `docs/decisions/0007-user-device-identity-and-registry.md` — multi-user
   identity and registry model.
+- `docs/decisions/0009-witness-truncation-detection.md` — Phase 3 policy:
+  population of `seen`, the read-side check and the untrusted-file action.
+  (ADR-0008 is reserved by the open HLC-drift ADR PR #46.)
