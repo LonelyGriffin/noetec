@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:noetec/app/configure_di.dart';
-import 'package:noetec/app/main_app_widget.dart';
 import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 import 'package:path/path.dart' as p;
@@ -14,6 +13,7 @@ import 'package:path/path.dart' as p;
 import 'helpers/in_memory_secure_key_store.dart';
 import 'helpers/in_memory_settings_service.dart';
 import 'helpers/key_assertions.dart';
+import 'helpers/pump_test_app.dart';
 import 'helpers/session_assertions.dart';
 import 'helpers/test_file_system_service.dart';
 import 'helpers/vault_assertions.dart';
@@ -37,7 +37,7 @@ void main() {
 
     try {
       /* Arrange: launch the app shell */
-      await tester.pumpWidget(const MainApp());
+      await pumpTestApp(tester);
       await tester.pumpAndSettle();
 
       // Act: create vault through UI

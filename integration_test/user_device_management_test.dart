@@ -10,18 +10,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:noetec/app/configure_di.dart';
-import 'package:noetec/app/main_app_widget.dart';
 import 'package:noetec/service/onboarding_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
 import 'package:path/path.dart' as p;
 
 import 'helpers/in_memory_secure_key_store.dart';
 import 'helpers/in_memory_settings_service.dart';
+import 'helpers/pump_test_app.dart';
 import 'helpers/test_file_system_service.dart';
 import 'helpers/vault_folder_fixture.dart';
 import 'helpers/widget_finders.dart';
 
-/// Drives the REAL app (`MainApp` + real DI + real services) and verifies the
+/// Drives the REAL app (MainApp + real DI + real services) and verifies the
 /// user-facing behavior of the NOET-33 user & device management panel from the
 /// user's perspective.
 ///
@@ -95,7 +95,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      await tester.pumpWidget(const MainApp());
+      await pumpTestApp(tester);
       await tester.pumpAndSettle();
 
       final vaultPath = await createVaultViaUi(tester, fileSystem, 'GapVault');
@@ -131,7 +131,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      await tester.pumpWidget(const MainApp());
+      await pumpTestApp(tester);
       await tester.pumpAndSettle();
 
       final vaultPath = await createVaultViaUi(tester, fileSystem, 'OnboardVault');
@@ -200,7 +200,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      await tester.pumpWidget(const MainApp());
+      await pumpTestApp(tester);
       await tester.pumpAndSettle();
 
       final vaultPath = await createVaultViaUi(tester, fileSystem, 'OnboardVault');

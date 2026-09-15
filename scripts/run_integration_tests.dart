@@ -25,18 +25,54 @@ import 'common/integration_test_runner.dart';
 ///   dart run scripts/run_integration_tests.dart --filter rename
 ///   dart run scripts/run_integration_tests.dart --jobs 2
 ///   dart run scripts/run_integration_tests.dart integration_test/foo_test.dart
+///   dart run scripts/run_integration_tests.dart integration_test/foo_test.dart --slow
+///   dart run scripts/run_integration_tests.dart --speed 8 --hud-corner tl
+///
+/// Slow-motion (human-watchable) mode — off by default, no change to normal runs:
+///   --slow                    enable the HUD + slowed animations
+///   --speed n                 slowdown multiplier (timeDilation), default 4; implies --slow
+///   --hud-corner tl|tr|bl|br  HUD panel corner, default br; implies --slow
+/// They translate into `--dart-define=NOETEC_SLOW / NOETEC_SPEED / NOETEC_HUD_CORNER`
+/// on the child `flutter test`; see `integration_test/helpers/slow_motion_hud.dart`.
 Future<void> main(List<String> args) async {
   var jobs = 1;
   String? filter;
+  var slow = false;
+  int speed = 4;
+  var hudCorner = 'br';
   final explicitFiles = <String>[];
   final passthrough = <String>[];
 
   for (var i = 0; i < args.length; i++) {
     final a = args[i];
     if (a == '--jobs') {
-      jobs = int.parse(args[++i]);
+      i = _flagValue<int>(args, i, '--jobs', int.parse, (v) {
+        jobs = v;
+      });
     } else if (a == '--filter') {
-      filter = args[++i];
+      i = _flagValue(args, i, '--filter', (s) => s, (v) {
+        filter = v;
+      });
+    } else if (a == '--slow') {
+      slow = true;
+    } else if (a == '--speed') {
+      i = _flagValue<int>(args, i, '--speed', int.parse, (v) {
+        if (v <= 0) {
+          print('❌ --speed must be a positive integer.');
+          exit(1);
+        }
+        speed = v;
+        slow = true;
+      });
+    } else if (a == '--hud-corner') {
+      i = _flagValue(args, i, '--hud-corner', (s) => s, (v) {
+        hudCorner = v;
+        if (const ['tl', 'tr', 'bl', 'br'].contains(v) == false) {
+          print('❌ --hud-corner must be one of: tl, tr, bl, br.');
+          exit(1);
+        }
+        slow = true;
+      });
     } else if (a == '--') {
       passthrough.addAll(args.sublist(i + 1));
       break;
@@ -45,6 +81,9 @@ Future<void> main(List<String> args) async {
     } else {
       explicitFiles.add(a);
     }
+  }
+  if (slow) {
+    passthrough.addAll(<String>['--dart-define=NOETEC_SLOW=true', '--dart-define=NOETEC_SPEED=$speed', '--dart-define=NOETEC_HUD_CORNER=$hudCorner']);
   }
 
   var files = <String>[...explicitFiles];
@@ -71,6 +110,9 @@ Future<void> main(List<String> args) async {
   }
 
   print('🧪 Integration tests — ${files.length} file(s), jobs=$jobs');
+  if (slow) {
+    print('🐢 Slow-motion mode: HUD corner=$hudCorner, timeDilation=$speed');
+  }
   if (jobs > 1) {
     print(
       '⚠️ jobs>1 is EXPERIMENTAL and unsupported on WSLg: parallel runs '
@@ -123,4 +165,25 @@ String _tail(String s, int lines) {
   final ls = s.split('\n');
   final start = ls.length > lines ? ls.length - lines : 0;
   return ls.sublist(start).join('\n');
+}
+
+/// Reads the value of the flag at [args][i] (i.e. `args[i + 1]`), parses it
+/// with [parse], applies it with [apply], and returns the index of the *next*
+/// argument to process. Exits with a human-readable error if the value is
+/// missing or unparseable.
+int _flagValue<T>(List<String> args, int i, String flag, T Function(String raw) parse, void Function(T value) apply) {
+  if (i + 1 >= args.length) {
+    print('❌ $flag requires a value.');
+    exit(1);
+  }
+  final raw = args[i + 1];
+  T value;
+  try {
+    value = parse(raw);
+  } on FormatException {
+    print('❌ $flag has an invalid value: "$raw".');
+    exit(1);
+  }
+  apply(value);
+  return i + 1;
 }

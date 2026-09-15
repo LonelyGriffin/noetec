@@ -39,7 +39,7 @@ All commands run from the repo root.
 | `dart analyze` | Static analysis (`analysis_options.yaml`, flutter_lints + extra rules) |
 | `dart run scripts/setup_project.dart` | Install the git pre-commit hook (format + analyze + copyright on staged files) |
 | `flutter test` | Run the unit/widget test suite (`test/`) |
-| `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) — see the `integration-testing` skill |
+| `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) — `--slow` / `--speed N` / `--hud-corner` add a human-watchable HUD; see the `integration-testing` skill |
 | `dart run build_runner build` | Code generation (json_serializable etc.) |
 | `dart run build_runner watch` | Code generation in watch mode |
 
