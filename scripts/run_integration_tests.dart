@@ -25,9 +25,21 @@ import 'common/integration_test_runner.dart';
 ///   dart run scripts/run_integration_tests.dart --filter rename
 ///   dart run scripts/run_integration_tests.dart --jobs 2
 ///   dart run scripts/run_integration_tests.dart integration_test/foo_test.dart
+///   dart run scripts/run_integration_tests.dart integration_test/foo_test.dart --slow
+///   dart run scripts/run_integration_tests.dart --speed 8 --hud-corner tl
+///
+/// Slow-motion (human-watchable) mode — off by default, no change to normal runs:
+///   --slow                    enable the HUD + slowed animations
+///   --speed n                 slowdown multiplier (timeDilation), default 4; implies --slow
+///   --hud-corner tl|tr|bl|br  HUD panel corner, default br; implies --slow
+/// They translate into `--dart-define=NOETEC_SLOW / NOETEC_SPEED / NOETEC_HUD_CORNER`
+/// on the child `flutter test`; see `integration_test/helpers/slow_motion_hud.dart`.
 Future<void> main(List<String> args) async {
   var jobs = 1;
   String? filter;
+  var slow = false;
+  int speed = 4;
+  var hudCorner = 'br';
   final explicitFiles = <String>[];
   final passthrough = <String>[];
 
@@ -37,6 +49,22 @@ Future<void> main(List<String> args) async {
       jobs = int.parse(args[++i]);
     } else if (a == '--filter') {
       filter = args[++i];
+    } else if (a == '--slow') {
+      slow = true;
+    } else if (a == '--speed') {
+      speed = int.tryParse(args[++i]) ?? 0;
+      if (speed <= 0) {
+        print('❌ --speed must be a positive integer.');
+        exit(1);
+      }
+      slow = true;
+    } else if (a == '--hud-corner') {
+      hudCorner = args[++i];
+      if (const ['tl', 'tr', 'bl', 'br'].contains(hudCorner) == false) {
+        print('❌ --hud-corner must be one of: tl, tr, bl, br.');
+        exit(1);
+      }
+      slow = true;
     } else if (a == '--') {
       passthrough.addAll(args.sublist(i + 1));
       break;
@@ -45,6 +73,9 @@ Future<void> main(List<String> args) async {
     } else {
       explicitFiles.add(a);
     }
+  }
+  if (slow) {
+    passthrough.addAll(<String>['--dart-define=NOETEC_SLOW=true', '--dart-define=NOETEC_SPEED=$speed', '--dart-define=NOETEC_HUD_CORNER=$hudCorner']);
   }
 
   var files = <String>[...explicitFiles];
@@ -71,6 +102,9 @@ Future<void> main(List<String> args) async {
   }
 
   print('🧪 Integration tests — ${files.length} file(s), jobs=$jobs');
+  if (slow) {
+    print('🐢 Slow-motion mode: HUD corner=$hudCorner, timeDilation=$speed');
+  }
   if (jobs > 1) {
     print(
       '⚠️ jobs>1 is EXPERIMENTAL and unsupported on WSLg: parallel runs '

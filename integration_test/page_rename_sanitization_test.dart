@@ -6,13 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:noetec/app/configure_di.dart';
-import 'package:noetec/app/main_app_widget.dart';
 import 'package:noetec/service/page_file_name_sanitizer.dart';
 import 'package:noetec/service/vault_file_service.dart';
 import 'package:path/path.dart' as p;
 
 import 'helpers/in_memory_secure_key_store.dart';
 import 'helpers/in_memory_settings_service.dart';
+import 'helpers/pump_test_app.dart';
 import 'helpers/test_file_system_service.dart';
 import 'helpers/vault_folder_fixture.dart';
 import 'helpers/widget_finders.dart';
@@ -41,7 +41,7 @@ void main() {
 
     try {
       /* Arrange: launch app shell and create a vault */
-      await tester.pumpWidget(const MainApp());
+      await pumpTestApp(tester);
       await tester.pumpAndSettle();
 
       await tester.tap(findCreateVaultButton());
@@ -159,7 +159,7 @@ void main() {
     await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
-      await tester.pumpWidget(const MainApp());
+      await pumpTestApp(tester);
       await tester.pumpAndSettle();
 
       await tester.tap(findCreateVaultButton());
@@ -215,7 +215,7 @@ void main() {
     await configureDI(fileSystem: fileSystem, settings: settings, secureKeyStore: secureKeyStore);
 
     try {
-      await tester.pumpWidget(const MainApp());
+      await pumpTestApp(tester);
       await tester.pumpAndSettle();
 
       await tester.tap(findCreateVaultButton());

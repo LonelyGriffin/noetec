@@ -26,3 +26,27 @@ LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe flutter test integration_test/<f
 - `flutter test --concurrency` is **ignored for integration tests** (they run serially per file by design); parallelism is only possible via `--jobs N` in the runner (multiple processes) — but per the Rules above, parallel is experimental and flaky.
 - WSLg's EGL init also prints GPU warnings on first app start; harmless under software rendering.
 - This is an environment workaround for a WSLg/Flutter desktop launch bug, not an app issue.
+
+## Slow-motion mode (human-watchable runs)
+
+Off by default — a plain run behaves exactly as before. Add flags to any runner
+command to watch a test in real time:
+
+```sh
+dart run scripts/run_integration_tests.dart integration_test/<file>.dart --slow
+dart run scripts/run_integration_tests.dart integration_test/<file>.dart --speed 8 --hud-corner tl
+```
+
+- `--slow` — enable the mode; `--speed N` — `timeDilation` multiplier (default 4,
+  implies `--slow`); `--hud-corner tl|tr|bl|br` — HUD panel corner (default `br`,
+  implies `--slow`).
+- The HUD captures and displays key presses and pointer events (hover/move/down/
+  up/pan) live, in a translucent corner panel. It observes only — `IgnorePointer`
+  + translucent `Listener` — so the app under test receives every event unchanged.
+- Implementation: `pumpTestApp(tester)` (replaces the old
+  `pumpWidget(const MainApp())` in every test file) honors the `--dart-define`
+  contract `NOETEC_SLOW` / `NOETEC_SPEED` / `NOETEC_HUD_CORNER`.
+- `SlowMotionHud` owns the `timeDilation` lifecycle (`initState` sets it,
+  `dispose` restores `1.0`), which satisfies the test binding's
+  `debugAssertNoTimeDilation` invariant — do not set `timeDilation` ad hoc in
+  tests, that invariant failure is guaranteed.
