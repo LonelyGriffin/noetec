@@ -224,13 +224,17 @@ class _PointerCapture extends StatelessWidget {
     state.addPointerEvent('mouse: $action @ (${event.position.dx.round()}, ${event.position.dy.round()})');
   }
 
-  /// Human-readable label for the button carried by [event] (`event.buttons`),
-  /// e.g. `L` / `R` / `M` instead of a hardcoded assumption.
+  /// Human-readable label for the button carried by [event].
+  ///
+  /// The `event.buttons` bitmask tells us which button is (down) or was
+  /// (up) pressed.  Bit values come from the SDK constants, never raw
+  /// numbers, so a swap like `kSecondaryButton` vs `kMiddleMouseButton` is
+  /// impossible.
   String _buttonLabel(PointerEvent event) {
     final buttons = event.buttons;
-    if ((buttons & 1) != 0) return 'L';
-    if ((buttons & 4) != 0) return 'R';
-    if ((buttons & 2) != 0) return 'M';
+    if ((buttons & kPrimaryMouseButton) != 0) return 'L';
+    if ((buttons & kSecondaryButton) != 0) return 'R';
+    if ((buttons & kMiddleMouseButton) != 0) return 'M';
     return 'L';
   }
 }

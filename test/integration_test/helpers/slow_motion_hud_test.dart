@@ -72,6 +72,20 @@ void main() {
       expect(state.pointerEvents, contains('mouse: up L @ (60, 80)'));
       expect(state.mousePosition, const Offset(60, 80));
 
+      // Right / middle buttons must map to R / M (regression: L/R/M were
+      // once swapped via raw bit masks).
+      final rGest = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kSecondaryButton);
+      await rGest.moveTo(const Offset(10, 20));
+      await rGest.down(const Offset(10, 20));
+      expect(state.pointerEvents, contains('mouse: down R @ (10, 20)'));
+      await rGest.up();
+
+      final mGest = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kMiddleMouseButton);
+      await mGest.moveTo(const Offset(11, 22));
+      await mGest.down(const Offset(11, 22));
+      expect(state.pointerEvents, contains('mouse: down M @ (11, 22)'));
+      await mGest.up();
+
       await tester.pumpWidget(const SizedBox.shrink()); // unmount the HUD
     });
 
