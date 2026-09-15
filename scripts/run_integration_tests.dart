@@ -46,25 +46,33 @@ Future<void> main(List<String> args) async {
   for (var i = 0; i < args.length; i++) {
     final a = args[i];
     if (a == '--jobs') {
-      jobs = int.parse(args[++i]);
+      i = _flagValue<int>(args, i, '--jobs', int.parse, (v) {
+        jobs = v;
+      });
     } else if (a == '--filter') {
-      filter = args[++i];
+      i = _flagValue(args, i, '--filter', (s) => s, (v) {
+        filter = v;
+      });
     } else if (a == '--slow') {
       slow = true;
     } else if (a == '--speed') {
-      speed = int.tryParse(args[++i]) ?? 0;
-      if (speed <= 0) {
-        print('❌ --speed must be a positive integer.');
-        exit(1);
-      }
-      slow = true;
+      i = _flagValue<int>(args, i, '--speed', int.parse, (v) {
+        if (v <= 0) {
+          print('❌ --speed must be a positive integer.');
+          exit(1);
+        }
+        speed = v;
+        slow = true;
+      });
     } else if (a == '--hud-corner') {
-      hudCorner = args[++i];
-      if (const ['tl', 'tr', 'bl', 'br'].contains(hudCorner) == false) {
-        print('❌ --hud-corner must be one of: tl, tr, bl, br.');
-        exit(1);
-      }
-      slow = true;
+      i = _flagValue(args, i, '--hud-corner', (s) => s, (v) {
+        hudCorner = v;
+        if (const ['tl', 'tr', 'bl', 'br'].contains(v) == false) {
+          print('❌ --hud-corner must be one of: tl, tr, bl, br.');
+          exit(1);
+        }
+        slow = true;
+      });
     } else if (a == '--') {
       passthrough.addAll(args.sublist(i + 1));
       break;
@@ -157,4 +165,25 @@ String _tail(String s, int lines) {
   final ls = s.split('\n');
   final start = ls.length > lines ? ls.length - lines : 0;
   return ls.sublist(start).join('\n');
+}
+
+/// Reads the value of the flag at [args][i] (i.e. `args[i + 1]`), parses it
+/// with [parse], applies it with [apply], and returns the index of the *next*
+/// argument to process. Exits with a human-readable error if the value is
+/// missing or unparseable.
+int _flagValue<T>(List<String> args, int i, String flag, T Function(String raw) parse, void Function(T value) apply) {
+  if (i + 1 >= args.length) {
+    print('❌ $flag requires a value.');
+    exit(1);
+  }
+  final raw = args[i + 1];
+  T value;
+  try {
+    value = parse(raw);
+  } on FormatException {
+    print('❌ $flag has an invalid value: "$raw".');
+    exit(1);
+  }
+  apply(value);
+  return i + 1;
 }

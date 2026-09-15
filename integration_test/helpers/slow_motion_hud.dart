@@ -3,6 +3,7 @@
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -14,43 +15,52 @@ enum HudCorner { topLeft, topRight, bottomLeft, bottomRight }
 ///
 /// Backed by a [ValueNotifier] so the panel rebuilds reactively — no
 /// `setState` anywhere, consistent with the project's reactive conventions.
-class HudState extends ValueNotifier<List<String>> {
-  HudState({this.maxEvents = 12}) : super(const <String>[]);
+///
+/// Two independent channels (key presses, pointer events) so that a stream
+/// of mouse moves cannot evict the key log a human is watching.
+class HudState extends ValueNotifier<void> {
+  HudState({this.maxEvents = 5}) : super(null);
 
-  /// How many recent events the panel keeps.
+  /// How many recent events each channel keeps.
   final int maxEvents;
+
+  /// Most recent key events, oldest first.
+  final List<String> keyEvents = <String>[];
+
+  /// Most recent pointer events (down / up / hover / move / scroll / pan),
+  /// oldest first.
+  final List<String> pointerEvents = <String>[];
 
   /// Last known pointer position, or `null` before the first pointer event.
   Offset? mousePosition;
 
-  /// Modifier keys currently held down (Ctrl / Alt / Shift / Meta).
-  final Set<LogicalKeyboardKey> modifierKeys = <LogicalKeyboardKey>{};
+  /// Records a key [event], trimming the log to [maxEvents] entries, then
+  /// notifies the panel.
+  void addKeyEvent(String event) {
+    _record(keyEvents, event);
+    notifyListeners();
+  }
 
-  /// Records [event], trimming the log to [maxEvents] entries.
-  void addEvent(String event) {
-    final list = <String>[...value, event];
-    if (list.length > maxEvents) {
-      list.removeRange(0, list.length - maxEvents);
+  /// Records a pointer [event], trimming the log to [maxEvents] entries,
+  /// then notifies the panel.
+  void addPointerEvent(String event) {
+    _record(pointerEvents, event);
+    notifyListeners();
+  }
+
+  /// Updates the tracked pointer position and notifies the panel (so a
+  /// position-only change still repaints).
+  void setMousePosition(Offset position) {
+    mousePosition = position;
+    notifyListeners();
+  }
+
+  void _record(List<String> log, String event) {
+    log.add(event);
+    if (log.length > maxEvents) {
+      log.removeRange(0, log.length - maxEvents);
     }
-    value = list;
   }
-
-  /// Resets all captured state (use when tearing the HUD down between tests).
-  void reset() {
-    mousePosition = null;
-    modifierKeys.clear();
-    value = const <String>[];
-  }
-
-  static bool _isModifier(LogicalKeyboardKey key) =>
-      key == LogicalKeyboardKey.controlLeft ||
-      key == LogicalKeyboardKey.controlRight ||
-      key == LogicalKeyboardKey.altLeft ||
-      key == LogicalKeyboardKey.altRight ||
-      key == LogicalKeyboardKey.shiftLeft ||
-      key == LogicalKeyboardKey.shiftRight ||
-      key == LogicalKeyboardKey.metaLeft ||
-      key == LogicalKeyboardKey.metaRight;
 }
 
 /// Human-watchable HUD for slow-motion integration-test runs.
@@ -63,6 +73,12 @@ class HudState extends ValueNotifier<List<String>> {
 /// The panel is wrapped in [IgnorePointer] so it never intercepts test taps,
 /// and the capture [Listener] only *observes* — it never claims a hit, so the
 /// app underneath keeps receiving every event exactly as before.
+///
+/// The HUD owns the global [timeDilation] lifecycle: set to [speed] in
+/// `initState`, restored to `1.0` in `dispose`. The test binding unmounts
+/// the remaining tree before its end-of-test invariant
+/// (`debugAssertNoTimeDilation`), so the invariant always holds without any
+/// per-test teardown bookkeeping.
 class SlowMotionHud extends StatefulWidget {
   const SlowMotionHud({super.key, required this.child, this.corner = HudCorner.bottomRight, this.speed = 4, this.state});
 
@@ -108,27 +124,40 @@ class _SlowMotionHudState extends State<SlowMotionHud> {
     super.dispose();
   }
 
-  /// Records key-down events. Never returns `true` so the event is NOT
-  /// marked as handled — the app still receives it (text fields, shortcuts).
+  /// Modifier keys are tracked by the framework (isControlPressed etc.) and
+  /// only shown as a prefix on the next real key — logging them as their own
+  /// entries would clutter the log ("Ctrl" followed by "Ctrl+S").
+  static final Set<LogicalKeyboardKey> _modifierKeys = <LogicalKeyboardKey>{
+    LogicalKeyboardKey.controlLeft,
+    LogicalKeyboardKey.controlRight,
+    LogicalKeyboardKey.shiftLeft,
+    LogicalKeyboardKey.shiftRight,
+    LogicalKeyboardKey.altLeft,
+    LogicalKeyboardKey.altRight,
+    LogicalKeyboardKey.metaLeft,
+    LogicalKeyboardKey.metaRight,
+  };
+
+  /// Records key-down and key-repeat events. Never returns `true` so the
+  /// event is NOT marked as handled — the app still receives it (text fields,
+  /// shortcuts). Modifier state is read from the framework
+  /// (`HardwareKeyboard.instance`), which keeps it in sync on down AND up —
+  /// no local bookkeeping to drift.
   bool _onKeyEvent(KeyEvent event) {
-    if (event is! KeyDownEvent) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return false;
     }
     final logical = event.logicalKey;
-    if (HudState._isModifier(logical)) {
-      // Modifier keys only update the combo state; they are not logged on
-      // their own (keeps the log readable: "key: Ctrl+S", not "key: Ctrl"
-      // followed by "key: Ctrl+S").
-      _state.modifierKeys.add(logical);
-      return false;
+    if (_modifierKeys.contains(logical)) {
+      return false; // modifier state is picked up on the next real key
     }
     final parts = <String>[
-      if (_state.modifierKeys.contains(LogicalKeyboardKey.controlLeft) || _state.modifierKeys.contains(LogicalKeyboardKey.controlRight)) 'Ctrl',
-      if (_state.modifierKeys.contains(LogicalKeyboardKey.altLeft) || _state.modifierKeys.contains(LogicalKeyboardKey.altRight)) 'Alt',
-      if (_state.modifierKeys.contains(LogicalKeyboardKey.shiftLeft) || _state.modifierKeys.contains(LogicalKeyboardKey.shiftRight)) 'Shift',
-      if (_state.modifierKeys.contains(LogicalKeyboardKey.metaLeft) || _state.modifierKeys.contains(LogicalKeyboardKey.metaRight)) 'Meta',
+      if (HardwareKeyboard.instance.isControlPressed) 'Ctrl',
+      if (HardwareKeyboard.instance.isShiftPressed) 'Shift',
+      if (HardwareKeyboard.instance.isAltPressed) 'Alt',
+      if (HardwareKeyboard.instance.isMetaPressed) 'Meta',
     ];
-    _state.addEvent('key: ${[...parts, logical.keyLabel].join('+')}');
+    _state.addKeyEvent('key: ${[...parts, logical.keyLabel].join('+')}');
     return false;
   }
 
@@ -136,9 +165,9 @@ class _SlowMotionHudState extends State<SlowMotionHud> {
   Widget build(BuildContext context) {
     final corner = widget.corner;
     return Directionality(
-      // Self-contained: the HUD is self-sufficient and does not assume a
-      // Directionality/MaterialApp ancestor (the real app provides one, but
-      // the HUD must also work when pumped in isolation).
+      // Self-contained: the HUD does not assume a Directionality/MaterialApp
+      // ancestor (the real app provides one, but the HUD must also work when
+      // pumped in isolation).
       textDirection: TextDirection.ltr,
       child: Stack(
         fit: StackFit.loose,
@@ -170,10 +199,19 @@ class _PointerCapture extends StatelessWidget {
   Widget build(BuildContext context) {
     return Listener(
       behavior: HitTestBehavior.translucent,
-      onPointerDown: (e) => _record(e, 'down L'),
-      onPointerUp: (e) => _record(e, 'up L'),
+      onPointerDown: (e) => _record(e, 'down ${_buttonLabel(e)}'),
+      onPointerUp: (e) => _record(e, 'up ${_buttonLabel(e)}'),
       onPointerHover: (e) => _record(e, 'hover'),
       onPointerMove: (e) => _record(e, 'move'),
+      // Mouse wheel / trackpad scroll arrives on desktop as a pointer signal
+      // (PointerScrollEvent) — onPointerPanZoom* alone would miss it.
+      onPointerSignal: (e) {
+        if (e is! PointerScrollEvent) {
+          return;
+        }
+        state.setMousePosition(e.position);
+        state.addPointerEvent('scroll d(${e.scrollDelta.dx.round()}, ${e.scrollDelta.dy.round()}) @ (${e.position.dx.round()}, ${e.position.dy.round()})');
+      },
       onPointerPanZoomStart: (e) => _record(e, 'pan start'),
       onPointerPanZoomUpdate: (e) => _record(e, 'pan'),
       onPointerPanZoomEnd: (e) => _record(e, 'pan end'),
@@ -182,8 +220,18 @@ class _PointerCapture extends StatelessWidget {
   }
 
   void _record(PointerEvent event, String action) {
-    state.mousePosition = event.position;
-    state.addEvent('mouse: $action @ (${event.position.dx.round()}, ${event.position.dy.round()})');
+    state.setMousePosition(event.position);
+    state.addPointerEvent('mouse: $action @ (${event.position.dx.round()}, ${event.position.dy.round()})');
+  }
+
+  /// Human-readable label for the button carried by [event] (`event.buttons`),
+  /// e.g. `L` / `R` / `M` instead of a hardcoded assumption.
+  String _buttonLabel(PointerEvent event) {
+    final buttons = event.buttons;
+    if ((buttons & 1) != 0) return 'L';
+    if ((buttons & 4) != 0) return 'R';
+    if ((buttons & 2) != 0) return 'M';
+    return 'L';
   }
 }
 
@@ -202,7 +250,7 @@ class _HudPanel extends StatelessWidget {
       builder: (context, _) {
         final mouse = state.mousePosition;
         return Container(
-          width: 260,
+          width: 280,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.72),
@@ -223,21 +271,34 @@ class _HudPanel extends StatelessWidget {
                 style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace'),
               ),
               const SizedBox(height: 4),
-              ...state.value.reversed.map(
-                (e) => Padding(
-                  padding: const EdgeInsets.only(top: 1),
-                  child: Text(
-                    e,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'monospace'),
-                  ),
-                ),
-              ),
+              ...state.keyEvents.reversed.map((e) => _EventLine(e, color: Colors.white)),
+              const SizedBox(height: 4),
+              ...state.pointerEvents.reversed.map((e) => _EventLine(e, color: Colors.white70)),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// One monospaced line in the HUD event log.
+class _EventLine extends StatelessWidget {
+  const _EventLine(this.text, {required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 1),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: color, fontSize: 11, fontFamily: 'monospace'),
+      ),
     );
   }
 }
