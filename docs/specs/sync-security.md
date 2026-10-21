@@ -447,23 +447,53 @@ vaults; **MAY** be reset by the user (re-arming first-observation trust).
 ## 6. Phase 4b — HLC drift validation
 
 HLC timestamps can be spoofed: an attacker may future-date `physicalMs` to
-win merges (HLC orders by `physicalMs` first). When reading **other**
-devices' entries, an implementation **MUST** check:
+win merges (HLC orders by `physicalMs` first, so a future-dated head wins
+last-write-wins and can be chosen as the fast-forward head). When reading
+**other** devices' entries, an implementation **MUST** check:
 
 ```text
 entry.hlc.physicalMs <= localTime + maxDrift
 ```
 
-`maxDrift` **SHOULD** default to 60 000 ms and **MAY** be configured larger.
+- `localTime` is the reader's wall clock in milliseconds since the Unix epoch
+  (`DateTime.now().millisecondsSinceEpoch`) at read time.
+- `maxDrift` **MUST** default to 60 000 ms and **MAY** be configured larger. It
+  is vault-scoped local state and **MUST NOT** be synced (§5.3). A configured
+  value smaller than the default **MUST NOT** be accepted: a tighter bound
+  manufactures false positives without strengthening the guarantee, because the
+  adversary chooses their own timestamps arbitrarily far into the future.
 
-- `physicalMs` within the bound is accepted.
-- `physicalMs > localTime + maxDrift` **MUST** be treated as suspicious: not
-  applied as a merge result without user awareness, **MUST** be reported, and
-  **MAY** be rejected. The common policy **SHOULD** be to reject and surface
-  in sync status.
-- Past timestamps are valid (a slow device is not an attack).
-- The check applies to *other* devices only.
-- Suspicious entries **MUST** be logged (`package:logging`, never `print`).
+**The rejected set is a suffix of the device file.** `physicalMs` is
+non-decreasing across a device's own file (`Hlc.now` =
+`max(wallMs, last.physicalMs)`), so the first entry above the bound implies every
+entry after it in that file is above the bound too. An implementation **MUST**
+reject that entry **and every subsequent entry of the same device file** — the
+*drifted suffix* — per §7 step 6, **before** the DAG is built. Rejecting the
+suffix rather than the single offending entry is required for DAG integrity: the
+accepted prefix stays connected, whereas dropping a mid-chain entry would leave
+its descendants with a `parent` absent from the DAG, which silently degrades a
+legitimate merge to a no-op and swallows the sibling branch. The rule mirrors the
+signature chain rejection of §2.4.3 and covers exactly the violating tail.
+
+- Rejected entries **MUST NOT** contribute to the DAG, merge decisions, or
+  witness state, and **MUST NOT** advance the local HLC (they **MUST NOT** be
+  fed to `Hlc.receive`); drift therefore cannot propagate to other devices
+  through HLC inheritance.
+- Rejection **MUST NOT** be destructive: the entries stay in the authoring
+  device's own file, and an implementation **MUST NOT** rewrite, truncate, or
+  delete them. The check is re-evaluated on every read, so once the reader's
+  clock advances past the bound the entries are accepted again — drift
+  rejection is temporary and self-healing, not a permanent fork.
+- `physicalMs` within the bound is accepted. **Past** timestamps are always
+  valid (a slow device is not an attack).
+- The check applies to **other** devices only: a device **MUST NOT** apply it
+  to its own file.
+- Drift violations **MUST** be logged (`package:logging`, never `print`) and
+  reported (§9), naming the affected device(s), the number of entries not
+  applied, and the observed drift.
+
+The policy and its rejected alternatives are recorded in
+`docs/decisions/0008-hlc-drift-validation.md`.
 
 ---
 
@@ -482,7 +512,8 @@ entries:
    `devices/<userId>.json` and verify the certificate.
 5. **Registry filter** (§3.5) — reject devices whose user is not authorized in
    `users.json`.
-6. **HLC drift** (§6) — reject/flag future timestamps.
+6. **HLC drift** (§6) — reject the drifted suffix of every *other* device's
+   file.
 7. **Witness consistency** (§4.3) — report dangling references.
 
 Phases an implementation has not adopted are simply absent from the pipeline.
@@ -525,7 +556,9 @@ carry it. Phase-3 devices **SHOULD** include `seen` in every new entry.
 - Empty `trusted_keys.json` → every first observation is trusted and recorded.
 - Not adopting drift validation: entries are accepted without the §6 check;
   adopting it later **MUST NOT** invalidate already-merged entries (it applies
-  only to newly observed entries).
+  only to newly observed entries). Because §6 rejection is non-destructive and
+  re-evaluated on every read, a rejected entry is not invalidated either: it is
+  accepted on a later cycle once the reader's clock has advanced past the bound.
 
 ### 8.5 Serialization compatibility
 
@@ -546,7 +579,9 @@ silently drop:
 1. Failed signature (§2.4).
 2. Non-registry device or user (§3.5).
 3. TOFU key mismatch (§5.2) — show both keys, offer confirmation.
-4. HLC drift violation (§6).
+4. HLC drift violation (§6) — name the affected device(s), the number of
+   entries not applied, and the observed drift, making clear that they may be
+   applied later once the clocks converge.
 5. Dangling witness reference (§4.3) — name the file and key.
 6. Legacy entries in a migrated document (§8.1).
 
@@ -571,6 +606,11 @@ Coverage of §1.3. Legend: ✅ fully, ⚠️ partially, ❌ not covered.
 - Threat 4 is closed by Phase 1 itself: `documentPath` is in the signing
   input (§2.2), so a copied signature does not verify in another document.
   Phase 4 adds nothing here (TOFU pins a key per *device*, not per document).
+- Threat 5 is closed by Phase 4b (§6): a future-dated entry is rejected together
+  with the rest of the drifted suffix, so it cannot enter the DAG, cannot win
+  last-write-wins, and cannot be chosen as a fast-forward head. The rejection is
+  self-healing rather than destructive, so it costs at most the drift window in
+  delayed convergence, not data.
 
 ---
 
@@ -592,7 +632,8 @@ Order-of-magnitude guidance on a mid-range mobile device:
 
 The registries add a small, constant number of signature verifications per
 sync cycle (negligible); `seen` adds at most `O(other devices)` pairs per
-entry.
+entry; §6 drift validation adds one integer comparison per entry and rejects
+a suffix — negligible.
 
 ---
 
@@ -603,6 +644,12 @@ entry.
 - Migration, rollout, and test plans — implementation tasks.
 - Platform file-access mechanics (macOS bookmarks, Android SAF) — they
   constrain key storage, not the format.
+- HLC drift of registry `revision` keys (§3). The registries are
+  signature-protected but are not subjected to the §6 check, and the local
+  device adopts a registry revision into its own clock (`Hlc.receive`). A
+  future-dated revision signed by an authorized identity key can therefore still
+  push the local clock forward and make this device's own entries look drifted
+  to its peers. Hardening that path is a separate task.
 
 ---
 

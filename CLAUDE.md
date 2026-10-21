@@ -73,6 +73,7 @@ All commands run from the repo root.
 | Vault user workflow end-to-end | `docs/specs/01-vault-user-workflow.spec` |
 | Sync security format & verification rules (signatures, registries, witnesses, TOFU) | `docs/specs/sync-security.md` |
 | Why Ed25519 signatures for sync OpLog security | `docs/decisions/0006-sync-crypto-signatures.md` |
+| Why future-dated HLC entries are rejected (drift policy) | `docs/decisions/0008-hlc-drift-validation.md` |
 
 If a referenced doc and the code disagree, the spec is right and the code has a
 bug — report it rather than "fixing" the doc.
