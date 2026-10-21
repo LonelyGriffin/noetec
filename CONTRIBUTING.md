@@ -83,6 +83,19 @@ Noetec versions follow the process in
 (`CHANGELOG.md`, Keep a Changelog) is updated in every user-visible PR, and a
 release is a version bump + tag + GitHub Release cut from the changelog.
 
+## Translations
+
+English is the canonical language. A Russian translation exists only for the
+community files — README, CONTRIBUTING, SECURITY, SUPPORT, and CODE_OF_CONDUCT —
+as `<name>_RU.md` next to the original. Everything else (`docs/`, CHANGELOG,
+ROADMAP, CLAUDE) is English-only; new translations of those are not added.
+
+- If you change a file that has a pair, update the `_RU` version in the same PR.
+- Pairs start with a switcher line, `[**English**](X.md) · [Русский](X_RU.md)`,
+  with the current language in bold.
+- Links from a `_RU` file to a document without a translation point to the
+  English original.
+
 ## Set up the dev environment
 
 Prerequisite: a recent Flutter SDK (Dart 3.10 or later).

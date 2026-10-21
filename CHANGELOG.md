@@ -1,16 +1,12 @@
 # Changelog
 
-[**English**](CHANGELOG.md) · [Русский](CHANGELOG_RU.md)
-
 All notable changes to the Noetec project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-This project keeps its changelog from the very first release: the first version
-heading (`## [X.Y.Z] - YYYY-MM-DD`) is created when the first release is cut,
-per [docs/release-process.md](docs/release-process.md). Everything below the
-heading-less `Unreleased` section is not yet part of any tagged release.
+No release has been cut yet; see
+[docs/release-process.md](docs/release-process.md).
 
 ## [Unreleased]
 

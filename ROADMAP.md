@@ -1,9 +1,8 @@
 # Roadmap
 
-[**English**](ROADMAP.md) · [Русский](ROADMAP_RU.md)
-
-A date-free, development phases and the state of
-each piece. This is a "living" document: the structure, statuses, and level of detail change during the development process.
+A date-free overview of the development phases and the state of each piece.
+This is a "living" document: the structure, statuses, and level of detail change
+as development goes on.
 
 ## Status
 
@@ -30,7 +29,7 @@ Getting the app to a usable prototype for windows and android. Plan to test and 
     - 🔜 Header
 - 🔨 Basic sync & user system 
   - 🔨 Device and user identity
-  - 🔨 File-based sync engine — Аuto conflict resolution, external-edit handling
+  - 🔨 File-based sync engine — Auto conflict resolution, external-edit handling
   - 🔜 Manual conflict resolution
   - 🔜 End-to-end sync hardening and verification
 - ⏳ QoL & UI/UX 
@@ -39,8 +38,8 @@ Getting the app to a usable prototype for windows and android. Plan to test and 
   - ⏳ User scope settings
   - ⏳ Onboarding and empty states for new users
 - ⏳ Android adaptation 
-  - ⏳ Аdapt the app for Android (phones and tablets)
-  - ⏳ Adnroid e2e tests
+  - ⏳ Adapt the app for Android (phones and tablets)
+  - ⏳ Android e2e tests
 - ⏳ Polishing and release
   - ⏳ Expand the integration test suite for the prototype scope
   - ⏳ Refactoring and polish app architecture
@@ -59,7 +58,7 @@ An app with rich functionality and full features. I'm planning to test it out wi
     - ⏳ tables
     - ⏳ callouts
   - ⏳ Tags system
-  - ⏳ Slash-comands 
+  - ⏳ Slash-commands
   - ⏳ Embeds
   - ⏳ Mathematics formulas
 - ⏳ Indexing and cache systems
@@ -90,10 +89,13 @@ To create an app that fits a wide audience and different use cases.
 - ⏳ Plugins ecosystem
 
 ## ⏳ Public Documentation
-  - ⏳ Marketing website with feature showcases, setup variants and release notes
-  - ⏳ Comprehensive user manual and comprehensive video/visual guides
-  - ⏳ Interactive templates gallery and community-driven showcase
-  - ⏳ Self-hosting deployment guides and API/developer documentation
+
+The public-facing material that makes the app discoverable and usable.
+
+- ⏳ Marketing website with feature showcases, setup variants and release notes
+- ⏳ Comprehensive user manual and comprehensive video/visual guides
+- ⏳ Interactive templates gallery and community-driven showcase
+- ⏳ Self-hosting deployment guides and API/developer documentation
 
 ## ⏳ Cross platform adaptation
 
