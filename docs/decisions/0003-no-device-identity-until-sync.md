@@ -1,7 +1,5 @@
 # 0003: No Device Identity Until Sync Is Implemented
 
-[**English**](0003-no-device-identity-until-sync.md) · [Русский](0003-no-device-identity-until-sync_RU.md)
-
 ## Context
 
 The target design attributes every change to the device that made it: a device identity (a per-device UUID, stored with other device-local state) and a `modified_by: <device-uuid>` field in each file's frontmatter. Device attribution is what makes multi-device merge, conflict resolution, and per-device operation logs meaningful.

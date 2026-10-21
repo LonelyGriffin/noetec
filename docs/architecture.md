@@ -1,7 +1,5 @@
 # Noetec Architecture
 
-[**English**](architecture.md) · [Русский](architecture_RU.md)
-
 A high-level map of the codebase. It tells you *where* a concern lives so you can
 jump straight to the right files; it is not a deep dive. The why behind each
 decision lives in the ADRs under `docs/decisions/`, and normative behavior lives
@@ -11,16 +9,6 @@ at it.
 Noetec is a **local-first, block-based note editor** built in Flutter/Dart. Notes
 are plain Markdown files with YAML frontmatter in a vault on disk; the editor
 operates on a typed in-memory block tree and serializes back to Markdown.
-
-## How to read this map
-
-- Data flows in **one direction** (Flux-inspired, ADR-0001): View → command →
-  handler → notifier → View.
-- Dependencies are wired in **one place**: `lib/app/configure_di.dart` (get_it,
-  ADR-0005). If a class needs another, it takes it as a constructor argument —
-  never a global lookup.
-- The top-level unit of organization is a **system** under `lib/systems/`. Each
-  system owns a slice of domain behavior and its own reactive state.
 
 ## Directory layout
 
@@ -62,21 +50,18 @@ State moves in one direction only; no circular dependencies between systems.
 └───────────────┘                └──────────────────────────────────────────┘
 ```
 
-1. **View** — a `WatchingWidget` (e.g. `lib/view/widgets/editor_area.dart`,
-   `lib/view/screens/welcome_screen/welcome_screen.dart`). Widgets stay thin:
-   they render and react, they hold no business logic.
-2. **Command** — a `Command` object owned by a system (from `command_it`),
-   e.g. `VaultSystem.createVaultCommand` / `openVaultCommand` /
-   `closeVaultCommand` in `lib/systems/vault/vault_system.dart`. A widget calls
-   `command.run(param)`; commands expose `.isRunning`, `.errors`, `.value`.
-3. **Handler** — the private method backing the command (e.g. `_createVault`,
-   `_openVault`). It performs the domain work and mutates the system's state.
-4. **Notifiers** — reactive state owned directly by the system (from
-   `listen_it`, re-exported by `command_it`): `CustomValueNotifier`,
-   `ListNotifier`, plain `ValueNotifier`. There is no ViewModel layer; systems
-   hold state and widgets watch it directly (ADR-0005).
-5. **WatchingWidget** — subscribes via `watchValue<System, T>((s) => s.field)`
-   and rebuilds when the observed notifier changes. The cycle repeats.
+Views are thin `WatchingWidget`s (e.g. `lib/view/widgets/editor_area.dart`,
+`lib/view/screens/welcome_screen/welcome_screen.dart`): they render and react,
+never holding business logic. A user action calls `command.run(param)` on a
+`Command` owned by a system (from `command_it`) — for instance
+`VaultSystem.createVaultCommand`, `openVaultCommand`, `closeVaultCommand` in
+`lib/systems/vault/vault_system.dart`, which expose `.isRunning`, `.errors`, and
+`.value`. The private handler behind each command (`_createVault`, `_openVault`)
+does the domain work and mutates notifiers the system owns:
+`CustomValueNotifier`, `ListNotifier`, plain `ValueNotifier` (from `listen_it`,
+re-exported by `command_it`). There is no ViewModel layer; widgets watch those
+notifiers directly through `watchValue<System, T>((s) => s.field)` and rebuild
+when they change (ADR-0005).
 
 **The editor is a variant of the same loop.** Raw keystrokes arrive through
 `UserInputService` handlers → `PageEditingSubsystem` mutates the `PageEntity`
@@ -97,11 +82,7 @@ Conventions:
 - Services are defined as `abstract interface class IXxxService` with an
   `XxxServiceImpl` in the same file (`lib/service/`).
 - Systems are concrete classes (not behind interfaces) and take their
-  dependencies as constructor parameters.
-
-The stack is `get_it` (DI) + `watch_it` (reactive views) + `listen_it`
-(reactive state) + `command_it` (commands) — one coherent ecosystem, per
-ADR-0005.
+  dependencies as constructor parameters — never through a global lookup.
 
 ## Systems
 
@@ -245,20 +226,7 @@ they call commands/handlers but never mutate entities directly.
 
 ## Pointers to decisions & specs
 
-ADRs (`docs/decisions/`, immutable — supersede, never edit):
-
-- **0001** Flux-inspired unidirectional data flow — the loop above.
-- **0002** Block IDs via fenced directives (`::: {#id}`) in Markdown.
-- **0003** No device identity until sync is implemented.
-- **0004** Local-first, file-based storage as Markdown + YAML frontmatter.
-- **0005** get_it DI with the watch_it / listen_it / command_it ecosystem.
-- **0006** Ed25519 signatures for sync OpLog security.
-- **0007** Multi-user identity and sync registry model.
-
-Specs (`docs/specs/`, normative — RFC 2119):
-
-- `file-format.md` — the page file format (frontmatter, block IDs, hashing).
-- `sync-security.md` — sync security format and verification rules.
-- `01-vault-user-workflow.spec` — end-to-end vault user workflow.
-
-Product direction: `docs/product/vision.md`; roadmap: `ROADMAP.md`.
+ADRs live in `docs/decisions/` (immutable — supersede, never edit); specs live
+in `docs/specs/` (normative, RFC 2119); product direction is in
+`docs/product/vision.md`, and the roadmap is `ROADMAP.md`. The full topic →
+document index for agents stays in `CLAUDE.md`.

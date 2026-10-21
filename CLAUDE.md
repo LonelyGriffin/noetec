@@ -1,7 +1,5 @@
 # Noetec
 
-[**English**](CLAUDE.md) · [Русский](CLAUDE_RU.md)
-
 Entry point for AI coding agents. Keep this file lean: it is auto-injected into
 every session, so it only holds always-true rules and pointers. Details live in
 the docs and skills referenced below — open them only when a task touches their area.
@@ -68,6 +66,7 @@ All commands run from the repo root.
 | Markdown parser/serializer, frontmatter, page file format, block IDs | `docs/specs/file-format.md` |
 | Why unidirectional data flow / no setState / command pattern | `docs/decisions/0001-flux-unidirectional-data-flow.md` |
 | Block ID syntax (`::: {#id}` directives) | `docs/decisions/0002-block-ids-via-fenced-directives.md` |
+| Why device identity is deferred until sync exists | `docs/decisions/0003-no-device-identity-until-sync.md` |
 | Device identity & attribution, `modified_by` (deferred) | `docs/decisions/0007-user-device-identity-and-registry.md` |
 | Storage layout, why plain `.md` files, local-first | `docs/decisions/0004-local-first-markdown-file-storage.md` |
 | DI container choice, get_it/watch_it/listen_it ecosystem | `docs/decisions/0005-get-it-di-ecosystem.md` |
@@ -76,6 +75,7 @@ All commands run from the repo root.
 | Sync security format & verification rules (signatures, registries, witnesses, TOFU) | `docs/specs/sync-security.md` |
 | Why Ed25519 signatures for sync OpLog security | `docs/decisions/0006-sync-crypto-signatures.md` |
 | Why future-dated HLC entries are rejected (drift policy) | `docs/decisions/0008-hlc-drift-validation.md` |
+| Why entries carry witness references (`seen`) and how truncation is detected | `docs/decisions/0009-witness-truncation-detection.md` |
 
 If a referenced doc and the code disagree, the spec is right and the code has a
 bug — report it rather than "fixing" the doc.

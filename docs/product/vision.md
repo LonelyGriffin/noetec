@@ -1,7 +1,5 @@
 # Product Vision
 
-[**English**](vision.md) · [Русский](vision_RU.md)
-
 A personal notes, task management, and team collaboration application — open-source at its core.
 
 ## Why

@@ -1,7 +1,5 @@
 # Noetec Sync Security Extensions
 
-[**English**](sync-security.md) · [Русский](sync-security_RU.md)
-
 **Format version: 1 (draft)**
 
 This document is the normative specification of the security extensions to the
@@ -18,9 +16,10 @@ The base entry format (wire keys `v`, `hlc`, `parent`, `parent_b`, `type`,
 on-disk layout of device files are defined by the existing codebase
 (`lib/systems/oplog_system/oplog_serializer.dart`); this document extends that
 format. Where the signing input references an entry (§2.2), it is the **wire
-representation** (snake_case keys) that is serialized and signed. `docs/specs/file-format.md` is the style and
-format reference; where the two documents overlap, this document is
-authoritative for the sync security extensions.
+representation** (snake_case keys) that is serialized and signed.
+`docs/specs/file-format.md` is the style and format reference; where the two
+documents overlap, this document is authoritative for the sync security
+extensions.
 
 The extensions are defined in four phases, all backward compatible with
 unsigned legacy data (§8):
@@ -599,9 +598,7 @@ carry it. Phase-3 devices **SHOULD** include `seen` in every new entry.
 - Empty `trusted_keys.json` → every first observation is trusted and recorded.
 - Not adopting drift validation: entries are accepted without the §6 check;
   adopting it later **MUST NOT** invalidate already-merged entries (it applies
-  only to newly observed entries). Because §6 rejection is non-destructive and
-  re-evaluated on every read, a rejected entry is not invalidated either: it is
-  accepted on a later cycle once the reader's clock has advanced past the bound.
+  only to newly observed entries; see §6).
 
 ### 8.5 Serialization compatibility
 
@@ -678,14 +675,15 @@ Order-of-magnitude guidance on a mid-range mobile device:
 - **Batch signing (MAY, not in v1):** Merkle-root signing is out of scope for
   v1 and **MUST NOT** be mixed with per-entry signatures.
 
-The registries add a small, constant number of signature verifications per
-sync cycle (negligible); `seen` adds at most `O(other devices)` pairs per
-entry — roughly 75 bytes per referenced device (full UUID + HLC key + JSON
-syntax), i.e. on a ≈700-byte signed entry ≈ +10% with 2 devices, ≈ +35% with
-4 and ≈ +85% with 10 — and its verification costs one extra `O(entries)` pass
-per device file plus `O(references)` comparisons per document; §6 drift
-validation adds one integer comparison per entry and rejects a suffix —
-negligible.
+- **Registries:** a small, constant number of signature verifications per sync
+  cycle — negligible.
+- **`seen`:** at most `O(other devices)` pairs per entry — roughly 75 bytes per
+  referenced device (full UUID + HLC key + JSON syntax), i.e. on a ≈700-byte
+  signed entry ≈ +10% with 2 devices, ≈ +35% with 4 and ≈ +85% with 10. Its
+  verification costs one extra `O(entries)` pass per device file plus
+  `O(references)` comparisons per document.
+- **§6 drift validation:** one integer comparison per entry and rejecting a
+  suffix — negligible.
 
 ---
 

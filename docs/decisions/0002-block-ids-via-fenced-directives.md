@@ -1,7 +1,5 @@
 # 0002: Block IDs via Fenced Directives in Markdown
 
-[**English**](0002-block-ids-via-fenced-directives.md) · [Русский](0002-block-ids-via-fenced-directives_RU.md)
-
 ## Context
 
 Noetec treats documents as trees of blocks (paragraphs, headers, tasks, lists, code blocks), and later phases require block-level operations, a block-level operation log, and block-level merge during sync. All of that depends on every block having a stable unique identifier. At the same time, Noetec's storage format is plain human-readable markdown that must remain editable in external editors and survive round-trips (parse → edit → serialize) without losing identity information.

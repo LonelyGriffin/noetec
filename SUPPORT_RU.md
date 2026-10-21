@@ -4,12 +4,12 @@
 
 ## Вопросы
 
-Задавайте вопросы и обсуждайте проект в [GitHub Discussions](https://github.com/LonelyGriffin/noetec/discussions).
+Вопросы и обсуждение проекта — в [GitHub Discussions](https://github.com/LonelyGriffin/noetec/discussions).
 
-## Сообщение об ошибке
+## Как сообщить об ошибке
 
-Откройте [issue](https://github.com/LonelyGriffin/noetec/issues) и опишите, что вы ожидали, что произошло на самом деле и каковы шаги воспроизведения.
+Откройте [issue](https://github.com/LonelyGriffin/noetec/issues) и опишите, чего вы ожидали, что произошло на самом деле и как это воспроизвести.
 
-## Сообщение о проблеме безопасности
+## Как сообщить о проблеме безопасности
 
-**Не** сообщайте о проблемах безопасности публично. См. [SECURITY_RU.md](SECURITY_RU.md).
+**Не** сообщайте о проблемах безопасности публично — следуйте инструкции из [SECURITY_RU.md](SECURITY_RU.md).
