@@ -1,5 +1,7 @@
 # 0001: Flux-Inspired Unidirectional Data Flow
 
+[**English**](0001-flux-unidirectional-data-flow.md) · [Русский](0001-flux-unidirectional-data-flow_RU.md)
+
 ## Context
 
 Noetec needs a state-management and data-flow architecture that keeps a growing set of features (vault management, editing, persistence, and eventually sync) predictable and testable. In a reactive UI it is easy for state to be mutated from many places, producing circular dependencies, hidden side effects, and flows that are hard to trace or debug.

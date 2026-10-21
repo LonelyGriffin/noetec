@@ -1,5 +1,7 @@
 # Noetec Page File Format
 
+[**English**](file-format.md) · [Русский](file-format_RU.md)
+
 **Format version: 1**
 
 This document is the normative specification of the on-disk format of a Noetec

@@ -1,5 +1,7 @@
 # 0007: Multi-User Identity and Sync Registry Model
 
+[**English**](0007-user-device-identity-and-registry.md) · [Русский](0007-user-device-identity-and-registry_RU.md)
+
 ## Context
 
 File-based sync exchanges state only through the `.sync/` directory; `.noetec/`

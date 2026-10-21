@@ -1,5 +1,7 @@
 # Noetec
 
+[**English**](README.md) · [Русский](README_RU.md)
+
 **Local-first, block-based notes that live in plain files you own.**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
@@ -44,6 +46,7 @@ Requires a recent Flutter SDK (Dart 3.10+). Full setup — including git hooks �
 - [SECURITY.md](SECURITY.md) — report a security issue privately
 - [SUPPORT.md](SUPPORT.md) — where to ask questions
 - [docs/architecture.md](docs/architecture.md) — high-level code map (where each concern lives)
+- [docs/i18n.md](docs/i18n.md) — how documentation is translated, and the glossary
 - [docs/](docs/) — product vision, architecture decisions, and specs
 
 ## License

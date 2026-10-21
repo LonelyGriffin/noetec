@@ -1,5 +1,7 @@
 # Noetec Architecture
 
+[**English**](architecture.md) · [Русский](architecture_RU.md)
+
 A high-level map of the codebase. It tells you *where* a concern lives so you can
 jump straight to the right files; it is not a deep dive. The why behind each
 decision lives in the ADRs under `docs/decisions/`, and normative behavior lives

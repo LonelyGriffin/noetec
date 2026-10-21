@@ -1,5 +1,7 @@
 # Noetec
 
+[**English**](CLAUDE.md) · [Русский](CLAUDE_RU.md)
+
 Entry point for AI coding agents. Keep this file lean: it is auto-injected into
 every session, so it only holds always-true rules and pointers. Details live in
 the docs and skills referenced below — open them only when a task touches their area.

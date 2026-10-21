@@ -1,5 +1,7 @@
 # 0009: Witness References and Truncation Detection (Phase 3)
 
+[**English**](0009-witness-truncation-detection.md) · [Русский](0009-witness-truncation-detection_RU.md)
+
 ## Context
 
 Phase 1 (per-entry Ed25519 signatures, ADR-0006) and Phase 2 (user/device

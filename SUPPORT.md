@@ -1,5 +1,7 @@
 # Support
 
+[**English**](SUPPORT.md) · [Русский](SUPPORT_RU.md)
+
 ## Questions
 
 Ask questions and discuss the project in [GitHub Discussions](https://github.com/LonelyGriffin/noetec/discussions).

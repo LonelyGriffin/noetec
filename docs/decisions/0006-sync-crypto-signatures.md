@@ -1,5 +1,7 @@
 # 0006: Ed25519 Signatures for Sync OpLog Security
 
+[**English**](0006-sync-crypto-signatures.md) · [Русский](0006-sync-crypto-signatures_RU.md)
+
 ## Context
 
 Noetec's sync system (per ADR-0004, layered on top of local-first file storage) exchanges document changes through per-device operation-log files — `.sync/pages/<encoded-path>/<deviceId>.oplog.jsonl` — that live in a shared folder synced by a file service such as Dropbox or WebDAV. The design is deliberately conflict-free at the file level: each device appends only to its own file, and a `OpLogDag` is reconstructed by merging all devices' logs.
