@@ -586,4 +586,440 @@ void main() {
       expect(dag.heads.keys, {'devA'});
     });
   });
+
+  group('OpLogAuthorizer HLC drift (§7 step 6, §6) —', () {
+    const vault = '/vault';
+    const relPath = 'pages/notes/ideas.md';
+    const localDeviceId = 'local-device';
+    // Fixed reader clock so the bound (localNowMs + maxDrift) is exact.
+    const localNowMs = 1000; // bound = 1000 + 60000 = 61000
+
+    test('an other-device file: the drifted suffix is rejected, the prefix accepted (§6)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      final registry = _FakeRegistry(
+        users: _users([_user('owner', owner: true), _user('alice')]),
+        devices: {
+          'alice': _devices('alice', [_device('devDrift', pair.publicKeyBase64Url)]),
+        },
+      );
+      final authorizer = OpLogAuthorizer(registry: registry, trustStore: _FakeTrustStore(), nowMs: () => localNowMs);
+
+      // physicalMs: 100 (ok), 50000 (ok), 61001 (first violation), 70000 (drifted).
+      final file = [
+        _entry(hlc: _h(100, 'devDrift'), device: 'devDrift', pubKey: pair.publicKeyBase64Url),
+        _entry(hlc: _h(50000, 'devDrift'), device: 'devDrift'),
+        _entry(hlc: _h(61001, 'devDrift'), device: 'devDrift'),
+        _entry(hlc: _h(70000, 'devDrift'), device: 'devDrift'),
+      ];
+
+      final outcome = await authorizer.authorize(
+        vaultRootPath: vault,
+        relativePath: relPath,
+        entriesByDevice: {'devDrift': file},
+        localDeviceId: localDeviceId,
+        localNowMs: localNowMs,
+      );
+
+      expect(outcome.accepted.containsKey('devDrift'), isTrue);
+      expect(outcome.accepted['devDrift'], hasLength(2), reason: 'only the within-bound prefix [0, N) is accepted');
+      expect(identical(outcome.accepted['devDrift']!.first, file.first), isTrue);
+      expect(outcome.accepted['devDrift']!.last.hlc.physicalMs, 50000, reason: 'the suffix (61001, 70000) never reaches accepted');
+
+      final drift = outcome.rejections.where((r) => r.reason == 'hlc-drift').toList();
+      expect(drift, hasLength(1), reason: 'one hlc-drift report per device file');
+      expect(drift.single.devices, ['devDrift']);
+      expect(drift.single.entryCount, 2);
+      expect(drift.single.observedDriftMs, 70000 - localNowMs, reason: 'observed drift = suffix max physicalMs − localTime');
+    });
+
+    test('a wholly-drifted other-device file is fully rejected (N=0, absent from accepted)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      final registry = _FakeRegistry(
+        users: _users([_user('owner', owner: true), _user('alice')]),
+        devices: {
+          'alice': _devices('alice', [_device('devDrift', pair.publicKeyBase64Url)]),
+        },
+      );
+      final authorizer = OpLogAuthorizer(registry: registry, trustStore: _FakeTrustStore(), nowMs: () => localNowMs);
+
+      final outcome = await authorizer.authorize(
+        vaultRootPath: vault,
+        relativePath: relPath,
+        entriesByDevice: {
+          'devDrift': [_entry(hlc: _h(61001, 'devDrift'), device: 'devDrift', pubKey: pair.publicKeyBase64Url), _entry(hlc: _h(90000, 'devDrift'), device: 'devDrift')],
+        },
+        localDeviceId: localDeviceId,
+        localNowMs: localNowMs,
+      );
+
+      expect(outcome.accepted.containsKey('devDrift'), isFalse, reason: 'when the whole file is drifted it is absent from accepted');
+      expect(outcome.rejections.single.reason, 'hlc-drift');
+      expect(outcome.rejections.single.entryCount, 2);
+      expect(outcome.rejections.single.observedDriftMs, 90000 - localNowMs);
+    });
+
+    test('the local device\'s own file is never drift-checked, even when far in the future (§6)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      // Public vault (no users.json) so the only thing at play is TOFU + drift.
+      final authorizer = OpLogAuthorizer(registry: _FakeRegistry(users: null), trustStore: _FakeTrustStore(), nowMs: () => localNowMs);
+
+      final outcome = await authorizer.authorize(
+        vaultRootPath: vault,
+        relativePath: relPath,
+        entriesByDevice: {
+          localDeviceId: [_entry(hlc: _h(500000000, localDeviceId), device: localDeviceId, pubKey: pair.publicKeyBase64Url)],
+        },
+        localDeviceId: localDeviceId,
+        localNowMs: localNowMs,
+      );
+
+      expect(outcome.accepted.containsKey(localDeviceId), isTrue, reason: 'the local device\'s own file is exempt from the drift bound');
+      expect(outcome.accepted[localDeviceId], hasLength(1));
+      expect(outcome.rejections, isEmpty, reason: 'no hlc-drift report for the local device');
+    });
+
+    test('a device rejected by the registry filter is not double-counted as hlc-drift (§7 step 6 runs after 3–5)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      final registry = _FakeRegistry(
+        users: _users([_user('owner', owner: true), _user('alice')]),
+        devices: {
+          // 'alice' binds a different key, so 'attacker' is unbound.
+          'alice': _devices('alice', [_device('devA', 'some-other-key')]),
+        },
+      );
+      final authorizer = OpLogAuthorizer(registry: registry, trustStore: _FakeTrustStore(), nowMs: () => localNowMs);
+
+      final outcome = await authorizer.authorize(
+        vaultRootPath: vault,
+        relativePath: relPath,
+        entriesByDevice: {
+          'attacker': [_entry(hlc: _h(500000000, 'atk'), device: 'attacker', pubKey: pair.publicKeyBase64Url)],
+        },
+        localDeviceId: localDeviceId,
+        localNowMs: localNowMs,
+      );
+
+      expect(outcome.accepted, isEmpty);
+      expect(outcome.rejections, hasLength(1), reason: 'exactly one rejection for the device');
+      expect(outcome.rejections.single.reason, 'unbound-device');
+      expect(outcome.rejections.where((r) => r.reason == 'hlc-drift'), isEmpty, reason: 'not double-counted as hlc-drift');
+    });
+
+    test('no local device named → the drift check is disabled (backward-compatible gate)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      final registry = _FakeRegistry(
+        users: _users([_user('owner', owner: true), _user('alice')]),
+        devices: {
+          'alice': _devices('alice', [_device('devDrift', pair.publicKeyBase64Url)]),
+        },
+      );
+      final authorizer = OpLogAuthorizer(registry: registry, trustStore: _FakeTrustStore(), nowMs: () => localNowMs);
+
+      // No localDeviceId passed: pre-drift behavior — a far-future entry is accepted.
+      final outcome = await authorizer.authorize(
+        vaultRootPath: vault,
+        relativePath: relPath,
+        entriesByDevice: {
+          'devDrift': [_entry(hlc: _h(500000000, 'devDrift'), device: 'devDrift', pubKey: pair.publicKeyBase64Url)],
+        },
+      );
+
+      expect(outcome.accepted.containsKey('devDrift'), isTrue);
+      expect(outcome.rejections, isEmpty, reason: 'the §6 check is additive and only active when a local device is named');
+    });
+  });
+
+  group('OpLogSystem drift rejection end-to-end (§6, §8.4, per-cycle accumulation) —', () {
+    late _FakeFs fs;
+    late VaultSystem vaultSystem;
+    late FakeDeviceService deviceService;
+    late HlcService hlcService;
+    late FakeSecureKeyStore keyStore;
+    OpLogSystem? oplogRef;
+    const vaultId = 'vault-1';
+    const relPath = 'pages/notes/ideas.md';
+    const localUuid = 'local-device';
+    // Fixed reader clock: bound = 1000 + 60000 = 61000.
+    const localNowMs = 1000;
+
+    setUp(() async {
+      fs = _FakeFs();
+      final local = await crypto.generateDeviceKeyPair();
+      keyStore = FakeSecureKeyStore();
+      await keyStore.storeDevicePrivateKey(vaultId, local.privateKeyBase64Url);
+      deviceService = FakeDeviceService()..setDevice(DeviceIdentity(uuid: localUuid, name: 'Local', createdAt: DateTime(2026), lastHlc: null, publicKey: local.publicKeyBase64Url));
+      vaultSystem = createTestVaultSystem(fileSystem: fs, deviceService: deviceService);
+      hlcService = HlcService(vaultSystem, deviceService);
+    });
+
+    tearDown(() {
+      oplogRef?.dispose();
+      oplogRef = null;
+      vaultSystem.dispose();
+    });
+
+    /// Writes a real signed multi-entry oplog file for [deviceId] (pubKey on
+    /// the first entry, each entry signed by [privKey]).
+    ///
+    /// In the real system the HLC's `deviceId` is the dash-free truncated form
+    /// (`HlcService` stores `device.truncatedDeviceId`), whereas
+    /// [OpLogEntry.deviceId] is the full attribution key that names the file.
+    /// [Hlc.toKey] splits on `-`, so a dashed HLC device id cannot round-trip —
+    /// this helper strips dashes from the HLC's device id to match real usage
+    /// while keeping [OpLogEntry.deviceId] as the full [deviceId].
+    Future<void> writeSignedMultiFile({required String deviceId, required String pubKey, required String privKey, required List<Hlc> hlcs}) async {
+      await keyStore.storeDevicePrivateKey('vault-$deviceId', privKey);
+      final signer = OpLogSigner(crypto: crypto, secureKeyStore: keyStore, serializer: const OpLogSerializer());
+      const serializer = OpLogSerializer();
+      const dir = '/vault/.sync/$relPath';
+      if (!fs.dirs.contains(dir)) fs.dirs.add(dir);
+      Hlc? prev;
+      var buf = '';
+      for (final raw in hlcs) {
+        final hlc = Hlc(physicalMs: raw.physicalMs, counter: raw.counter, deviceId: raw.deviceId.replaceAll('-', ''));
+        final entry = OpLogEntry(
+          version: 1,
+          hlc: hlc,
+          parent: prev,
+          parentB: null,
+          type: prev == null ? OpEntryType.fileCreate : OpEntryType.edit,
+          blockOps: null,
+          fileOp: null,
+          fileHash: null,
+          deviceId: deviceId,
+          signature: null,
+          pubKey: prev == null ? pubKey : null,
+        );
+        prev = hlc;
+        final signed = await signer.sign(entry, relPath, vaultId: 'vault-$deviceId', devicePublicKeyBase64Url: pubKey);
+        buf += '${serializer.encode(signed)}\n';
+      }
+      await fs.appendToFile('$dir/$deviceId.oplog.jsonl', buf);
+    }
+
+    test('a drifted other-device suffix never reaches the DAG (§6, §8.4)', () async {
+      final a = await crypto.generateDeviceKeyPair();
+      final users = _users([_user('owner', owner: true), _user('alice')]);
+      final registry = {
+        'alice': _devices('alice', [_device('devA', a.publicKeyBase64Url)]),
+      };
+
+      // devA: 100 (ok), 50000 (ok), 61001 (drifted), 70000 (drifted).
+      await writeSignedMultiFile(
+        deviceId: 'devA',
+        pubKey: a.publicKeyBase64Url,
+        privKey: a.privateKeyBase64Url,
+        hlcs: [_h(100, 'devA'), _h(50000, 'devA'), _h(61001, 'devA'), _h(70000, 'devA')],
+      );
+
+      final authorizer = OpLogAuthorizer(
+        registry: _FakeRegistry(users: users, devices: registry),
+        trustStore: TrustStoreImpl(fs),
+        nowMs: () => localNowMs,
+      );
+      final oplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: deviceService,
+        crypto: crypto,
+        secureKeyStore: keyStore,
+        authorizer: authorizer,
+        nowMs: () => localNowMs,
+      );
+      oplogRef = oplog;
+      vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'V', rootPath: '/vault', createdAt: DateTime(2026));
+
+      final snapshot = await oplog.prepareVerification();
+      expect(snapshot, isNotNull);
+      final dag = await oplog.buildDag(relPath, verification: snapshot);
+
+      // The two drifted entries (61001, 70000) never entered the DAG; the
+      // within-bound prefix (100, 50000) did.
+      expect(dag.entriesByHlc.keys, hasLength(2));
+      expect(dag.entriesByHlc.containsKey('61001-0000-devA'), isFalse, reason: 'a drifted entry never reaches the DAG');
+      expect(dag.entriesByHlc.containsKey('70000-0000-devA'), isFalse, reason: 'a drifted entry never reaches the DAG');
+      expect(dag.entriesByHlc.containsKey('50000-0000-devA'), isTrue, reason: 'the within-bound prefix is kept');
+
+      final rejections = oplog.lastRejections;
+      expect(rejections, hasLength(1));
+      expect(rejections.single.reason, 'hlc-drift');
+      expect(rejections.single.devices, ['devA']);
+      expect(rejections.single.entryCount, 2);
+      expect(rejections.single.observedDriftMs, 70000 - localNowMs);
+    });
+
+    test('lastRejections accumulates per cycle, not per file (§9, per-cycle accumulation)', () async {
+      final a = await crypto.generateDeviceKeyPair();
+      final b = await crypto.generateDeviceKeyPair();
+      final users = _users([_user('owner', owner: true), _user('alice')]);
+      final registry = {
+        'alice': _devices('alice', [_device('devA', a.publicKeyBase64Url), _device('devB', b.publicKeyBase64Url)]),
+      };
+
+      const fileA = 'pages/a.md';
+      const fileB = 'pages/b.md';
+      Future<void> write(String deviceId, String key, String priv, String path, int driftMs) async {
+        await keyStore.storeDevicePrivateKey('vault-$deviceId', priv);
+        final signer = OpLogSigner(crypto: crypto, secureKeyStore: keyStore, serializer: const OpLogSerializer());
+        const serializer = OpLogSerializer();
+        final dir = '/vault/.sync/$path';
+        if (!fs.dirs.contains(dir)) fs.dirs.add(dir);
+        final entry = OpLogEntry(
+          version: 1,
+          hlc: _h(localNowMs + driftMs, deviceId),
+          parent: null,
+          parentB: null,
+          type: OpEntryType.fileCreate,
+          blockOps: null,
+          fileOp: null,
+          fileHash: null,
+          deviceId: deviceId,
+          signature: null,
+          pubKey: key,
+        );
+        final signed = await signer.sign(entry, path, vaultId: 'vault-$deviceId', devicePublicKeyBase64Url: key);
+        await fs.appendToFile('$dir/$deviceId.oplog.jsonl', '${serializer.encode(signed)}\n');
+      }
+
+      // Two different files, each with one drifted entry.
+      await write('devA', a.publicKeyBase64Url, a.privateKeyBase64Url, fileA, 60001);
+      await write('devB', b.publicKeyBase64Url, b.privateKeyBase64Url, fileB, 80000);
+
+      final authorizer = OpLogAuthorizer(
+        registry: _FakeRegistry(users: users, devices: registry),
+        trustStore: TrustStoreImpl(fs),
+        nowMs: () => localNowMs,
+      );
+      final oplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: deviceService,
+        crypto: crypto,
+        secureKeyStore: keyStore,
+        authorizer: authorizer,
+        nowMs: () => localNowMs,
+      );
+      oplogRef = oplog;
+      vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'V', rootPath: '/vault', createdAt: DateTime(2026));
+
+      final snapshot = await oplog.prepareVerification();
+      expect(oplog.lastRejections, isEmpty, reason: 'prepareVerification clears the cycle\'s rejections');
+      await oplog.buildDag(fileA, verification: snapshot);
+      expect(oplog.lastRejections, hasLength(1), reason: 'after the first file, one rejection');
+      await oplog.buildDag(fileB, verification: snapshot);
+      expect(oplog.lastRejections, hasLength(2), reason: 'the second file appends, it does not replace');
+      expect(oplog.lastRejections.map((r) => r.devices).toList(), [
+        ['devA'],
+        ['devB'],
+      ]);
+      expect(oplog.lastRejections.map((r) => r.observedDriftMs).toList(), [60001, 80000]);
+    });
+
+    test('the local device\'s own future-dated file is never drift-checked (§6 local exemption)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      // Public vault (no users.json) so both devices pass attribution (TOFU
+      // cleared) and the ONLY thing under test is the §6 drift bound.
+      final authorizer = OpLogAuthorizer(registry: _FakeRegistry(users: null), trustStore: TrustStoreImpl(fs), nowMs: () => localNowMs);
+      final oplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: deviceService,
+        crypto: crypto,
+        secureKeyStore: keyStore,
+        authorizer: authorizer,
+        nowMs: () => localNowMs,
+      );
+      oplogRef = oplog;
+      vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'V', rootPath: '/vault', createdAt: DateTime(2026));
+
+      // devA (other device) is within bound; the LOCAL device writes a
+      // far-future entry into the same page and must stay exempt.
+      await writeSignedMultiFile(deviceId: 'devA', pubKey: pair.publicKeyBase64Url, privKey: pair.privateKeyBase64Url, hlcs: [_h(100, 'devA')]);
+      await writeSignedMultiFile(deviceId: localUuid, pubKey: pair.publicKeyBase64Url, privKey: pair.privateKeyBase64Url, hlcs: [_h(500000000, localUuid)]);
+
+      final snapshot = await oplog.prepareVerification();
+      final dag = await oplog.buildDag(relPath, verification: snapshot);
+
+      // Both devA (within bound) and the local device (far future, exempt) are
+      // in the DAG; nothing was drift-rejected.
+      expect(dag.entriesByHlc.keys, hasLength(2));
+      expect(oplog.lastRejections, isEmpty, reason: 'the local device is exempt, and devA is within bound');
+    });
+
+    test('the drift bound is the clock at read time, not a value frozen at cycle start (§6, ADR-0008 decision 1/8)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      // A mutable clock so the bound can move between prepareVerification and
+      // buildDag — exactly the situation the frozen-clock bug got wrong.
+      var now = localNowMs; // 1000 → bound 61000
+      final authorizer = OpLogAuthorizer(registry: _FakeRegistry(users: null), trustStore: TrustStoreImpl(fs), nowMs: () => now);
+      final oplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: deviceService,
+        crypto: crypto,
+        secureKeyStore: keyStore,
+        authorizer: authorizer,
+        nowMs: () => now,
+      );
+      oplogRef = oplog;
+      vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'V', rootPath: '/vault', createdAt: DateTime(2026));
+
+      // devA's entry sits at 120000: above the 1000-based bound (61000) but
+      // below the 100000-based bound (160000).
+      await writeSignedMultiFile(deviceId: 'devA', pubKey: pair.publicKeyBase64Url, privKey: pair.privateKeyBase64Url, hlcs: [_h(120000, 'devA')]);
+
+      // Cycle starts at clock 1000.
+      final snapshot = await oplog.prepareVerification();
+      // The reader's clock advances before the file is read (uptime, or a
+      // peer whose clock simply ran ahead). A clock frozen at cycle start
+      // (1000) would still reject 120000 — a false hlc-drift on a healthy
+      // peer (ADR-0008 decision 6). The read-time clock (100000) accepts it.
+      now = 100000;
+      final dag = await oplog.buildDag(relPath, verification: snapshot);
+
+      expect(dag.entriesByHlc.containsKey('120000-0000-devA'), isTrue, reason: 'the bound is the clock at read time (100000), so the entry is within bound — no false hlc-drift');
+      expect(oplog.lastRejections, isEmpty, reason: 'no rejection: the bound tracked the advancing read-time clock, not a cycle-start freeze');
+    });
+
+    test('a standalone buildDag without a cycle snapshot is its own reporting scope (watch path)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      final authorizer = OpLogAuthorizer(registry: _FakeRegistry(users: null), trustStore: TrustStoreImpl(fs), nowMs: () => localNowMs);
+      final oplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: deviceService,
+        crypto: crypto,
+        secureKeyStore: keyStore,
+        authorizer: authorizer,
+        nowMs: () => localNowMs,
+      );
+      oplogRef = oplog;
+      vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'V', rootPath: '/vault', createdAt: DateTime(2026));
+
+      // devA drifted (61001 > 1000 + 60000); the local device is exempt.
+      await writeSignedMultiFile(deviceId: 'devA', pubKey: pair.publicKeyBase64Url, privKey: pair.privateKeyBase64Url, hlcs: [_h(61001, 'devA')]);
+      await writeSignedMultiFile(deviceId: localUuid, pubKey: pair.publicKeyBase64Url, privKey: pair.privateKeyBase64Url, hlcs: [_h(100, localUuid)]);
+
+      // Watch path: SyncSystem.checkFile → buildDag with no snapshot — no
+      // prepareVerification ever ran, and the check is still active (the old
+      // code silently disabled the gate in exactly this situation).
+      final dag = await oplog.buildDag(relPath);
+      expect(dag.entriesByHlc.containsKey('61001-0000-devA'), isFalse, reason: 'the drifted suffix never reaches the DAG');
+      expect(oplog.lastRejections, hasLength(1), reason: 'the standalone check reports its own rejection');
+      expect(oplog.lastRejections.single.reason, 'hlc-drift');
+
+      // A second standalone check reports only itself — the previous
+      // standalone scope is cleared, never accumulated (unbounded growth was
+      // the pre-fix behavior).
+      final dag2 = await oplog.buildDag(relPath);
+      expect(dag2.entriesByHlc.containsKey('61001-0000-devA'), isFalse);
+      expect(oplog.lastRejections, hasLength(1), reason: 'standalone checks do not pile up on each other');
+      expect(oplog.lastRejections.single.devices, ['devA']);
+    });
+  });
 }

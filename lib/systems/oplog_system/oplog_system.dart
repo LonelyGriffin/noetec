@@ -30,13 +30,15 @@ class OpLogSystem {
     required ICryptoService crypto,
     required ISecureKeyStore secureKeyStore,
     OpLogAuthorizer? authorizer,
+    int Function()? nowMs,
   }) : _fileSystem = fileSystem,
        _hlcService = hlcService,
        _vaultSystem = vaultSystem,
        _deviceService = deviceService,
        _crypto = crypto,
        _secureKeyStore = secureKeyStore,
-       _authorizer = authorizer {
+       _authorizer = authorizer,
+       _nowMs = nowMs ?? _realNowMs {
     _serializer = const OpLogSerializer();
     _signer = OpLogSigner(crypto: _crypto, secureKeyStore: _secureKeyStore, serializer: _serializer);
     // The key resolver supplies the authoring device's public key for a device
@@ -55,17 +57,34 @@ class OpLogSystem {
   final ICryptoService _crypto;
   final ISecureKeyStore _secureKeyStore;
 
-  /// Runs the attribution/authorization chain (sync-security.md §7 steps 3–5:
-  /// TOFU → certificate → registry filter) over the entries read by
-  /// [buildDag]. When `null` (e.g. low-level tests) the DAG is built from every
-  /// signature-verified entry, preserving the pre-gate behavior.
+  /// Runs the attribution/authorization chain (sync-security.md §7 steps 3–6:
+  /// TOFU → certificate → registry filter → HLC drift) over the entries read
+  /// by [buildDag]. When `null` (e.g. low-level tests) the DAG is built from
+  /// every signature-verified entry, preserving the pre-gate behavior.
   final OpLogAuthorizer? _authorizer;
+
+  /// The reader's wall clock in ms since the Unix epoch (sync-security.md §6:
+  /// `localTime` is `DateTime.now().millisecondsSinceEpoch` at read time),
+  /// used to bound other devices' `physicalMs` in the drift gate. Read at
+  /// each [buildDag] call, so the bound is always the clock *at read time*;
+  /// injected so tests can drive it deterministically, defaults to the real
+  /// clock.
+  final int Function() _nowMs;
+
+  static int _realNowMs() => DateTime.now().millisecondsSinceEpoch;
+
   static final Logger _log = Logger('OpLogSystem');
 
-  /// The rejection reports from the most recent [buildDag] that ran the gate
+  /// The rejection reports accumulated over the current reporting scope
   /// (sync-security.md §9 — rejections are surfaced, never silently dropped).
-  /// Exposed for the sync-status UI (NOET-33); empty when no gate ran or
-  /// nothing was rejected.
+  /// Two scopes exist: a [checkAll] cycle — [prepareVerification] clears the
+  /// list and every [buildDag] of the cycle appends, so the getter reports
+  /// the whole cycle, not just the last file processed — and a standalone
+  /// [buildDag] with no cycle snapshot (the watch path), which is its own
+  /// scope: the previous one is cleared before this call's reports are
+  /// appended, so unrelated single-file checks never pile up in the list.
+  /// Exposed for the sync-status UI (NOET-58); empty when no gate ran or
+  /// nothing was rejected in the current scope.
   final List<EntryRejectionReport> _lastRejections = [];
   List<EntryRejectionReport> get lastRejections => List.unmodifiable(_lastRejections);
 
@@ -279,11 +298,21 @@ class OpLogSystem {
   /// [SyncSystem] calls this at the start of a `checkAll` cycle and threads the
   /// result through every [buildDag] of the cycle, so the expensive
   /// registry read+verify pass is performed once per cycle rather than once
-  /// per `.oplog.jsonl` file. Returns `null` when no gate is installed (the
-  /// pre-gate behavior is preserved) or no vault is active.
+  /// per `.oplog.jsonl` file.
+  ///
+  /// Also marks the **start of a sync cycle** for [lastRejections]: it
+  /// clears the accumulated reports, so the getter reports the whole cycle
+  /// rather than only the last file processed. The §6 drift bound itself is
+  /// not anchored here — the clock is read at each [buildDag] call (read
+  /// time, per §6 / ADR-0008).
+  ///
+  /// Returns `null` when no gate is installed (the pre-gate behavior is
+  /// preserved) or no vault is active.
   Future<RegistrySnapshot?> prepareVerification() async {
     final authorizer = _authorizer;
     if (authorizer == null || _vaultRootPath == null || _deviceId == null || _reader == null) return null;
+    // Start of the cycle: a fresh cycle starts with no accumulated rejections.
+    _lastRejections.clear();
     return authorizer.loadSnapshot();
   }
 
@@ -298,16 +327,37 @@ class OpLogSystem {
     }
     // Verification gate (sync-security.md §7, §2.4 rule 6): entries are
     // filtered through the attribution/authorization chain (TOFU →
-    // certificate → registry filter) *before* they contribute to the DAG,
-    // merge decisions, or witness state. Rejected entries never enter the DAG
-    // and are reported via [OpLogAuthorizer] (never silently dropped).
+    // certificate → registry filter → HLC drift) *before* they contribute to
+    // the DAG, merge decisions, or witness state. Rejected entries never enter
+    // the DAG and are reported via [OpLogAuthorizer] (never silently dropped).
     //
     // [verification] is the cycle's registry snapshot (see
     // [prepareVerification]); when omitted it is loaded on demand.
-    final outcome = await authorizer.authorize(vaultRootPath: root, relativePath: relativePath, entriesByDevice: logs, snapshot: verification);
-    _lastRejections
-      ..clear()
-      ..addAll(outcome.rejections);
+    //
+    // [localDeviceId] is the local device's UUID, so the §6 drift check applies
+    // to every device file except the local device's own. [localNowMs] is the
+    // clock read **at read time** (sync-security.md §6 / ADR-0008: `localTime`
+    // = `DateTime.now().millisecondsSinceEpoch` when the file is read) — not
+    // a value frozen at cycle start, because this method is also reached from
+    // the watch path (`SyncSystem.checkFile` per event) where no cycle
+    // started and a stale reference would manufacture false `hlc-drift`
+    // rejections of a perfectly healthy peer.
+    final outcome = await authorizer.authorize(
+      vaultRootPath: root,
+      relativePath: relativePath,
+      entriesByDevice: logs,
+      localDeviceId: _deviceId,
+      localNowMs: _nowMs(),
+      snapshot: verification,
+    );
+    // Reporting scope: the [checkAll] path accumulates across the cycle
+    // (cleared by [prepareVerification], so [lastRejections] reports the
+    // whole sync cycle); a standalone call without a cycle snapshot — the
+    // watch path (`SyncSystem.checkFile` per event) — is its own scope, so
+    // clear the previous one before appending rather than letting reports
+    // from unrelated checks pile up unbounded.
+    if (verification == null) _lastRejections.clear();
+    _lastRejections.addAll(outcome.rejections);
     if (outcome.rejections.isNotEmpty) {
       _log.warning('Verification gate for $relativePath rejected: ${outcome.rejections.map((r) => r.toString()).join('; ')}');
     }

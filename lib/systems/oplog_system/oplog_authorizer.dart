@@ -5,6 +5,7 @@
 import 'package:logging/logging.dart';
 
 import 'package:noetec/service/trust_store.dart';
+import 'package:noetec/systems/oplog_system/hlc_drift_gate.dart';
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
 import 'package:noetec/systems/sync_system/registry/registry_models.dart';
 import 'package:noetec/systems/sync_system/registry/registry_service.dart';
@@ -58,10 +59,11 @@ final class EntryUnauthorizedUser extends EntryAuthorization {
 /// and the logs (sync-security.md §9: rejections MUST be reported, never
 /// silently dropped).
 final class EntryRejectionReport {
-  const EntryRejectionReport({required this.reason, required this.devices, required this.entryCount});
+  const EntryRejectionReport({required this.reason, required this.devices, required this.entryCount, this.observedDriftMs});
 
   /// A short reason token (`key-substitution`, `trust-store-error`,
-  /// `unbound-device`, `unauthorized-user`) for grouping and matching.
+  /// `unbound-device`, `unauthorized-user`, `hlc-drift`) for grouping and
+  /// matching.
   final String reason;
 
   /// The affected device UUIDs, sorted for stable output.
@@ -70,10 +72,19 @@ final class EntryRejectionReport {
   /// The number of rejected entries.
   final int entryCount;
 
+  /// How far ahead of the reader's clock the rejected entries are, in
+  /// milliseconds (sync-security.md §6: the report names the *observed
+  /// drift*). `null` for reasons that carry no clock information; present
+  /// (and positive) for `hlc-drift`, where it is the per-device maximum of
+  /// `physicalMs - localTime` over the rejected suffix — drift reports are
+  /// kept one-per-device-file, so this is unambiguous.
+  final int? observedDriftMs;
+
   @override
   String toString() {
     final noun = entryCount == 1 ? 'entry' : 'entries';
-    return '$reason: $entryCount $noun from device(s) ${devices.join(', ')} rejected';
+    final drift = observedDriftMs == null ? '' : ' (observed drift: $observedDriftMs ms)';
+    return '$reason: $entryCount $noun from device(s) ${devices.join(', ')} rejected$drift';
   }
 }
 
@@ -121,7 +132,8 @@ final class RegistrySnapshot {
 
 /// Runs the attribution/authorization portion of the verification chain
 /// (sync-security.md §7) that [OpLogVerifier] does not: **TOFU** (§5.2),
-/// **certificate** (§3.3) and **registry filter** (§3.5).
+/// **certificate** (§3.3), **registry filter** (§3.5) and, for every device
+/// file that is **not** the local device's, the **HLC drift** check (§6).
 ///
 /// [OpLogVerifier] already runs the §7 steps 1–2 (parse + signature + chain
 /// rejection) using the same `canonical_json` signing input as NOET-28; the
@@ -133,7 +145,11 @@ final class RegistrySnapshot {
 /// 2. the device is bound to a user by a valid certificate in
 ///    `devices/<userId>.json` whose `devicePublicKey` matches the key the
 ///    entry verified under;
-/// 3. that user is authorized in `users.json` (listed and not revoked).
+/// 3. that user is authorized in `users.json` (listed and not revoked);
+/// 4. and, if the device is not the local device, its entries are not
+///    future-dated beyond `localNowMs + maxClockDriftMs` (§6) — the drifted
+///    **suffix** of the file is dropped from [AuthorizationOutcome.accepted]
+///    and reported as `hlc-drift`.
 ///
 /// When `users.json` is absent or invalid the vault is **public** (§8.2):
 /// devices whose key passes TOFU are accepted; a key-substituted device is
@@ -142,10 +158,19 @@ final class RegistrySnapshot {
 /// Rejections are reported via `package:logging` and aggregated into
 /// [EntryRejectionReport]s for the sync status (§9) — never silently dropped.
 class OpLogAuthorizer {
-  OpLogAuthorizer({required IRegistryService registry, required ITrustStore trustStore}) : _registry = registry, _trustStore = trustStore;
+  OpLogAuthorizer({required IRegistryService registry, required ITrustStore trustStore, this.nowMs = _realNowMs}) : _registry = registry, _trustStore = trustStore;
 
   final IRegistryService _registry;
   final ITrustStore _trustStore;
+
+  /// The reader's wall clock in ms since the Unix epoch (sync-security.md §6:
+  /// `localTime` is `DateTime.now().millisecondsSinceEpoch` at read time).
+  /// Injected so tests can drive it deterministically; defaults to the real
+  /// clock. Used as the fallback reference when [authorize] is called without
+  /// a [authorize.localNowMs] — i.e. a fresh read at the time of the call.
+  final int Function() nowMs;
+
+  static int _realNowMs() => DateTime.now().millisecondsSinceEpoch;
 
   static final Logger _log = Logger('OpLogAuthorizer');
 
@@ -184,27 +209,67 @@ class OpLogAuthorizer {
     return RegistrySnapshot(users: users, deviceFiles: deviceFiles);
   }
 
-  /// Runs TOFU, certificate and registry-filter over [entriesByDevice] (one
-  /// device file's entries per device, as produced by the read path after §7
-  /// steps 1–2) for the page at [relativePath].
+  /// Runs TOFU, certificate, registry-filter and HLC drift (§7 steps 3–6)
+  /// over [entriesByDevice] (one device file's entries per device, as produced
+  /// by the read path after §7 steps 1–2) for the page at [relativePath].
   ///
   /// [vaultRootPath] is the active vault root (scoping the TOFU store).
+  /// [localDeviceId] is the local device's UUID (the [entriesByDevice] key of
+  /// its own file) — the §6 drift check applies to every device file **except**
+  /// this one: a device never applies the bound to its own file (§6: "a device
+  /// MUST NOT apply it to its own file"). Pass `null` to disable the drift
+  /// check entirely (low-level use; the sync pipeline always supplies it).
+  /// [localNowMs] is the reader's wall clock in ms since the epoch
+  /// (`DateTime.now().millisecondsSinceEpoch` **at read time**, §6 / ADR-0008)
+  /// — the caller reads the clock at the moment the file is read and passes
+  /// it in ([OpLogSystem.buildDag] does exactly that). When `null`, this
+  /// gate's own [nowMs] is used (read once for this call).
+  /// [maxClockDriftMs] is the tolerated future drift (default
+  /// [kDefaultMaxClockDriftMs]; a larger value MAY be configured — NOET-57).
   /// [snapshot] is the cycle's registry input, as produced by
   /// [loadSnapshot] / [OpLogSystem.prepareVerification]; when omitted it is
   /// loaded on demand (low-level use — the sync pipeline always supplies it).
+  ///
+  /// The §6 drift check runs **per device, after that device passed steps 3–5**
+  /// (TOFU → certificate → registry filter): a device already rejected by the
+  /// registry filter is never double-counted as `hlc-drift`. For each other
+  /// device that passed, the **drifted suffix** of its file — the first entry
+  /// with `physicalMs > localNowMs + maxClockDriftMs` and every entry after
+  /// it (§6: the violating set is always a suffix) — is dropped from
+  /// [AuthorizationOutcome.accepted] and reported **once per device file** as
+  /// `hlc-drift` with the rejected entry count and the observed drift in ms.
+  /// Rejected entries never reach [AuthorizationOutcome.accepted], so they
+  /// cannot contribute to the DAG, merge decisions, or witness state, and they
+  /// are never fed to `Hlc.receive` (§6: drift MUST NOT propagate). Nothing on
+  /// disk is rewritten or deleted (§8.4: the check is re-evaluated on every
+  /// read, so once the reader's clock advances past the bound the entries are
+  /// accepted again).
   Future<AuthorizationOutcome> authorize({
     required String vaultRootPath,
     required String relativePath,
     required Map<String, List<OpLogEntry>> entriesByDevice,
+    String? localDeviceId,
+    int? localNowMs,
+    int maxClockDriftMs = kDefaultMaxClockDriftMs,
     RegistrySnapshot? snapshot,
   }) async {
     final accepted = <String, List<OpLogEntry>>{};
     final countsByReason = <String, int>{};
     final devicesByReason = <String, Set<String>>{};
+    // hlc-drift is reported once per device file (the observed drift is
+    // per-file, §9.4), so its reports are accumulated separately and appended
+    // after the per-reason aggregates rather than merged into them.
+    final driftReports = <EntryRejectionReport>[];
 
     final snap = snapshot ?? await loadSnapshot();
     final users = snap.users;
     final deviceFiles = snap.deviceFiles;
+    // The §6 drift check is active when a local device is named (so we know
+    // which file is exempt). The reference clock is the caller's read-time
+    // value when supplied, else this gate's own [nowMs] (a fresh read for
+    // this call — §6 / ADR-0008: the bound is the clock at read time).
+    final driftEnabled = localDeviceId != null;
+    final localNowMsRef = localNowMs ?? nowMs();
 
     for (final device in entriesByDevice.keys) {
       final entries = entriesByDevice[device]!;
@@ -213,7 +278,35 @@ class OpLogAuthorizer {
       final result = await _authorizeDevice(device: device, entries: entries, vaultRootPath: vaultRootPath, users: users, deviceFiles: deviceFiles);
 
       if (result.authorization is EntryAuthorized) {
-        accepted[device] = entries;
+        if (!driftEnabled || device == localDeviceId) {
+          // No drift check for the local device's own file (§6) or when the
+          // check is disabled (no local device named — low-level use) — accept
+          // as-is.
+          accepted[device] = entries;
+          continue;
+        }
+
+        // §7 step 6 — HLC drift: the device passed steps 3–5, so it is the
+        // only remaining gate. Reject the drifted suffix and report it once
+        // for this device file.
+        final drift = HlcDriftGate.check(entries, localNowMsRef, maxDriftMs: maxClockDriftMs);
+        if (drift.rejectedCount == 0) {
+          accepted[device] = drift.accepted;
+          continue;
+        }
+        final firstRejectedHlc = entries[entries.length - drift.rejectedCount].hlcKey;
+        if (drift.accepted.isNotEmpty) {
+          accepted[device] = drift.accepted;
+        }
+        driftReports.add(EntryRejectionReport(reason: 'hlc-drift', devices: [device], entryCount: drift.rejectedCount, observedDriftMs: drift.observedDriftMs));
+        _logDriftRejection(
+          device: device,
+          entryCount: drift.rejectedCount,
+          observedDriftMs: drift.observedDriftMs,
+          firstRejectedHlc: firstRejectedHlc,
+          relativePath: relativePath,
+          maxClockDriftMs: maxClockDriftMs,
+        );
       } else {
         final reason = _reasonOf(result.authorization);
         countsByReason[reason] = (countsByReason[reason] ?? 0) + entries.length;
@@ -233,6 +326,7 @@ class OpLogAuthorizer {
 
     final rejections = [
       for (final reason in countsByReason.keys) EntryRejectionReport(reason: reason, devices: devicesByReason[reason]!.toList()..sort(), entryCount: countsByReason[reason]!),
+      ...driftReports,
     ];
     return AuthorizationOutcome(accepted: accepted, rejections: rejections);
   }
@@ -331,5 +425,31 @@ class OpLogAuthorizer {
       _ => '.',
     };
     _log.warning(base + detail);
+  }
+
+  /// Logs a §6 HLC drift rejection for one device file. The rejected entries
+  /// stay in the authoring device's own file (§6: non-destructive, self-
+  /// healing) — the message makes clear they will be applied once the clocks
+  /// converge (§9.4), and names the device, the entry count, and the observed
+  /// drift in ms. [maxClockDriftMs] is the bound that was actually applied —
+  /// it may differ from [kDefaultMaxClockDriftMs] once the bound is
+  /// configurable (NOET-57), and a security log must state the policy value
+  /// that was enforced, not the default.
+  void _logDriftRejection({
+    required String device,
+    required int entryCount,
+    required int observedDriftMs,
+    required String firstRejectedHlc,
+    required String relativePath,
+    required int maxClockDriftMs,
+  }) {
+    final noun = entryCount == 1 ? 'entry' : 'entries';
+    _log.warning(
+      'Rejected $entryCount $noun for device $device at $relativePath '
+      '(first drifted entry $firstRejectedHlc): hlc-drift (physicalMs ahead of '
+      'local clock by $observedDriftMs ms, beyond the $maxClockDriftMs ms '
+      'bound, §6). The entries stay in the authoring device\'s file and will be '
+      'applied once the reader\'s clock advances past the bound.',
+    );
   }
 }
