@@ -1,5 +1,7 @@
 # Security
 
+[**English**](SECURITY.md) · [Русский](SECURITY_RU.md)
+
 Noetec is a local-first notes app that handles cryptography and synchronization
 (Ed25519 signatures, device identity, registries — see
 [docs/specs/sync-security.md](docs/specs/sync-security.md)). If you believe you

@@ -1,5 +1,7 @@
 # 0005: get_it-Based DI with the watch_it/listen_it/command_it Ecosystem
 
+[**English**](0005-get-it-di-ecosystem.md) · [Русский](0005-get-it-di-ecosystem_RU.md)
+
 ## Context
 
 Noetec (a Flutter application) needs a dependency-injection mechanism and a state-management approach consistent with the Flux-inspired unidirectional data flow chosen in ADR-0001. The Flutter ecosystem offers several mature options — Bloc, Riverpod, Provider, and the get_it family — with different trade-offs in boilerplate, indirection, and how directly reactive state is exposed.

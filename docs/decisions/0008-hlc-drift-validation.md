@@ -1,5 +1,7 @@
 # 0008: HLC Drift Validation — Rejecting Future-Dated OpLog Entries
 
+[**English**](0008-hlc-drift-validation.md) · [Русский](0008-hlc-drift-validation_RU.md)
+
 ## Context
 
 Noetec's OpLog orders entries by Hybrid Logical Clock, compared **component-wise

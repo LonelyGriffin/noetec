@@ -1,5 +1,7 @@
 # Noetec Sync Security Extensions
 
+[**English**](sync-security.md) · [Русский](sync-security_RU.md)
+
 **Format version: 1 (draft)**
 
 This document is the normative specification of the security extensions to the

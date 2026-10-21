@@ -1,5 +1,7 @@
 # 0004: Local-First File-Based Storage as Markdown with YAML Frontmatter
 
+[**English**](0004-local-first-markdown-file-storage.md) · [Русский](0004-local-first-markdown-file-storage_RU.md)
+
 ## Context
 
 Noetec needs a storage model for notes, tasks, and collaboration data. The product's core values are: fully functional offline, user ownership of data, human-readable content, and compatibility with existing tools (external editors, version control, file-sync services). A traditional approach — an app-owned database or a cloud-first service — conflicts with several of these values.

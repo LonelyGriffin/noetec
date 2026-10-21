@@ -1,5 +1,7 @@
 # Contributing
 
+[**English**](CONTRIBUTING.md) · [Русский](CONTRIBUTING_RU.md)
+
 Thanks for looking at Noetec! We welcome contributions of any size — a well-described
 bug report is just as valuable as a polished feature. If you find something that
 doesn't work as expected, the fastest way to help is to open an issue, even if you

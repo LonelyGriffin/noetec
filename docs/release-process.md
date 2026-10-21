@@ -1,5 +1,7 @@
 # Release process
 
+[**English**](release-process.md) · [Русский](release-process_RU.md)
+
 How Noetec versions and tags releases. The changelog lives in
 [CHANGELOG.md](../CHANGELOG.md) (Keep a Changelog format); this file describes
 the mechanics of cutting a release from it.
