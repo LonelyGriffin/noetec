@@ -30,13 +30,15 @@ class OpLogSystem {
     required ICryptoService crypto,
     required ISecureKeyStore secureKeyStore,
     OpLogAuthorizer? authorizer,
+    int Function()? nowMs,
   }) : _fileSystem = fileSystem,
        _hlcService = hlcService,
        _vaultSystem = vaultSystem,
        _deviceService = deviceService,
        _crypto = crypto,
        _secureKeyStore = secureKeyStore,
-       _authorizer = authorizer {
+       _authorizer = authorizer,
+       _nowMs = nowMs ?? _realNowMs {
     _serializer = const OpLogSerializer();
     _signer = OpLogSigner(crypto: _crypto, secureKeyStore: _secureKeyStore, serializer: _serializer);
     // The key resolver supplies the authoring device's public key for a device
@@ -55,17 +57,29 @@ class OpLogSystem {
   final ICryptoService _crypto;
   final ISecureKeyStore _secureKeyStore;
 
-  /// Runs the attribution/authorization chain (sync-security.md §7 steps 3–5:
-  /// TOFU → certificate → registry filter) over the entries read by
-  /// [buildDag]. When `null` (e.g. low-level tests) the DAG is built from every
-  /// signature-verified entry, preserving the pre-gate behavior.
+  /// Runs the attribution/authorization chain (sync-security.md §7 steps 3–6:
+  /// TOFU → certificate → registry filter → HLC drift) over the entries read
+  /// by [buildDag]. When `null` (e.g. low-level tests) the DAG is built from
+  /// every signature-verified entry, preserving the pre-gate behavior.
   final OpLogAuthorizer? _authorizer;
+
+  /// The reader's wall clock in ms since the Unix epoch (sync-security.md §6:
+  /// `localTime` is `DateTime.now().millisecondsSinceEpoch` at read time),
+  /// used to bound other devices' `physicalMs` in the drift gate. Injected so
+  /// tests can drive it deterministically; defaults to the real clock.
+  final int Function() _nowMs;
+
+  static int _realNowMs() => DateTime.now().millisecondsSinceEpoch;
+
   static final Logger _log = Logger('OpLogSystem');
 
-  /// The rejection reports from the most recent [buildDag] that ran the gate
-  /// (sync-security.md §9 — rejections are surfaced, never silently dropped).
-  /// Exposed for the sync-status UI (NOET-33); empty when no gate ran or
-  /// nothing was rejected.
+  /// The rejection reports accumulated over the current sync cycle (the
+  /// [prepareVerification] → [buildDag] sequence), from every file whose gate
+  /// ran (sync-security.md §9 — rejections are surfaced, never silently
+  /// dropped). Exposed for the sync-status UI (NOET-33/58); empty when no
+  /// gate ran or nothing was rejected. [prepareVerification] clears it at the
+  /// start of a cycle so the getter reports the whole cycle, not just the
+  /// last file processed.
   final List<EntryRejectionReport> _lastRejections = [];
   List<EntryRejectionReport> get lastRejections => List.unmodifiable(_lastRejections);
 
@@ -279,13 +293,33 @@ class OpLogSystem {
   /// [SyncSystem] calls this at the start of a `checkAll` cycle and threads the
   /// result through every [buildDag] of the cycle, so the expensive
   /// registry read+verify pass is performed once per cycle rather than once
-  /// per `.oplog.jsonl` file. Returns `null` when no gate is installed (the
-  /// pre-gate behavior is preserved) or no vault is active.
+  /// per `.oplog.jsonl` file.
+  ///
+  /// Also marks the **start of a sync cycle** for the §6 HLC drift check:
+  /// it captures the reader's wall clock once (shared by every [buildDag] of
+  /// the cycle, so the whole cycle shares one reference point) and clears
+  /// [lastRejections], so the getter reports the whole cycle rather than only
+  /// the last file processed.
+  ///
+  /// Returns `null` when no gate is installed (the pre-gate behavior is
+  /// preserved) or no vault is active.
   Future<RegistrySnapshot?> prepareVerification() async {
     final authorizer = _authorizer;
     if (authorizer == null || _vaultRootPath == null || _deviceId == null || _reader == null) return null;
+    // Start of the cycle: a fresh cycle starts with no accumulated rejections.
+    _lastRejections.clear();
+    // The cycle's reference clock for the §6 drift bound (one read, shared by
+    // every buildDag of the cycle). Captured here so the whole cycle — and its
+    // tests — see a single, deterministic localTime.
+    _cycleLocalNowMs = _nowMs();
     return authorizer.loadSnapshot();
   }
+
+  /// The reader's wall clock (ms since the epoch) captured by the most recent
+  /// [prepareVerification] — the §6 `localTime` reference for this cycle.
+  /// `null` until a cycle begins (a low-level [buildDag] then disables the
+  /// drift check rather than guess a reference point).
+  int? _cycleLocalNowMs;
 
   Future<OpLogDag> buildDag(String relativePath, {RegistrySnapshot? verification}) async {
     final root = _vaultRootPath;
@@ -298,16 +332,31 @@ class OpLogSystem {
     }
     // Verification gate (sync-security.md §7, §2.4 rule 6): entries are
     // filtered through the attribution/authorization chain (TOFU →
-    // certificate → registry filter) *before* they contribute to the DAG,
-    // merge decisions, or witness state. Rejected entries never enter the DAG
-    // and are reported via [OpLogAuthorizer] (never silently dropped).
+    // certificate → registry filter → HLC drift) *before* they contribute to
+    // the DAG, merge decisions, or witness state. Rejected entries never enter
+    // the DAG and are reported via [OpLogAuthorizer] (never silently dropped).
     //
     // [verification] is the cycle's registry snapshot (see
     // [prepareVerification]); when omitted it is loaded on demand.
-    final outcome = await authorizer.authorize(vaultRootPath: root, relativePath: relativePath, entriesByDevice: logs, snapshot: verification);
-    _lastRejections
-      ..clear()
-      ..addAll(outcome.rejections);
+    //
+    // [localDeviceId] is the local device's UUID, so the §6 drift check applies
+    // to every device file except the local device's own. [localNowMs] is the
+    // cycle's reference clock; when no [prepareVerification] ran this cycle
+    // (a low-level [buildDag] with no snapshot) it is `null` and the drift
+    // check is disabled for that call — the sync pipeline always prepares a
+    // cycle, so the check is active in production.
+    final outcome = await authorizer.authorize(
+      vaultRootPath: root,
+      relativePath: relativePath,
+      entriesByDevice: logs,
+      localDeviceId: _deviceId,
+      localNowMs: _cycleLocalNowMs,
+      snapshot: verification,
+    );
+    // Per-cycle accumulation: append this file's rejections to the cycle's
+    // running list (cleared by [prepareVerification]) rather than replacing
+    // it, so [lastRejections] reports the whole sync cycle.
+    _lastRejections.addAll(outcome.rejections);
     if (outcome.rejections.isNotEmpty) {
       _log.warning('Verification gate for $relativePath rejected: ${outcome.rejections.map((r) => r.toString()).join('; ')}');
     }
