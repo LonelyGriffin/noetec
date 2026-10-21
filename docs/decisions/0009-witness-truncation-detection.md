@@ -1,4 +1,4 @@
-# 0008: Witness References and Truncation Detection (Phase 3)
+# 0009: Witness References and Truncation Detection (Phase 3)
 
 ## Context
 
@@ -79,8 +79,12 @@ party, offline-first, append-only JSONL, and full backward compatibility (§8).
 - A dedicated checker runs inside `OpLogSystem.buildDag`, **after** the
   verification gate (signature §2.4 → TOFU → certificate → registry filter,
   §7 steps 2–5) and **before** `OpLogDag.fromEntries` — i.e. at §7 step 7.
-  §7 step 6 (HLC drift) is not adopted yet; when it lands it runs before this
-  check and does not change it.
+  §7 step 6 (HLC drift, Phase 4b / ADR-0008) runs before this check and does
+  not interact with it: drift rejection drops a *suffix of verified entries*
+  per device, while the witness check compares HLC keys. The one seam is that
+  evidence is read from signature-verified entries regardless of drift, so a
+  drifted suffix still counts as evidence — the file does hold those entries,
+  which is what a reference attests.
 - The checker consumes two inputs at deliberately different trust levels:
   - **references** — `seen` from entries that passed the *full* chain
     (accepted). A rejected entry's references never count: an entry we refuse
