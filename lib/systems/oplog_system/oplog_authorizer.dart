@@ -166,8 +166,8 @@ class OpLogAuthorizer {
   /// The reader's wall clock in ms since the Unix epoch (sync-security.md §6:
   /// `localTime` is `DateTime.now().millisecondsSinceEpoch` at read time).
   /// Injected so tests can drive it deterministically; defaults to the real
-  /// clock. [OpLogSystem] supplies a per-cycle value (captured once at the
-  /// start of the cycle) rather than a fresh read per file.
+  /// clock. Used as the fallback reference when [authorize] is called without
+  /// a [authorize.localNowMs] — i.e. a fresh read at the time of the call.
   final int Function() nowMs;
 
   static int _realNowMs() => DateTime.now().millisecondsSinceEpoch;
@@ -220,11 +220,10 @@ class OpLogAuthorizer {
   /// MUST NOT apply it to its own file"). Pass `null` to disable the drift
   /// check entirely (low-level use; the sync pipeline always supplies it).
   /// [localNowMs] is the reader's wall clock in ms since the epoch
-  /// (`DateTime.now().millisecondsSinceEpoch` at read time, §6) — pass the
-  /// cycle's value captured once at the start of the sync cycle
-  /// ([OpLogSystem.prepareVerification]) so the whole cycle shares one
-  /// reference point. When `null`, this gate's own [nowMs] is used (read once
-  /// for this call).
+  /// (`DateTime.now().millisecondsSinceEpoch` **at read time**, §6 / ADR-0008)
+  /// — the caller reads the clock at the moment the file is read and passes
+  /// it in ([OpLogSystem.buildDag] does exactly that). When `null`, this
+  /// gate's own [nowMs] is used (read once for this call).
   /// [maxClockDriftMs] is the tolerated future drift (default
   /// [kDefaultMaxClockDriftMs]; a larger value MAY be configured — NOET-57).
   /// [snapshot] is the cycle's registry input, as produced by
@@ -266,9 +265,9 @@ class OpLogAuthorizer {
     final users = snap.users;
     final deviceFiles = snap.deviceFiles;
     // The §6 drift check is active when a local device is named (so we know
-    // which file is exempt). The reference clock is the cycle's value when
-    // supplied, else this gate's own [nowMs] — OpLogSystem supplies the
-    // cycle's value so the whole cycle shares one reference point.
+    // which file is exempt). The reference clock is the caller's read-time
+    // value when supplied, else this gate's own [nowMs] (a fresh read for
+    // this call — §6 / ADR-0008: the bound is the clock at read time).
     final driftEnabled = localDeviceId != null;
     final localNowMsRef = localNowMs ?? nowMs();
 
@@ -300,7 +299,14 @@ class OpLogAuthorizer {
           accepted[device] = drift.accepted;
         }
         driftReports.add(EntryRejectionReport(reason: 'hlc-drift', devices: [device], entryCount: drift.rejectedCount, observedDriftMs: drift.observedDriftMs));
-        _logDriftRejection(device: device, entryCount: drift.rejectedCount, observedDriftMs: drift.observedDriftMs, firstRejectedHlc: firstRejectedHlc, relativePath: relativePath);
+        _logDriftRejection(
+          device: device,
+          entryCount: drift.rejectedCount,
+          observedDriftMs: drift.observedDriftMs,
+          firstRejectedHlc: firstRejectedHlc,
+          relativePath: relativePath,
+          maxClockDriftMs: maxClockDriftMs,
+        );
       } else {
         final reason = _reasonOf(result.authorization);
         countsByReason[reason] = (countsByReason[reason] ?? 0) + entries.length;
@@ -425,13 +431,23 @@ class OpLogAuthorizer {
   /// stay in the authoring device's own file (§6: non-destructive, self-
   /// healing) — the message makes clear they will be applied once the clocks
   /// converge (§9.4), and names the device, the entry count, and the observed
-  /// drift in ms.
-  void _logDriftRejection({required String device, required int entryCount, required int observedDriftMs, required String firstRejectedHlc, required String relativePath}) {
+  /// drift in ms. [maxClockDriftMs] is the bound that was actually applied —
+  /// it may differ from [kDefaultMaxClockDriftMs] once the bound is
+  /// configurable (NOET-57), and a security log must state the policy value
+  /// that was enforced, not the default.
+  void _logDriftRejection({
+    required String device,
+    required int entryCount,
+    required int observedDriftMs,
+    required String firstRejectedHlc,
+    required String relativePath,
+    required int maxClockDriftMs,
+  }) {
     final noun = entryCount == 1 ? 'entry' : 'entries';
     _log.warning(
       'Rejected $entryCount $noun for device $device at $relativePath '
       '(first drifted entry $firstRejectedHlc): hlc-drift (physicalMs ahead of '
-      'local clock by $observedDriftMs ms, beyond the $kDefaultMaxClockDriftMs ms '
+      'local clock by $observedDriftMs ms, beyond the $maxClockDriftMs ms '
       'bound, §6). The entries stay in the authoring device\'s file and will be '
       'applied once the reader\'s clock advances past the bound.',
     );

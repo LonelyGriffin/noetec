@@ -948,5 +948,78 @@ void main() {
       expect(dag.entriesByHlc.keys, hasLength(2));
       expect(oplog.lastRejections, isEmpty, reason: 'the local device is exempt, and devA is within bound');
     });
+
+    test('the drift bound is the clock at read time, not a value frozen at cycle start (§6, ADR-0008 decision 1/8)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      // A mutable clock so the bound can move between prepareVerification and
+      // buildDag — exactly the situation the frozen-clock bug got wrong.
+      var now = localNowMs; // 1000 → bound 61000
+      final authorizer = OpLogAuthorizer(registry: _FakeRegistry(users: null), trustStore: TrustStoreImpl(fs), nowMs: () => now);
+      final oplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: deviceService,
+        crypto: crypto,
+        secureKeyStore: keyStore,
+        authorizer: authorizer,
+        nowMs: () => now,
+      );
+      oplogRef = oplog;
+      vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'V', rootPath: '/vault', createdAt: DateTime(2026));
+
+      // devA's entry sits at 120000: above the 1000-based bound (61000) but
+      // below the 100000-based bound (160000).
+      await writeSignedMultiFile(deviceId: 'devA', pubKey: pair.publicKeyBase64Url, privKey: pair.privateKeyBase64Url, hlcs: [_h(120000, 'devA')]);
+
+      // Cycle starts at clock 1000.
+      final snapshot = await oplog.prepareVerification();
+      // The reader's clock advances before the file is read (uptime, or a
+      // peer whose clock simply ran ahead). A clock frozen at cycle start
+      // (1000) would still reject 120000 — a false hlc-drift on a healthy
+      // peer (ADR-0008 decision 6). The read-time clock (100000) accepts it.
+      now = 100000;
+      final dag = await oplog.buildDag(relPath, verification: snapshot);
+
+      expect(dag.entriesByHlc.containsKey('120000-0000-devA'), isTrue, reason: 'the bound is the clock at read time (100000), so the entry is within bound — no false hlc-drift');
+      expect(oplog.lastRejections, isEmpty, reason: 'no rejection: the bound tracked the advancing read-time clock, not a cycle-start freeze');
+    });
+
+    test('a standalone buildDag without a cycle snapshot is its own reporting scope (watch path)', () async {
+      final pair = await crypto.generateDeviceKeyPair();
+      final authorizer = OpLogAuthorizer(registry: _FakeRegistry(users: null), trustStore: TrustStoreImpl(fs), nowMs: () => localNowMs);
+      final oplog = OpLogSystem(
+        fileSystem: fs,
+        hlcService: hlcService,
+        vaultSystem: vaultSystem,
+        deviceService: deviceService,
+        crypto: crypto,
+        secureKeyStore: keyStore,
+        authorizer: authorizer,
+        nowMs: () => localNowMs,
+      );
+      oplogRef = oplog;
+      vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'V', rootPath: '/vault', createdAt: DateTime(2026));
+
+      // devA drifted (61001 > 1000 + 60000); the local device is exempt.
+      await writeSignedMultiFile(deviceId: 'devA', pubKey: pair.publicKeyBase64Url, privKey: pair.privateKeyBase64Url, hlcs: [_h(61001, 'devA')]);
+      await writeSignedMultiFile(deviceId: localUuid, pubKey: pair.publicKeyBase64Url, privKey: pair.privateKeyBase64Url, hlcs: [_h(100, localUuid)]);
+
+      // Watch path: SyncSystem.checkFile → buildDag with no snapshot — no
+      // prepareVerification ever ran, and the check is still active (the old
+      // code silently disabled the gate in exactly this situation).
+      final dag = await oplog.buildDag(relPath);
+      expect(dag.entriesByHlc.containsKey('61001-0000-devA'), isFalse, reason: 'the drifted suffix never reaches the DAG');
+      expect(oplog.lastRejections, hasLength(1), reason: 'the standalone check reports its own rejection');
+      expect(oplog.lastRejections.single.reason, 'hlc-drift');
+
+      // A second standalone check reports only itself — the previous
+      // standalone scope is cleared, never accumulated (unbounded growth was
+      // the pre-fix behavior).
+      final dag2 = await oplog.buildDag(relPath);
+      expect(dag2.entriesByHlc.containsKey('61001-0000-devA'), isFalse);
+      expect(oplog.lastRejections, hasLength(1), reason: 'standalone checks do not pile up on each other');
+      expect(oplog.lastRejections.single.devices, ['devA']);
+    });
   });
 }

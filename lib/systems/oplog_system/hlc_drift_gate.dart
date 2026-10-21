@@ -53,11 +53,15 @@ final class HlcDriftGate {
       }
     }
 
-    final accepted = entries.sublist(0, firstViolation);
     final rejectedCount = entries.length - firstViolation;
     if (rejectedCount == 0) {
-      return (accepted: accepted, rejectedCount: 0, observedDriftMs: 0);
+      // Common case: nothing drifted — hand the list back as-is rather than
+      // copying it (check runs for every device file of every page in every
+      // cycle).
+      return (accepted: entries, rejectedCount: 0, observedDriftMs: 0);
     }
+
+    final accepted = entries.sublist(0, firstViolation);
 
     // Observed drift = how far ahead the device's newest rejected entry is.
     // Every rejected entry has physicalMs > bound >= localMs, so the result

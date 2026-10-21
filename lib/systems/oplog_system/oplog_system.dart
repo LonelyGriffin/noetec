@@ -65,21 +65,26 @@ class OpLogSystem {
 
   /// The reader's wall clock in ms since the Unix epoch (sync-security.md §6:
   /// `localTime` is `DateTime.now().millisecondsSinceEpoch` at read time),
-  /// used to bound other devices' `physicalMs` in the drift gate. Injected so
-  /// tests can drive it deterministically; defaults to the real clock.
+  /// used to bound other devices' `physicalMs` in the drift gate. Read at
+  /// each [buildDag] call, so the bound is always the clock *at read time*;
+  /// injected so tests can drive it deterministically, defaults to the real
+  /// clock.
   final int Function() _nowMs;
 
   static int _realNowMs() => DateTime.now().millisecondsSinceEpoch;
 
   static final Logger _log = Logger('OpLogSystem');
 
-  /// The rejection reports accumulated over the current sync cycle (the
-  /// [prepareVerification] → [buildDag] sequence), from every file whose gate
-  /// ran (sync-security.md §9 — rejections are surfaced, never silently
-  /// dropped). Exposed for the sync-status UI (NOET-33/58); empty when no
-  /// gate ran or nothing was rejected. [prepareVerification] clears it at the
-  /// start of a cycle so the getter reports the whole cycle, not just the
-  /// last file processed.
+  /// The rejection reports accumulated over the current reporting scope
+  /// (sync-security.md §9 — rejections are surfaced, never silently dropped).
+  /// Two scopes exist: a [checkAll] cycle — [prepareVerification] clears the
+  /// list and every [buildDag] of the cycle appends, so the getter reports
+  /// the whole cycle, not just the last file processed — and a standalone
+  /// [buildDag] with no cycle snapshot (the watch path), which is its own
+  /// scope: the previous one is cleared before this call's reports are
+  /// appended, so unrelated single-file checks never pile up in the list.
+  /// Exposed for the sync-status UI (NOET-58); empty when no gate ran or
+  /// nothing was rejected in the current scope.
   final List<EntryRejectionReport> _lastRejections = [];
   List<EntryRejectionReport> get lastRejections => List.unmodifiable(_lastRejections);
 
@@ -295,11 +300,11 @@ class OpLogSystem {
   /// registry read+verify pass is performed once per cycle rather than once
   /// per `.oplog.jsonl` file.
   ///
-  /// Also marks the **start of a sync cycle** for the §6 HLC drift check:
-  /// it captures the reader's wall clock once (shared by every [buildDag] of
-  /// the cycle, so the whole cycle shares one reference point) and clears
-  /// [lastRejections], so the getter reports the whole cycle rather than only
-  /// the last file processed.
+  /// Also marks the **start of a sync cycle** for [lastRejections]: it
+  /// clears the accumulated reports, so the getter reports the whole cycle
+  /// rather than only the last file processed. The §6 drift bound itself is
+  /// not anchored here — the clock is read at each [buildDag] call (read
+  /// time, per §6 / ADR-0008).
   ///
   /// Returns `null` when no gate is installed (the pre-gate behavior is
   /// preserved) or no vault is active.
@@ -308,18 +313,8 @@ class OpLogSystem {
     if (authorizer == null || _vaultRootPath == null || _deviceId == null || _reader == null) return null;
     // Start of the cycle: a fresh cycle starts with no accumulated rejections.
     _lastRejections.clear();
-    // The cycle's reference clock for the §6 drift bound (one read, shared by
-    // every buildDag of the cycle). Captured here so the whole cycle — and its
-    // tests — see a single, deterministic localTime.
-    _cycleLocalNowMs = _nowMs();
     return authorizer.loadSnapshot();
   }
-
-  /// The reader's wall clock (ms since the epoch) captured by the most recent
-  /// [prepareVerification] — the §6 `localTime` reference for this cycle.
-  /// `null` until a cycle begins (a low-level [buildDag] then disables the
-  /// drift check rather than guess a reference point).
-  int? _cycleLocalNowMs;
 
   Future<OpLogDag> buildDag(String relativePath, {RegistrySnapshot? verification}) async {
     final root = _vaultRootPath;
@@ -341,21 +336,27 @@ class OpLogSystem {
     //
     // [localDeviceId] is the local device's UUID, so the §6 drift check applies
     // to every device file except the local device's own. [localNowMs] is the
-    // cycle's reference clock; when no [prepareVerification] ran this cycle
-    // (a low-level [buildDag] with no snapshot) it is `null` and the drift
-    // check is disabled for that call — the sync pipeline always prepares a
-    // cycle, so the check is active in production.
+    // clock read **at read time** (sync-security.md §6 / ADR-0008: `localTime`
+    // = `DateTime.now().millisecondsSinceEpoch` when the file is read) — not
+    // a value frozen at cycle start, because this method is also reached from
+    // the watch path (`SyncSystem.checkFile` per event) where no cycle
+    // started and a stale reference would manufacture false `hlc-drift`
+    // rejections of a perfectly healthy peer.
     final outcome = await authorizer.authorize(
       vaultRootPath: root,
       relativePath: relativePath,
       entriesByDevice: logs,
       localDeviceId: _deviceId,
-      localNowMs: _cycleLocalNowMs,
+      localNowMs: _nowMs(),
       snapshot: verification,
     );
-    // Per-cycle accumulation: append this file's rejections to the cycle's
-    // running list (cleared by [prepareVerification]) rather than replacing
-    // it, so [lastRejections] reports the whole sync cycle.
+    // Reporting scope: the [checkAll] path accumulates across the cycle
+    // (cleared by [prepareVerification], so [lastRejections] reports the
+    // whole sync cycle); a standalone call without a cycle snapshot — the
+    // watch path (`SyncSystem.checkFile` per event) — is its own scope, so
+    // clear the previous one before appending rather than letting reports
+    // from unrelated checks pile up unbounded.
+    if (verification == null) _lastRejections.clear();
     _lastRejections.addAll(outcome.rejections);
     if (outcome.rejections.isNotEmpty) {
       _log.warning('Verification gate for $relativePath rejected: ${outcome.rejections.map((r) => r.toString()).join('; ')}');
