@@ -42,7 +42,7 @@ A release is a small PR on the release branch plus a tag and a GitHub Release.
    be green.
 5. **PR and merge.** Open the PR (`release/vX.Y.Z` → `main`) with the
    changelog and version bump as the payload. The release PR is reviewed and
-   merged like any other — only the maintainer merges, on GitHub.
+   merged like any other — only the repository owner merges, on GitHub.
 6. **Tag.** Once merged, tag the merge commit on `main`:
    `git tag vX.Y.Z -m "Release vX.Y.Z" && git push origin vX.Y.Z`.
    Tag format is the lowercase `v` prefix + the exact `pubspec.yaml` version
@@ -66,6 +66,6 @@ A release is a small PR on the release branch plus a tag and a GitHub Release.
   adds, changes, or fixes something user-visible, add a line to
   `CHANGELOG.md` in the same PR. The release itself is then mostly mechanical.
 - Agents never push tags to `main`-protected history and never merge; the tag
-  push and release creation are maintainer actions (or an explicitly
+  push and release creation are repository owner actions (or an explicitly
   delegated agent action with a fresh GitHub token, per the project's
   git/GitHub workflow).

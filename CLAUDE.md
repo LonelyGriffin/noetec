@@ -2,18 +2,11 @@
 
 Entry point for AI coding agents. Keep this file lean: it is auto-injected into
 every session, so it only holds always-true rules and pointers. Details live in
-the docs and skills referenced below — open them only when a task touches their area.
+the docs referenced below — open them only when a task touches their area.
 
-## Language rules
+## Rules
 
-- **Chat responses: Russian.**
-- **Code comments and documentation: English.**
-- **Implementation plans: Russian.**
-
-## Hard rules
-
-- **Never run the app yourself** (`flutter run`, launch scripts, simulators).
-  The user runs it manually to verify it starts.
+- **Never run the app yourself** (`flutter run`, launch scripts, simulators). Use only e2e and unit tests.
 - Never edit generated files (`*.g.dart`, `*.freezed.dart`) — regenerate via
   build_runner instead.
 - No `print()` in production code — use `package:logging`.
@@ -21,12 +14,6 @@ the docs and skills referenced below — open them only when a task touches thei
   (watch_it / listen_it / command_it).
 - **Only Павел approves and merges.** Agents NEVER push to `main`, NEVER merge,
   NEVER approve, NEVER `git checkout main`. Branch protection on `main` enforces this.
-- **Work in an isolated worktree, never a shared clone.** All agents share one
-  machine, so a shared `git checkout` moves the branch under the others and strands
-  their uncommitted work. Start every task with
-  `multica repo checkout https://github.com/LonelyGriffin/noetec.git` (an isolated
-  linked worktree), then branch `NOET-XX` inside it — see the `git-github-workflow`
-  skill. Never `git checkout`/`reset`/`rebase` in a shared directory.
 
 ## Commands
 
@@ -39,7 +26,7 @@ All commands run from the repo root.
 | `dart analyze` | Static analysis (`analysis_options.yaml`, flutter_lints + extra rules) |
 | `dart run scripts/setup_project.dart` | Install the git pre-commit hook (format + analyze + copyright on staged files) |
 | `flutter test` | Run the unit/widget test suite (`test/`) |
-| `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) — `--slow` / `--speed N` / `--hud-corner` add a human-watchable HUD; see the `integration-testing` skill |
+| `dart run scripts/run_integration_tests.dart` | Run integration tests (`integration_test/`) — `--slow` / `--speed N` / `--hud-corner` add a human-watchable HUD; |
 | `dart run build_runner build` | Code generation (json_serializable etc.) |
 | `dart run build_runner watch` | Code generation in watch mode |
 
@@ -52,30 +39,20 @@ All commands run from the repo root.
   `integration_test/` (QA, for user-facing behavior) — QA commits and pushes its
   `integration_test/` changes to the branch it is testing. No tests for trivial
   logic; no duplicate coverage.
-- Docs are the contract: specs under `docs/specs/` are normative (RFC 2119),
-  decisions under `docs/decisions/` are immutable ADRs (supersede with a new
-  ADR, never edit).
+- Documentation lives in `docs/`; follow `docs/README.md` for its conventions.
 
 ## Where to look (progressive disclosure)
 
 | When the task involves… | Read first |
 |---|---|
+| Finding the relevant part of the codebase | `docs/architecture.md` |
+| User-facing behavior and acceptance scenarios | `docs/specs/` |
+| Storage formats, protocols, and compatibility rules | `docs/contracts/` |
+| Architectural choices and their rationale | `docs/decisions/` |
+| Product goals, capabilities, and development direction | `docs/product/vision.md`, `docs/product/ROADMAP.md` |
 | Releasing, versioning, tags, `CHANGELOG.md` entries | `docs/release-process.md` |
-| Running integration tests / WSL / GPU-EGL issues | `integration-testing` skill |
-| Committing, pushing, PRs, code review | `git-github-workflow` skill |
-| Markdown parser/serializer, frontmatter, page file format, block IDs | `docs/specs/file-format.md` |
-| Why unidirectional data flow / no setState / command pattern | `docs/decisions/0001-flux-unidirectional-data-flow.md` |
-| Block ID syntax (`::: {#id}` directives) | `docs/decisions/0002-block-ids-via-fenced-directives.md` |
-| Why device identity is deferred until sync exists | `docs/decisions/0003-no-device-identity-until-sync.md` |
-| Device identity & attribution, `modified_by` (deferred) | `docs/decisions/0007-user-device-identity-and-registry.md` |
-| Storage layout, why plain `.md` files, local-first | `docs/decisions/0004-local-first-markdown-file-storage.md` |
-| DI container choice, get_it/watch_it/listen_it ecosystem | `docs/decisions/0005-get-it-di-ecosystem.md` |
-| Product capabilities, roadmap, what/why of the project | `docs/product/vision.md` |
-| Vault user workflow end-to-end | `docs/specs/01-vault-user-workflow.spec` |
-| Sync security format & verification rules (signatures, registries, witnesses, TOFU) | `docs/specs/sync-security.md` |
-| Why Ed25519 signatures for sync OpLog security | `docs/decisions/0006-sync-crypto-signatures.md` |
-| Why future-dated HLC entries are rejected (drift policy) | `docs/decisions/0008-hlc-drift-validation.md` |
-| Why entries carry witness references (`seen`) and how truncation is detected | `docs/decisions/0009-witness-truncation-detection.md` |
+| Documentation boundaries, document status, where to put requirements | `docs/README.md` |
 
-If a referenced doc and the code disagree, the spec is right and the code has a
-bug — report it rather than "fixing" the doc.
+For directory entries, start with their README and follow relevant links.
+
+If code disagrees with an accepted requirement, report the discrepancy rather than "fixing" the document to match code. Drafts, ambiguous status, or conflicts between documents require explicit review; directory placement is not approval.

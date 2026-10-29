@@ -4,7 +4,7 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 // Golden and edge-case tests for PageFrontmatterCodec against the normative
-// spec docs/specs/file-format.md (format version 1).
+// contract docs/contracts/page-file-format.md (format version 1).
 //
 // Covers:
 //   - Round-trip of frontmatter + body for every well-formed fixture.

@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for suggesting an idea! Please check the
-        [roadmap](https://github.com/LonelyGriffin/noetec/blob/main/ROADMAP.md) and
+        [roadmap](https://github.com/LonelyGriffin/noetec/blob/main/docs/product/ROADMAP.md) and
         existing issues first to see whether it's already planned or covered.
   - type: textarea
     id: problem
