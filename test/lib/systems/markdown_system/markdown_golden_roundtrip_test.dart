@@ -4,7 +4,7 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
 // Golden round-trip tests for the markdown parser/serializer against the
-// normative spec docs/specs/file-format.md (format version 1).
+// normative contract docs/contracts/page-file-format.md (format version 1).
 //
 // For each fixture under test/fixtures/format/v1/:
 //   1. Read the file bytes.

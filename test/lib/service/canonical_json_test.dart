@@ -8,7 +8,7 @@ import 'dart:convert';
 import 'package:canonical_json/canonical_json.dart' as cj;
 import 'package:flutter_test/flutter_test.dart';
 
-/// Contract tests for `canonicalJson` per `docs/specs/sync-security.md` §2.2.
+/// Contract tests for `canonicalJson` per `docs/contracts/sync-security.md` §2.2.
 ///
 /// The canonical form is now the OLPC Canonical JSON produced by the
 /// `canonical_json` package (no local wrapper). These tests pin the exact

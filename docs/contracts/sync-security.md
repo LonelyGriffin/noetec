@@ -1,28 +1,35 @@
 # Noetec Sync Security Extensions
 
-**Format version: 1 (draft)**
+**Format version: 1**
+
+**Status: draft** (retained from the original document; this move does not approve it)
+
+**Scope:** OpLog security extensions, registry formats, trust, verification,
+and backward compatibility. The base OpLog format is outside this contract.
 
 This document is the normative specification of the security extensions to the
 Noetec sync operation log (OpLog) entry format: signatures, user & device
-authorization, witness references, and key-trust validation. Implementations
-**MUST** conform to it; divergence is a bug in the implementation, not in this
-document.
+authorization, witness references, and key-trust validation. The requirements
+below describe the proposed contract. While its status is draft, a discrepancy
+with code requires review, not an automatic conclusion that the code is wrong.
+Accepted ADRs remain authoritative within their own scope.
 
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY**
 are interpreted as described in RFC 2119.
 
-The base entry format (wire keys `v`, `hlc`, `parent`, `parent_b`, `type`,
-`device`, `block_ops`, `file_op`, `file_hash`), the HLC key format, and the
-on-disk layout of device files are defined by the existing codebase
-(`lib/systems/oplog_system/oplog_serializer.dart`); this document extends that
-format. Where the signing input references an entry (§2.2), it is the **wire
+This document extends the base OpLog entry format (wire keys `v`, `hlc`,
+`parent`, `parent_b`, `type`, `device`, `block_ops`, `file_op`, `file_hash`).
+A standalone specification of that base format is not provided here.
+Where the signing input references an entry (§2.2), it is the **wire
 representation** (snake_case keys) that is serialized and signed.
-`docs/specs/file-format.md` is the style and format reference; where the two
+[The page file contract](page-file-format.md) is the style and format reference; where the two
 documents overlap, this document is authoritative for the sync security
 extensions.
 
-The extensions are defined in four phases, all backward compatible with
-unsigned legacy data (§8):
+The extensions comprise the following groups, all backward compatible with
+unsigned legacy data (§8). The existing phase labels below are retained as
+identifiers for compatibility rules and references, not as an implementation
+schedule:
 
 - **Phase 1 — Signatures** (mandatory): every entry is signed with the
   authoring device's Ed25519 key.
@@ -100,9 +107,7 @@ devices at once (the first legitimate observation of a key is always trusted,
   - the **identity** public key — in the user registry `users.json`
     (`publicKey` field, §3).
 - **Encoding migration.** Legacy `device.json` files encode `public_key` as
-  standard base64 **with** padding (RFC 4648 §4); the current device-key
-  generator (`lib/service/crypto_service.dart`) still emits this padded form
-  via `base64Encode`. On first Phase-1 read, an implementation **MUST** detect
+  standard base64 **with** padding (RFC 4648 §4). On first Phase-1 read, an implementation **MUST** detect
   the legacy form (the value contains `+`, `/`, or `=`), decode it, and
   re-encode as base64url; it **MAY** rewrite the file on first write. All wire
   formats defined here (entries, registry files, `trusted_keys.json`) **MUST**
@@ -130,8 +135,8 @@ signingInput = canonicalJson(entryWithoutSignature) + documentPath
 - `documentPath` is the page path relative to the vault root, no extension,
   `/` separators (e.g. `notes/ideas`), appended with no separator.
 
-`canonicalJson(obj)` **MUST** be the **OLPC Canonical JSON** encoding, as
-produced by the `canonical_json` Dart package (v1.1.3). Concretely:
+`canonicalJson(obj)` **MUST** be the **OLPC Canonical JSON** encoding.
+Concretely:
 
 - object keys sorted lexicographically by the UTF-8 bytes of their
   **JSON-escaped, NFC-normalized** key (i.e. `"` and `\` are escaped before
@@ -376,7 +381,7 @@ lastSeenHlcKey}`.
   device, in exactly the `hlc`/`parent` string form:
   `<physicalMs>-<counter>-<nodeId>` — decimal `physicalMs`, lowercase-hex
   `counter` zero-padded to ≥4 chars, and `nodeId` the referenced device's
-  **hyphen-free 8-hex** id (`DeviceIdentity.truncatedDeviceId`), e.g.
+  **hyphen-free 8-hex** id, e.g.
   `1756293123456-0001-7c1e2d3a`. The value **MUST NOT** carry the full UUID:
   it would not parse as an HLC key.
 - The key is **omitted** from the entry when `seen` is null or empty and
@@ -497,7 +502,7 @@ entry.hlc.physicalMs <= localTime + maxDrift
 ```
 
 - `localTime` is the reader's wall clock in milliseconds since the Unix epoch
-  (`DateTime.now().millisecondsSinceEpoch`) at read time.
+  at read time.
 - `maxDrift` **MUST** default to 60 000 ms and **MAY** be configured larger. It
   is vault-scoped local state and **MUST NOT** be synced (§5.3). A configured
   value smaller than the default **MUST NOT** be accepted: a tighter bound
@@ -607,7 +612,7 @@ carry it. Phase-3 devices **SHOULD** include `seen` in every new entry.
   whenever feasible.
 - These extensions do not change the entry `version`; a future incompatible
   change **MUST** bump the version and ship as a new spec version (as in
-  `file-format.md`).
+  `page-file-format.md`).
 
 ---
 
@@ -659,31 +664,10 @@ Coverage of §1.3. Legend: ✅ fully, ⚠️ partially, ❌ not covered.
 
 ---
 
-## 11. Performance overhead (estimates)
+## 11. Signing compatibility
 
-Order-of-magnitude guidance on a mid-range mobile device:
-
-| Operation | Without signatures | With signatures (Phase 1) | Overhead |
-|---|---|---|---|
-| Write one entry | ~1 ms | ~5 ms | +4 ms |
-| Read/verify 100 entries | ~10 ms | ~50 ms | +40 ms |
-| Entry size | ~500 B | ~700 B | ≈ +40% |
-
-- **Incremental verification (SHOULD):** cache per-entry results (keyed by
-  HLC key) and verify only new lines.
-- **Lazy verification (MAY):** verify only when building the DAG.
-- **Batch signing (MAY, not in v1):** Merkle-root signing is out of scope for
-  v1 and **MUST NOT** be mixed with per-entry signatures.
-
-- **Registries:** a small, constant number of signature verifications per sync
-  cycle — negligible.
-- **`seen`:** at most `O(other devices)` pairs per entry — roughly 75 bytes per
-  referenced device (full UUID + HLC key + JSON syntax), i.e. on a ≈700-byte
-  signed entry ≈ +10% with 2 devices, ≈ +35% with 4 and ≈ +85% with 10. Its
-  verification costs one extra `O(entries)` pass per device file plus
-  `O(references)` comparisons per document.
-- **§6 drift validation:** one integer comparison per entry and rejecting a
-  suffix — negligible.
+Merkle-root batch signing is out of scope for v1 and **MUST NOT** be mixed
+with per-entry signatures.
 
 ---
 
@@ -694,12 +678,8 @@ Order-of-magnitude guidance on a mid-range mobile device:
 - Migration, rollout, and test plans — implementation tasks.
 - Platform file-access mechanics (macOS bookmarks, Android SAF) — they
   constrain key storage, not the format.
-- HLC drift of registry `revision` keys (§3). The registries are
-  signature-protected but are not subjected to the §6 check, and the local
-  device adopts a registry revision into its own clock (`Hlc.receive`). A
-  future-dated revision signed by an authorized identity key can therefore still
-  push the local clock forward and make this device's own entries look drifted
-  to its peers. Hardening that path is a separate task.
+- HLC drift of registry `revision` keys (§3): the §6 check covers OpLog
+  entries, not registry revisions.
 
 ---
 
@@ -709,7 +689,7 @@ Order-of-magnitude guidance on a mid-range mobile device:
 - RFC 4648 — The Base16, Base32, and Base64 Data Encodings.
 - Ed25519 — https://ed25519.cr.yp.to/
 - Hybrid Logical Clocks (Kulkarni et al.) — https://www.cse.buffalo.edu/tech-reports/2014-04.pdf
-- `docs/specs/file-format.md` — page file format (style reference).
+- [Page file format](page-file-format.md) — page file format (style reference).
 - `docs/decisions/0007-user-device-identity-and-registry.md` — multi-user
   identity and registry model.
 - `docs/decisions/0008-hlc-drift-validation.md` — Phase 4b policy: rejecting

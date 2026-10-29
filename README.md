@@ -25,7 +25,7 @@ Noetec is **local-first**: it works fully offline, and the network is an enhance
 
 ## Status
 
-Noetec is in **pre-alpha**: under active development, and not yet ready for daily, critical use. APIs and file formats may change without notice. Follow along via the [roadmap](ROADMAP.md), and see [CONTRIBUTING.md](CONTRIBUTING.md) if you'd like to help.
+Noetec is in **pre-alpha**: under active development, and not yet ready for daily, critical use. APIs and file formats may change without notice. Follow along via the [roadmap](docs/product/ROADMAP.md), and see [CONTRIBUTING.md](docs/CONTRIBUTING.md) if you'd like to help.
 
 Hi! I'm a frontend developer, and Noetec is my experimental project — a personal note-taking app. Anyone will be welcome to join once the project matures. I'm also open to AI assistance where it's used sensibly, since I rely on AI heavily myself.
 
@@ -37,16 +37,16 @@ dart run build_runner build
 flutter run
 ```
 
-Requires a recent Flutter SDK (Dart 3.10+). Full setup — including git hooks — is covered in [CONTRIBUTING.md](CONTRIBUTING.md).
+Requires a recent Flutter SDK. Full setup — including git hooks — is covered in [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## Documentation
 
-- [ROADMAP.md](ROADMAP.md) — what's done and what's planned
-- [CONTRIBUTING.md](CONTRIBUTING.md) — set up, report bugs, and contribute
-- [SECURITY.md](SECURITY.md) — report a security issue privately
-- [SUPPORT.md](SUPPORT.md) — where to ask questions
+- [ROADMAP.md](docs/product/ROADMAP.md) — what's done and what's planned
+- [CONTRIBUTING.md](docs/CONTRIBUTING.md) — set up, report bugs, and contribute
+- [SECURITY.md](docs/SECURITY.md) — report a security issue privately
+- [SUPPORT.md](docs/SUPPORT.md) — where to ask questions
 - [docs/architecture.md](docs/architecture.md) — high-level code map (where each concern lives)
-- [docs/](docs/) — product vision, architecture decisions, and specs
+- [docs/README.md](docs/README.md) — documentation index: behavior specs, technical contracts, ADRs, and product direction
 
 ## License
 

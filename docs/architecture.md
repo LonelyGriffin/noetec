@@ -2,9 +2,10 @@
 
 A high-level map of the codebase. It tells you *where* a concern lives so you can
 jump straight to the right files; it is not a deep dive. The why behind each
-decision lives in the ADRs under `docs/decisions/`, and normative behavior lives
-in the specs under `docs/specs/` — those are the contract, this map only points
-at it.
+decision lives in the ADRs under `docs/decisions/`. User-facing behavior lives
+in `docs/specs/`; formats and protocols live in `docs/contracts/`. Accepted
+requirements govern their stated scope; this map only points at them. See
+[the documentation index](README.md) for document status and boundaries.
 
 Noetec is a **local-first, block-based note editor** built in Flutter/Dart. Notes
 are plain Markdown files with YAML frontmatter in a vault on disk; the editor
@@ -130,7 +131,7 @@ a replayable, verifiable history. `OpLogSystem` coordinates the pipeline:
   entries (ADR-0006), using `ICryptoService` + `ISecureKeyStore`.
 
 Timestamps use `HlcService` (hybrid logical clocks) for causally-consistent
-ordering without wall-clock trust. See `docs/specs/sync-security.md`.
+ordering without wall-clock trust. See `docs/contracts/sync-security.md`.
 
 ### Persistence — `lib/systems/persistence_system/`
 
@@ -153,7 +154,7 @@ Reconciles the local OpLog with changes from other devices/files (`.sync/`).
 - `ExternalEditHandler` — folds externally-made edits back into the OpLog.
 
 State surfaces as `SyncStatus` and per-document `DocumentSyncState`. Deep rules
-live in `docs/specs/sync-security.md` and ADR-0006/0007.
+live in `docs/contracts/sync-security.md` and ADR-0006/0007.
 
 ### Markdown — `lib/systems/markdown_system/`
 
@@ -162,7 +163,7 @@ The boundary between the block tree and the Markdown file format.
 `serializeBlocks` (blocks → text), built on the `markdown` package. A custom
 `FencedDirectiveSyntax` (`markdown_parser.dart`) handles `::: {#id}` fenced
 directives that carry block IDs (ADR-0002). The canonical file format is
-`docs/specs/file-format.md`.
+`docs/contracts/page-file-format.md`.
 
 ### User Input — `lib/systems/user_input_system/`
 
@@ -226,7 +227,8 @@ they call commands/handlers but never mutate entities directly.
 
 ## Pointers to decisions & specs
 
-ADRs live in `docs/decisions/` (immutable — supersede, never edit); specs live
-in `docs/specs/` (normative, RFC 2119); product direction is in
-`docs/product/vision.md`, and the roadmap is `ROADMAP.md`. The full topic →
+ADRs live in `docs/decisions/` (immutable — supersede, never edit); behavior
+scenarios live in `docs/specs/`; technical contracts live in `docs/contracts/`
+(RFC 2119, subject to explicit document status); product direction is in
+`docs/product/vision.md`, and the roadmap is `docs/product/ROADMAP.md`. The full topic →
 document index for agents stays in `CLAUDE.md`.

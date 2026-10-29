@@ -2,6 +2,12 @@
 
 **Format version: 1**
 
+**Status: accepted** (existing version-1 contract; unchanged by the documentation move)
+
+**Scope:** page-file encoding, frontmatter, block directives, content hashing,
+and parser/serializer compatibility. This is not a specification of editor UX
+or the complete OpLog format.
+
 This document is the normative specification of the on-disk format of a Noetec
 page file. It is a contract: implementations (parsers, serializers, sync
 engines, external tools) **MUST** conform to this document. If an

@@ -45,19 +45,12 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
   getIt.registerSingleton<ITrustStore>(TrustStoreImpl(getIt<IFileSystemService>()));
   getIt.registerSingleton<IVaultRepository>(VaultRepositoryImpl(getIt<ISettingsService>()));
   getIt.registerSingleton<VaultSystem>(VaultSystem(getIt<IFileSystemService>(), getIt<IVaultRepository>(), getIt<IIdService>(), getIt<IDeviceService>()));
-
   getIt.registerSingleton<MarkdownSystem>(MarkdownSystem(getIt<IIdService>()));
-
   getIt.registerSingleton<PageSystem>(PageSystem(getIt<IIdService>(), getIt<MarkdownSystem>(), getIt<IFileSystemService>(), getIt<VaultSystem>()));
-
   getIt.registerSingleton<VaultFileService>(VaultFileService(getIt<IFileSystemService>(), getIt<VaultSystem>(), getIt<PageSystem>()));
-
   getIt.registerSingleton<RenameController>(RenameController(getIt<VaultFileService>(), getIt<VaultSystem>()));
-
   getIt.registerSingleton<HlcService>(HlcService(getIt<VaultSystem>(), getIt<IDeviceService>()));
-
   getIt.registerSingleton<WalService>(WalService(getIt<IFileSystemService>(), getIt<VaultSystem>()));
-
   getIt.registerSingleton<IRegistryService>(
     RegistryServiceImpl(
       fileSystem: getIt<IFileSystemService>(),
@@ -67,7 +60,6 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
       vaultSystem: getIt<VaultSystem>(),
     ),
   );
-
   getIt.registerSingleton<IOnboardingService>(
     OnboardingServiceImpl(
       fileSystem: getIt<IFileSystemService>(),
@@ -79,7 +71,6 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
       vaultSystem: getIt<VaultSystem>(),
     ),
   );
-
   getIt.registerSingleton<UserDeviceController>(
     UserDeviceController(
       vaultSystem: getIt<VaultSystem>(),
@@ -90,7 +81,6 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
       secureKeyStore: getIt<ISecureKeyStore>(),
     ),
   );
-
   getIt.registerSingleton<OpLogSystem>(
     OpLogSystem(
       fileSystem: getIt<IFileSystemService>(),
@@ -102,15 +92,11 @@ Future<void> configureDI({IFileSystemService? fileSystem, ISettingsService? sett
       authorizer: OpLogAuthorizer(registry: getIt<IRegistryService>(), trustStore: getIt<ITrustStore>()),
     ),
   );
-
   getIt.registerSingleton<PersistenceSystem>(
     PersistenceSystem(wal: getIt<WalService>(), oplog: getIt<OpLogSystem>(), pageSystem: getIt<PageSystem>(), vaultSystem: getIt<VaultSystem>()),
   );
-
   getIt.registerSingleton<CrashRecoveryService>(CrashRecoveryService(getIt<WalService>()));
-
   getIt.registerSingleton<UserInputService>(UserInputService(getIt<PageSystem>(), getIt<PersistenceSystem>()));
-
   getIt.registerSingleton<SyncSystem>(
     SyncSystem(
       oplogSystem: getIt<OpLogSystem>(),
