@@ -8,6 +8,7 @@ and acceptance scenarios, not storage formats or implementation designs.
 | Specification | Scope | Status and implementation coverage |
 |---|---|---|
 | [Vault user workflow](01-vault-user-workflow.spec) | Creating, opening, closing, and managing vaults | Existing behavior baseline; explicitly unimplemented scenarios remain future requirements, not claims of current support |
+| [Page editing and saving](02-page-editing-and-saving.spec) | Identity establishment, block operations, references, and save/recovery behavior | Draft |
 
 The vault specification is preserved as-is, including its name and Markdown
 Given/When/Then tables. The `.spec` extension does not imply executable Gherkin.

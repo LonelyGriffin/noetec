@@ -2,7 +2,7 @@
 
 **Format version: 1**
 
-**Status: accepted** (existing version-1 contract; unchanged by the documentation move)
+**Status: legacy** (existing version-1 contract; unchanged by the documentation move)
 
 **Scope:** page-file encoding, frontmatter, block directives, content hashing,
 and parser/serializer compatibility. This is not a specification of editor UX
