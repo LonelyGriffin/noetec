@@ -9,6 +9,8 @@ plans, or guides to the current code.
 | Contract | Scope | Document status |
 |---|---|---|
 | [Page file format](page-file-format.md) | Encoding, frontmatter, block directives, hashing, round-trip and version compatibility | Accepted, existing format version 1 |
+| [Page file format v2](page-file-format-v2.md) | Pandoc-based canonical files, block identity, safe external edits, hashing, and vault references | Draft; profile and conformance evidence pending |
+| [Noetec Markdown page file format v3](page-file-format-v3.md) | CommonMark-based files, JSON metadata, block identity, own-state checks, opaque source, and vault references | Draft; per-type check-state representations are implementation-defined |
 | [Sync security](sync-security.md) | Signatures, registries, witness references, TOFU, verification, compatibility | Draft, format version 1; retained status, not newly approved |
 
 Document status does not indicate implementation completeness. The base OpLog
