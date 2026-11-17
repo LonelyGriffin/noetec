@@ -5,7 +5,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:path/path.dart' as p;
+
 import '../../entity/page/page_edit_action.dart';
+import '../../service/document_paths.dart';
 import '../../service/file_system_service.dart';
 import '../../systems/vault/vault_system.dart';
 import 'wal_action_serializer.dart';
@@ -104,7 +107,7 @@ class WalService {
     _buffers.clear();
 
     try {
-      final walDir = '$_vaultRootPath/.noetec/wal';
+      final walDir = p.join(_vaultRootPath!, '.noetec', 'wal');
       if (!await _fs.directoryExists(walDir)) return;
       final filePaths = await _findWalFilePaths(walDir);
       for (final path in filePaths) {
@@ -116,7 +119,7 @@ class WalService {
   Future<List<WalEntry>> getPendingWals() async {
     if (_vaultRootPath == null) return const [];
     final entries = <WalEntry>[];
-    final walDir = '$_vaultRootPath/.noetec/wal';
+    final walDir = p.join(_vaultRootPath!, '.noetec', 'wal');
 
     try {
       if (!await _fs.directoryExists(walDir)) return entries;
@@ -150,9 +153,8 @@ class WalService {
   }
 
   String _extractRelativePathFromWal(String walFilePath) {
-    final normalized = walFilePath.replaceAll('\\', '/');
-    final prefix = '$_vaultRootPath/.noetec/wal/';
-    return normalized.startsWith(prefix) ? normalized.substring(prefix.length) : normalized;
+    final walDir = p.join(_vaultRootPath!, '.noetec', 'wal');
+    return relativeDocumentPath(walFilePath, from: walDir);
   }
 
   Future<List<PageEditAction>> readWal(String walFilePath) async {
@@ -231,8 +233,7 @@ class WalService {
     }
 
     final walPath = _absoluteWalPath(relativePath);
-    final normalized = walPath.replaceAll('\\', '/');
-    final parentDir = normalized.substring(0, normalized.lastIndexOf('/'));
+    final parentDir = p.dirname(walPath);
     if (!await _fs.directoryExists(parentDir)) {
       await _fs.createDirectory(parentDir);
     }
@@ -242,7 +243,7 @@ class WalService {
   void _flushBufferSync(String pageId) => _flushBuffer(pageId);
 
   String _absoluteWalPath(String relativePath) {
-    return '$_vaultRootPath/.noetec/wal/$relativePath';
+    return resolveDocumentPath(p.join(_vaultRootPath!, '.noetec', 'wal'), relativePath);
   }
 
   void dispose() {

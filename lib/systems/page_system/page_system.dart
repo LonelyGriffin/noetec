@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:noetec/entity/page/block/text/text.dart';
 import 'package:noetec/entity/page/page.dart';
 import 'package:noetec/entity/vault.dart';
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
@@ -121,7 +122,7 @@ class PageSystem {
       return page;
     }
 
-    final absolutePath = p.normalize(p.join(_vaultRootPath!, relativePath));
+    final absolutePath = p.normalize(resolveDocumentPath(_vaultRootPath!, relativePath));
     final raw = await _fileSystem.readFile(absolutePath);
     final (:frontmatter, :content) = PageFrontmatterCodec.parse(raw);
 
@@ -157,7 +158,7 @@ class PageSystem {
     final frontmatter = PageFrontmatter(id: page.id, contentHash: 'sha256:$hash', modified: DateTime.now().toUtc());
 
     final fileContent = PageFrontmatterCodec.encode(frontmatter, markdown);
-    final absolutePath = p.normalize(p.join(_vaultRootPath!, page.relativePath));
+    final absolutePath = p.normalize(resolveDocumentPath(_vaultRootPath!, page.relativePath));
     await _fileSystem.writeFile(absolutePath, fileContent);
     return 'sha256:$hash';
   }
@@ -194,12 +195,12 @@ class PageSystem {
     final openPaths = openPages.values.map((page) => page.relativePath).toList();
     final activePage = getActivePage();
     final state = SessionState(openPagePaths: openPaths, activePagePath: activePage?.relativePath);
-    await _fileSystem.writeFile(p.normalize(p.join(_vaultRootPath!, _sessionFile)), jsonEncode(state.toJson()));
+    await _fileSystem.writeFile(resolveDocumentPath(_vaultRootPath!, _sessionFile), jsonEncode(state.toJson()));
   }
 
   Future<void> restoreSession() async {
     if (_vaultRootPath == null) return;
-    final filePath = p.normalize(p.join(_vaultRootPath!, _sessionFile));
+    final filePath = resolveDocumentPath(_vaultRootPath!, _sessionFile);
     if (!await _fileSystem.fileExists(filePath)) return;
     try {
       final raw = await _fileSystem.readFile(filePath);

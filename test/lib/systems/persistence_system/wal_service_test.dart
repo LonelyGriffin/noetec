@@ -4,6 +4,7 @@ import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/persistence_system/wal_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../helpers/test_fakes.dart';
 
@@ -87,7 +88,7 @@ void main() {
 
     setUp(() {
       fs = _FakeFs();
-      fs.dirs.add('/vault/.noetec/wal');
+      fs.dirs.add(p.join('/vault', '.noetec', 'wal'));
       vaultSystem = createTestVaultSystem();
       wal = WalService(fs, vaultSystem);
 
@@ -105,7 +106,7 @@ void main() {
 
       await wal.flush('page1');
 
-      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith(p.join('/vault', '.noetec', 'wal', ''))).toList();
       expect(walFiles, hasLength(1));
     });
 
@@ -115,7 +116,7 @@ void main() {
       await wal.flush('page1');
       await wal.clear('page1');
 
-      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith(p.join('/vault', '.noetec', 'wal', ''))).toList();
       expect(walFiles, isEmpty);
     });
 
@@ -188,7 +189,7 @@ void main() {
       wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x'));
       await wal.flush('page1');
 
-      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith(p.join('/vault', '.noetec', 'wal', ''))).toList();
       expect(walFiles, isEmpty);
     });
 
@@ -202,7 +203,7 @@ void main() {
 
       await wal.clearAll();
 
-      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith(p.join('/vault', '.noetec', 'wal', ''))).toList();
       expect(walFiles, isEmpty);
     });
 
@@ -221,21 +222,21 @@ void main() {
       wal.appendAction('page1', const InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x'));
       await wal.flush('page1');
 
-      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith(p.join('/vault', '.noetec', 'wal', ''))).toList();
       expect(walFiles, hasLength(1));
-      expect(walFiles.first, equals('/vault/.noetec/wal/pages/notes/idea.md'));
+      expect(walFiles.first, equals(p.join('/vault', '.noetec', 'wal', 'pages', 'notes', 'idea.md')));
     });
 
     test('flush with no pending actions is no-op', () async {
       wal.register('page1', 'pages/welcome.md');
       await wal.flush('page1');
 
-      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith(p.join('/vault', '.noetec', 'wal', ''))).toList();
       expect(walFiles, isEmpty);
     });
 
     test('readWal returns empty list for non-existent file', () async {
-      final actions = await wal.readWal('/vault/.noetec/wal/nonexistent.wal.jsonl');
+      final actions = await wal.readWal(p.join('/vault', '.noetec', 'wal', 'nonexistent.wal.jsonl'));
       expect(actions, isEmpty);
     });
   });

@@ -48,6 +48,7 @@ import 'package:noetec/systems/oplog_system/oplog_writer.dart';
 import 'package:noetec/systems/sync_system/registry/registry_service.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 import 'test_fakes.dart';
 
@@ -110,13 +111,13 @@ final class SyncDevice {
   late final OpLogReader _reader;
 
   /// The on-disk `.sync/` directory (the shared, synced area).
-  String get syncDir => '$folderPath/.sync';
+  String get syncDir => p.join(folderPath, '.sync');
 
   /// The `.noetec/` local directory.
-  String get localDir => '$folderPath/.noetec';
+  String get localDir => p.join(folderPath, '.noetec');
 
   /// The oplog file path for [relativePath] on THIS device (in the shared `.sync/`).
-  String oplogFilePath(String relativePath) => '$syncDir/$relativePath/$deviceUuid.oplog.jsonl';
+  String oplogFilePath(String relativePath) => p.join(syncDir, relativePath, '$deviceUuid.oplog.jsonl');
 
   /// Appends [entry] to this device's oplog file for [relativePath], signing
   /// it with this device's real key (the real OpLogSigner + OpLogWriter path).
@@ -157,11 +158,11 @@ Future<SyncDevice> createDevice({
   final keyStore = FakeSecureKeyStore();
   final keyPair = await crypto.generateDeviceKeyPair();
   final deviceUuid = IdService().generateId();
-  await fileSystem.createDirectory('$folderPath/.noetec');
-  await fileSystem.createDirectory('$folderPath/.sync');
+  await fileSystem.createDirectory(p.join(folderPath, '.noetec'));
+  await fileSystem.createDirectory(p.join(folderPath, '.sync'));
   final identity = DeviceIdentity(uuid: deviceUuid, name: deviceName, createdAt: DateTime.now(), lastHlc: null, publicKey: keyPair.publicKeyBase64Url);
   final deviceJson = {'uuid': deviceUuid, 'name': deviceName, 'created_at': identity.createdAt.toIso8601String(), 'last_hlc': null, 'public_key': keyPair.publicKeyBase64Url};
-  await fileSystem.writeFile('$folderPath/.noetec/device.json', _jsonEncode(deviceJson));
+  await fileSystem.writeFile(p.join(folderPath, '.noetec', 'device.json'), _jsonEncode(deviceJson));
   await keyStore.storeDevicePrivateKey(vaultId, keyPair.privateKeyBase64Url);
   return SyncDevice(
     folderPath: folderPath,
@@ -223,7 +224,7 @@ Future<void> syncFrom(SyncDevice src, SyncDevice dst) async {
 
 Future<void> _copyTree(Directory src, Directory dst) async {
   await for (final entity in src.list()) {
-    final target = '${dst.path}/${entity.path.split(Platform.pathSeparator).last}';
+    final target = p.join(dst.path, p.basename(entity.path));
     if (entity is Directory) {
       await _copyTree(entity, Directory(target));
     } else if (entity is File) {

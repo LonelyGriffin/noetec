@@ -8,6 +8,7 @@ import 'package:noetec/systems/persistence_system/crash_recovery_service.dart';
 import 'package:noetec/systems/persistence_system/wal_action_serializer.dart';
 import 'package:noetec/systems/persistence_system/wal_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../helpers/test_fakes.dart';
 
@@ -69,7 +70,7 @@ void main() {
 
     setUp(() {
       fs = _FakeFs();
-      fs.dirs.add('/vault/.noetec/wal');
+      fs.dirs.add(p.join('/vault', '.noetec', 'wal'));
       vaultSystem = createTestVaultSystem();
       walService = WalService(fs, vaultSystem);
       recoveryService = CrashRecoveryService(walService);
@@ -93,7 +94,7 @@ void main() {
       final json = serializer.toJson(action);
       json['ts'] = DateTime.now().millisecondsSinceEpoch;
 
-      fs.files['/vault/.noetec/wal/pages/welcome.md'] = '${jsonEncode(json)}\n';
+      fs.files[p.join('/vault', '.noetec', 'wal', 'pages', 'welcome.md')] = '${jsonEncode(json)}\n';
 
       final candidates = await recoveryService.findCandidates();
       expect(candidates, hasLength(1));
@@ -107,11 +108,11 @@ void main() {
       const action = InsertTextAction(blockId: 'b1', flatOffset: 0, text: 'x');
       final json = serializer.toJson(action);
 
-      fs.files['/vault/.noetec/wal/pages/welcome.md'] = '${jsonEncode(json)}\n';
+      fs.files[p.join('/vault', '.noetec', 'wal', 'pages', 'welcome.md')] = '${jsonEncode(json)}\n';
 
       await recoveryService.discardAll();
 
-      final walFiles = fs.files.keys.where((k) => k.startsWith('/vault/.noetec/wal/')).toList();
+      final walFiles = fs.files.keys.where((k) => k.startsWith(p.join('/vault', '.noetec', 'wal', ''))).toList();
       expect(walFiles, isEmpty);
     });
   });

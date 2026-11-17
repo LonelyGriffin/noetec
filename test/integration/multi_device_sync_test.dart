@@ -35,6 +35,7 @@ import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/entity/page/block/text/text.dart';
 import 'package:noetec/entity/page/block/text/text_segment.dart';
 import 'package:noetec/service/crypto_service.dart';
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
@@ -115,7 +116,7 @@ void main() {
   group('NOET-34 multi-device / multi-user sync (real stack)', () {
     test('1. two devices one user: different blocks auto-merge (no conflict)', () async {
       const rel = 'pages/notes.md';
-      final folder = '$root/vault1';
+      final folder = p.join(root, 'vault1');
       // Real on-boarded owner (device A) with a real, signed registry.
       final owner = await createOwnerVault(folderPath: folder, vaultId: 'v-1', ownerName: 'Owner', deviceName: 'Laptop A', crypto: crypto, fileSystem: fs);
       // Device B: a second device of the SAME owner (shared .sync/), own key.
@@ -221,14 +222,14 @@ void main() {
       expect(applied.content, contains('Line one by A'), reason: 'A\'s merged edit is written to disk');
       expect(applied.content, contains('Line two by B'), reason: 'B\'s merged edit is written to disk');
       // The on-disk page now reflects the merged state of BOTH devices.
-      final onDisk = await fs.readFile('$folder/$rel');
+      final onDisk = await fs.readFile(resolveDocumentPath(folder, rel));
       expect(onDisk, contains('Line one by A'));
       expect(onDisk, contains('Line two by B'));
     });
 
     test('2. two devices one user: identical edit auto-resolves (no conflict)', () async {
       const rel = 'pages/notes.md';
-      final folder = '$root/vault2';
+      final folder = p.join(root, 'vault2');
       final owner = await createOwnerVault(folderPath: folder, vaultId: 'v-2', ownerName: 'Owner', deviceName: 'Laptop A', crypto: crypto, fileSystem: fs);
       final b = await makeSharedDevice(anchor: owner.device, name: 'Laptop B', crypto: crypto, fileSystem: fs);
       await owner.registry.addDevice(deviceUuid: b.deviceUuid, devicePublicKey: b.publicKey, deviceName: 'Laptop B');
@@ -297,7 +298,7 @@ void main() {
 
     test('3. two devices one user: one side ahead -> already in sync, no conflict', () async {
       const rel = 'pages/notes.md';
-      final folder = '$root/vault3';
+      final folder = p.join(root, 'vault3');
       final owner = await createOwnerVault(folderPath: folder, vaultId: 'v-3', ownerName: 'Owner', deviceName: 'Laptop A', crypto: crypto, fileSystem: fs);
       final b = await makeSharedDevice(anchor: owner.device, name: 'Laptop B', crypto: crypto, fileSystem: fs);
       await owner.registry.addDevice(deviceUuid: b.deviceUuid, devicePublicKey: b.publicKey, deviceName: 'Laptop B');
@@ -384,7 +385,7 @@ void main() {
 
     test('4. two users: foreign device (not in registry) is rejected and reported', () async {
       const rel = 'pages/notes.md';
-      final folder = '$root/vault4';
+      final folder = p.join(root, 'vault4');
       final owner = await createOwnerVault(folderPath: folder, vaultId: 'v-4', ownerName: 'Owner', deviceName: 'Laptop A', crypto: crypto, fileSystem: fs);
       final a = owner.device;
 
@@ -441,7 +442,7 @@ void main() {
     });
 
     test('5. two users: each writes only its own devices/<id>.json -> no cross-user conflict', () async {
-      final folder = '$root/vault5';
+      final folder = p.join(root, 'vault5');
       // User A onboards their own owner vault.
       final ownerA = await createOwnerVault(folderPath: folder, vaultId: 'v-5', ownerName: 'User A', deviceName: 'A-1', crypto: crypto, fileSystem: fs);
       // User B is a different user, added by the owner (real registry signing).
@@ -462,16 +463,16 @@ void main() {
       expect(reportA.droppedFiles, isEmpty, reason: 'no cross-user candidate is dropped');
 
       // B's device file is a SEPARATE file — loading it does not surface A's device.
-      final devicesDir = Directory('$folder/.sync/devices');
+      final devicesDir = Directory(p.join(folder, '.sync', 'devices'));
       final files = await devicesDir.list().where((e) => e is File).toList();
-      final names = files.map((e) => (e as File).path.split('/').last).toList();
+      final names = files.map((e) => p.basename((e as File).path)).toList();
       expect(names, contains('${ownerA.ownerUserId}.json'), reason: 'A\'s device file is present');
       expect(names, isNot(contains('user-b-id.json')), reason: 'B has not added a device yet; A\'s file is isolated');
     });
 
     test('6. forgery: entry under a victim deviceId without its key is rejected (attribution holds)', () async {
       const rel = 'pages/victim.md';
-      final folder = '$root/vault6';
+      final folder = p.join(root, 'vault6');
       final owner = await createOwnerVault(folderPath: folder, vaultId: 'v-6', ownerName: 'Owner', deviceName: 'Laptop A', crypto: crypto, fileSystem: fs);
       final a = owner.device;
 

@@ -24,6 +24,7 @@ import 'package:noetec/systems/sync_system/registry/registry_models.dart';
 import 'package:noetec/systems/sync_system/registry/registry_service.dart';
 import 'package:noetec/systems/sync_system/registry/registry_signing.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 import '../../helpers/test_fakes.dart';
 
@@ -68,7 +69,7 @@ class _RecordingDeviceService implements IDeviceService {
 
   @override
   Future<DeviceIdentity> ensureDevice(String vaultRootPath, String vaultId) async {
-    final devicePath = '$vaultRootPath/.noetec/device.json';
+    final devicePath = p.join(vaultRootPath, '.noetec', 'device.json');
     if (await _fileSystem.fileExists(devicePath)) {
       final content = await _fileSystem.readFile(devicePath);
       _device = DeviceIdentity.fromJson(jsonDecode(content) as Map<String, dynamic>);
@@ -77,8 +78,8 @@ class _RecordingDeviceService implements IDeviceService {
     final keyPair = await _crypto.generateDeviceKeyPair();
     keyPairGenerations++;
     _device = DeviceIdentity(uuid: _device.uuid, name: _device.name, createdAt: _device.createdAt, lastHlc: null, publicKey: keyPair.publicKeyBase64Url);
-    if (!await _fileSystem.directoryExists('$vaultRootPath/.noetec')) {
-      await _fileSystem.createDirectory('$vaultRootPath/.noetec');
+    if (!await _fileSystem.directoryExists(p.join(vaultRootPath, '.noetec'))) {
+      await _fileSystem.createDirectory(p.join(vaultRootPath, '.noetec'));
     }
     await _fileSystem.writeFile(devicePath, jsonEncode(_device.toJson()));
     await _keyStore.storeDevicePrivateKey(vaultId, keyPair.privateKeyBase64Url);
@@ -193,8 +194,8 @@ Future<DeviceRegistry> _writeForeignDeviceFile(
   final signedRecord = await h.signing.signDeviceRecord(record, userPrivKey);
   final unsigned = DeviceRegistry(version: 1, revision: Hlc.now(null, deviceId), parent: null, userId: userId, devices: [signedRecord], signature: '');
   final signed = await h.signing.signDeviceFileOnly(unsigned, userPrivateKey: userPrivKey);
-  h.fs.dirs.add('/vault/.sync/devices');
-  h.fs.files['/vault/.sync/devices/$userId.json'] = jsonEncode(signed.toWireMap());
+  h.fs.dirs.add(p.join('/vault', '.sync', 'devices'));
+  h.fs.files[p.join('/vault', '.sync', 'devices', '$userId.json')] = jsonEncode(signed.toWireMap());
   return signed;
 }
 
@@ -286,7 +287,7 @@ void main() {
       // storage; identity.json carries only public fields.
       expect(await h.keyStore.hasIdentitySeed('v1'), isTrue);
       expect(await h.keyStore.readIdentityPrivateKey('v1'), isNotNull);
-      final identityJson = jsonDecode(h.fs.files['/vault/.noetec/identity.json']!) as Map<String, dynamic>;
+      final identityJson = jsonDecode(h.fs.files[p.join('/vault', '.noetec', 'identity.json')]!) as Map<String, dynamic>;
       expect(identityJson.keys.toSet(), {'userId', 'name', 'publicKey', 'role'});
     });
 
@@ -294,13 +295,13 @@ void main() {
       h = await _buildHarness(crypto: crypto, signing: signing);
       final result = await h.onboarding.createVaultOnboarding(ownerName: 'Owner');
 
-      final usersWire = jsonDecode(h.fs.files['/vault/.sync/users.json']!) as Map<String, dynamic>;
+      final usersWire = jsonDecode(h.fs.files[p.join('/vault', '.sync', 'users.json')]!) as Map<String, dynamic>;
       expect(usersWire.keys.toSet(), {'version', 'revision', 'parent', 'owner_user_id', 'users', 'signature'});
       expect(usersWire['version'], 1);
       final userRecord = (usersWire['users'] as List).single as Map<String, dynamic>;
       expect(userRecord.keys.toSet(), {'userId', 'name', 'publicKey', 'role', 'addedBy', 'updatedAt', 'removedAt', 'signature'});
 
-      final devicesWire = jsonDecode(h.fs.files['/vault/.sync/devices/${result.owner.userId}.json']!) as Map<String, dynamic>;
+      final devicesWire = jsonDecode(h.fs.files[p.join('/vault', '.sync', 'devices', '${result.owner.userId}.json')]!) as Map<String, dynamic>;
       expect(devicesWire.keys.toSet(), {'version', 'revision', 'parent', 'userId', 'devices', 'signature'});
       expect(devicesWire['version'], 1);
       final deviceRecord = (devicesWire['devices'] as List).single as Map<String, dynamic>;
@@ -326,14 +327,14 @@ void main() {
 
     test('creates .sync/devices/ when the vault has only .sync/pages/', () async {
       h = await _buildHarness(crypto: crypto, signing: signing);
-      h.fs.dirs.remove('/vault/.sync/devices');
-      h.fs.dirs.add('/vault/.sync');
-      h.fs.dirs.add('/vault/.sync/pages');
+      h.fs.dirs.remove(p.join('/vault', '.sync', 'devices'));
+      h.fs.dirs.add(p.join('/vault', '.sync'));
+      h.fs.dirs.add(p.join('/vault', '.sync', 'pages'));
 
       await h.onboarding.createVaultOnboarding(ownerName: 'Owner');
 
-      expect(h.fs.dirs, contains('/vault/.sync'));
-      expect(h.fs.dirs, contains('/vault/.sync/devices'));
+      expect(h.fs.dirs, contains(p.join('/vault', '.sync')));
+      expect(h.fs.dirs, contains(p.join('/vault', '.sync', 'devices')));
     });
 
     test('throws when the vault already has an identity', () async {
@@ -356,7 +357,7 @@ void main() {
   group('bootstrapOwnerIdentity —', () {
     test('the first opened user becomes the owner of an identity-less vault', () async {
       h = await _buildHarness(crypto: crypto, signing: signing);
-      expect(h.fs.files.containsKey('/vault/.noetec/identity.json'), isFalse);
+      expect(h.fs.files.containsKey(p.join('/vault', '.noetec', 'identity.json')), isFalse);
 
       final result = await h.onboarding.bootstrapOwnerIdentity(ownerName: 'First User');
 
@@ -373,7 +374,7 @@ void main() {
 
       // Simulate a later open without the local identity (identity.json gone
       // but the registry present).
-      h.fs.files.remove('/vault/.noetec/identity.json');
+      h.fs.files.remove(p.join('/vault', '.noetec', 'identity.json'));
       h.userService.clear();
       await expectLater(h.onboarding.bootstrapOwnerIdentity(ownerName: 'Rival'), throwsStateError);
     });
@@ -395,15 +396,15 @@ void main() {
       // Device B: the same vault (same vault id), the synced .sync/ files,
       // but NO local identity/device state.
       final b = await _buildHarness(crypto: crypto, signing: signing);
-      b.fs.dirs.addAll({'/vault/.noetec', '/vault/.sync', '/vault/.sync/devices'});
-      b.fs.files['/vault/.sync/users.json'] = a.fs.files['/vault/.sync/users.json']!;
-      b.fs.files['/vault/.sync/devices/${created.owner.userId}.json'] = a.fs.files['/vault/.sync/devices/${created.owner.userId}.json']!;
+      b.fs.dirs.addAll({p.join('/vault', '.noetec'), p.join('/vault', '.sync'), p.join('/vault', '.sync', 'devices')});
+      b.fs.files[p.join('/vault', '.sync', 'users.json')] = a.fs.files[p.join('/vault', '.sync', 'users.json')]!;
+      b.fs.files[p.join('/vault', '.sync', 'devices', '${created.owner.userId}.json')] = a.fs.files[p.join('/vault', '.sync', 'devices', '${created.owner.userId}.json')]!;
       // A fresh machine: no identity, and no local device (its key pair is
       // generated by restoreFromSeed).
       b.deviceService.reset();
-      b.fs.files.remove('/vault/.noetec/device.json');
+      b.fs.files.remove(p.join('/vault', '.noetec', 'device.json'));
       final generationsBefore = b.deviceService.keyPairGenerations;
-      expect(b.fs.files.containsKey('/vault/.noetec/identity.json'), isFalse);
+      expect(b.fs.files.containsKey(p.join('/vault', '.noetec', 'identity.json')), isFalse);
 
       final restored = await b.onboarding.restoreFromSeed(mnemonic: created.mnemonic);
 
@@ -438,9 +439,9 @@ void main() {
       final created = await a.onboarding.createVaultOnboarding(ownerName: 'Owner');
 
       final b = await _buildHarness(crypto: crypto, signing: signing);
-      b.fs.dirs.addAll({'/vault/.noetec', '/vault/.sync', '/vault/.sync/devices'});
-      b.fs.files['/vault/.sync/users.json'] = a.fs.files['/vault/.sync/users.json']!;
-      b.fs.files['/vault/.sync/devices/${created.owner.userId}.json'] = a.fs.files['/vault/.sync/devices/${created.owner.userId}.json']!;
+      b.fs.dirs.addAll({p.join('/vault', '.noetec'), p.join('/vault', '.sync'), p.join('/vault', '.sync', 'devices')});
+      b.fs.files[p.join('/vault', '.sync', 'users.json')] = a.fs.files[p.join('/vault', '.sync', 'users.json')]!;
+      b.fs.files[p.join('/vault', '.sync', 'devices', '${created.owner.userId}.json')] = a.fs.files[p.join('/vault', '.sync', 'devices', '${created.owner.userId}.json')]!;
 
       final restored = await b.onboarding.restoreFromSeed(mnemonic: created.mnemonic);
 
@@ -467,8 +468,8 @@ void main() {
     test('an invalid mnemonic throws before any state changes', () async {
       h = await _buildHarness(crypto: crypto, signing: signing);
       await expectLater(h.onboarding.restoreFromSeed(mnemonic: 'not a valid mnemonic at all'), throwsArgumentError);
-      expect(h.fs.files.containsKey('/vault/.noetec/identity.json'), isFalse);
-      expect(h.fs.files.containsKey('/vault/.noetec/device.json'), isTrue); // the harness device, unchanged
+      expect(h.fs.files.containsKey(p.join('/vault', '.noetec', 'identity.json')), isFalse);
+      expect(h.fs.files.containsKey(p.join('/vault', '.noetec', 'device.json')), isTrue); // the harness device, unchanged
     });
 
     test('a seed that does not match the existing identity is rejected', () async {
@@ -496,7 +497,7 @@ void main() {
 
       expect(restored.deviceRegistry.devices, hasLength(1));
       expect(restored.identity.userId, isNotEmpty);
-      expect(h.fs.files.containsKey('/vault/.sync/users.json'), isFalse);
+      expect(h.fs.files.containsKey(p.join('/vault', '.sync', 'users.json')), isFalse);
     });
   });
 

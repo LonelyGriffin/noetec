@@ -8,6 +8,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:bip39/bip39.dart' as bip39;
+import 'package:path/path.dart' as p;
 
 import '../entity/user/user_identity.dart';
 import 'crypto_service.dart';
@@ -79,7 +80,7 @@ class UserServiceImpl implements IUserService {
   @override
   UserIdentity? get currentIdentity => _currentIdentity;
 
-  String _identityPath(String vaultRootPath) => '$vaultRootPath/.noetec/identity.json';
+  String _identityPath(String vaultRootPath) => p.join(vaultRootPath, '.noetec', 'identity.json');
 
   /// Converts a lowercase hex string (as returned by `bip39.mnemonicToEntropy`)
   /// into its byte representation.
@@ -137,8 +138,9 @@ class UserServiceImpl implements IUserService {
 
     final identity = UserIdentity(userId: userId, name: name, publicKey: keyPair.publicKeyBase64Url, role: role);
 
-    if (!await _fileSystem.directoryExists('$vaultRootPath/.noetec')) {
-      await _fileSystem.createDirectory('$vaultRootPath/.noetec');
+    final noetecDir = p.join(vaultRootPath, '.noetec');
+    if (!await _fileSystem.directoryExists(noetecDir)) {
+      await _fileSystem.createDirectory(noetecDir);
     }
     await _fileSystem.writeFile(_identityPath(vaultRootPath), jsonEncode(identity.toJson()));
 

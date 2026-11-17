@@ -6,6 +6,7 @@ import 'package:noetec/service/crypto_service.dart';
 import 'package:noetec/service/device_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
+import 'package:path/path.dart' as p;
 import '../../helpers/test_fakes.dart';
 
 class FakeFileSystemService implements IFileSystemService {
@@ -65,6 +66,9 @@ class FakeCryptoService implements ICryptoService {
 }
 
 void main() {
+  final vaultRoot = p.join('vault');
+  final devicePath = p.join(vaultRoot, '.noetec', 'device.json');
+
   group('DeviceService —', () {
     late FakeFileSystemService fs;
     late FakeSecureKeyStore secureKeyStore;
@@ -77,16 +81,16 @@ void main() {
     });
 
     test('ensureDevice creates device.json when not exists', () async {
-      final device = await service.ensureDevice('/vault', 'vault-id-1');
+      final device = await service.ensureDevice(vaultRoot, 'vault-id-1');
 
       expect(device.uuid, 'fixed-device-uuid');
       expect(device.lastHlc, isNull);
       expect(device.publicKey, isNotNull);
-      expect(fs.files.containsKey('/vault/.noetec/device.json'), isTrue);
+      expect(fs.files.containsKey(devicePath), isTrue);
     });
 
     test('ensureDevice generates key pair for new device', () async {
-      final device = await service.ensureDevice('/vault', 'vault-id-keys');
+      final device = await service.ensureDevice(vaultRoot, 'vault-id-keys');
 
       expect(device.publicKey, 'fake-public-key-base64');
       expect(await secureKeyStore.readDevicePrivateKey('vault-id-keys'), 'fake-private-key-base64');
@@ -94,27 +98,27 @@ void main() {
 
     test('ensureDevice reads existing device.json', () async {
       final existing = DeviceIdentity(uuid: 'existing-uuid', name: 'Existing', createdAt: DateTime(2026, 1, 1), lastHlc: null, publicKey: 'existing-public-key');
-      fs.files['/vault/.noetec/device.json'] = jsonEncode(existing.toJson());
+      fs.files[devicePath] = jsonEncode(existing.toJson());
 
-      final device = await service.ensureDevice('/vault', 'vault-id-2');
+      final device = await service.ensureDevice(vaultRoot, 'vault-id-2');
       expect(device.uuid, 'existing-uuid');
       expect(device.publicKey, 'existing-public-key');
     });
 
     test('ensureDevice does not regenerate keys for existing device', () async {
       final existing = DeviceIdentity(uuid: 'existing-uuid', name: 'Existing', createdAt: DateTime(2026, 1, 1), lastHlc: null, publicKey: 'original-public-key');
-      fs.files['/vault/.noetec/device.json'] = jsonEncode(existing.toJson());
+      fs.files[devicePath] = jsonEncode(existing.toJson());
 
-      await service.ensureDevice('/vault', 'vault-id-no-regen');
+      await service.ensureDevice(vaultRoot, 'vault-id-no-regen');
 
       expect(await secureKeyStore.hasDevicePrivateKey('vault-id-no-regen'), isFalse);
     });
 
     test('updateLastHlc persists updated lastHlc', () async {
-      await service.ensureDevice('/vault', 'vault-id-3');
-      await service.updateLastHlc('/vault', '1705312200000-0001-a1b2c3d4');
+      await service.ensureDevice(vaultRoot, 'vault-id-3');
+      await service.updateLastHlc(vaultRoot, '1705312200000-0001-a1b2c3d4');
 
-      final content = jsonDecode(fs.files['/vault/.noetec/device.json']!) as Map<String, dynamic>;
+      final content = jsonDecode(fs.files[devicePath]!) as Map<String, dynamic>;
       expect(content['last_hlc'], '1705312200000-0001-a1b2c3d4');
     });
   });

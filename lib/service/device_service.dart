@@ -5,6 +5,8 @@
 
 import 'dart:convert';
 
+import 'package:path/path.dart' as p;
+
 import '../entity/device/device_identity.dart';
 import 'crypto_service.dart';
 import 'file_system_service.dart';
@@ -40,7 +42,7 @@ class DeviceServiceImpl implements IDeviceService {
 
   @override
   Future<DeviceIdentity> ensureDevice(String vaultRootPath, String vaultId) async {
-    final devicePath = '$vaultRootPath/.noetec/device.json';
+    final devicePath = p.join(vaultRootPath, '.noetec', 'device.json');
     if (await _fileSystem.fileExists(devicePath)) {
       final content = await _fileSystem.readFile(devicePath);
       _currentDevice = DeviceIdentity.fromJson(jsonDecode(content) as Map<String, dynamic>);
@@ -58,7 +60,7 @@ class DeviceServiceImpl implements IDeviceService {
   Future<void> updateLastHlc(String vaultRootPath, String hlcKey) async {
     if (_currentDevice == null) return;
     _currentDevice = _currentDevice!.withLastHlc(hlcKey);
-    final devicePath = '$vaultRootPath/.noetec/device.json';
+    final devicePath = p.join(vaultRootPath, '.noetec', 'device.json');
     await _fileSystem.writeFile(devicePath, jsonEncode(_currentDevice!.toJson()));
   }
 
@@ -70,7 +72,7 @@ class DeviceServiceImpl implements IDeviceService {
     }
     final renamed = device.withName(newName);
     _currentDevice = renamed;
-    final devicePath = '$vaultRootPath/.noetec/device.json';
+    final devicePath = p.join(vaultRootPath, '.noetec', 'device.json');
     await _fileSystem.writeFile(devicePath, jsonEncode(renamed.toJson()));
     return renamed;
   }

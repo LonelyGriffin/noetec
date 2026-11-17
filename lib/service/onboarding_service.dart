@@ -18,6 +18,7 @@ import 'package:noetec/service/user_service.dart';
 import 'package:noetec/systems/sync_system/registry/registry_models.dart';
 import 'package:noetec/systems/sync_system/registry/registry_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 /// The outcome of [IOnboardingService.createVaultOnboarding] (and
 /// [IOnboardingService.bootstrapOwnerIdentity]): the created owner identity,
@@ -317,11 +318,11 @@ class OnboardingServiceImpl implements IOnboardingService {
   /// `.sync/pages/`, and the registry's atomic writes do not create parent
   /// directories — so the onboarding flows create them explicitly.
   Future<void> _ensureSyncDirectories(String root) async {
-    final sync = '$root/.sync';
+    final sync = p.join(root, '.sync');
     if (!await _fileSystem.directoryExists(sync)) {
       await _fileSystem.createDirectory(sync);
     }
-    final devices = '$sync/devices';
+    final devices = p.join(sync, 'devices');
     if (!await _fileSystem.directoryExists(devices)) {
       await _fileSystem.createDirectory(devices);
     }

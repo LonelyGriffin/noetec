@@ -5,6 +5,7 @@ import 'package:noetec/systems/oplog_system/oplog_models.dart';
 import 'package:noetec/systems/oplog_system/oplog_reader.dart';
 import 'package:noetec/systems/oplog_system/oplog_serializer.dart';
 import 'package:noetec/systems/oplog_system/oplog_writer.dart';
+import 'package:path/path.dart' as p;
 
 class _FakeFs implements IFileSystemService {
   final Map<String, String> files = {};
@@ -78,7 +79,7 @@ void main() {
 
       await writer.append('pages/welcome.md', entry);
 
-      const expectedPath = '/vault/.sync/pages/welcome.md/dev1.oplog.jsonl';
+      final expectedPath = p.join('/vault', '.sync', 'pages', 'welcome.md', 'dev1.oplog.jsonl');
       expect(fs.files.containsKey(expectedPath), isTrue);
     });
 
@@ -109,7 +110,7 @@ void main() {
       await writer.append('pages/welcome.md', e1);
       await writer.append('pages/welcome.md', e2);
 
-      const path = '/vault/.sync/pages/welcome.md/dev1.oplog.jsonl';
+      final path = p.join('/vault', '.sync', 'pages', 'welcome.md', 'dev1.oplog.jsonl');
       final lines = fs.files[path]!.split('\n').where((l) => l.isNotEmpty);
       expect(lines.length, 2);
     });

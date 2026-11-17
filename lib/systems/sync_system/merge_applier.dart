@@ -3,11 +3,11 @@
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 import 'package:noetec/entity/page/block/text/text.dart';
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
 import 'package:noetec/systems/oplog_system/state_reconstruction_engine.dart';
 import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
-import 'package:path/path.dart' as p;
 
 class MergeApplier {
   MergeApplier({required IFileSystemService fileSystem, required MarkdownSystem markdownSystem, required String vaultRootPath})
@@ -25,7 +25,7 @@ class MergeApplier {
     final markdown = _markdownSystem.serializeBlocks(textBlocks);
     final hash = PageFrontmatterCodec.computeContentHash(markdown);
 
-    final absolutePath = p.join(_vaultRootPath, relativePath);
+    final absolutePath = resolveDocumentPath(_vaultRootPath, relativePath);
     final existingRaw = await _fileSystem.readFile(absolutePath);
     final (:frontmatter, :content) = PageFrontmatterCodec.parse(existingRaw);
 

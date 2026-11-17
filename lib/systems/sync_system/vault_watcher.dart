@@ -4,6 +4,7 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 import 'dart:async';
 
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
 import 'package:path/path.dart' as p;
@@ -59,7 +60,7 @@ class VaultWatcher {
 
     if (currentHash == knownHash) return;
 
-    final relativePath = p.relative(entry.path, from: _vaultRootPath).replaceAll('\\', '/');
+    final relativePath = relativeDocumentPath(entry.path, from: _vaultRootPath);
     _controller.add(ExternalEditEvent(relativePath: relativePath, currentHash: currentHash, knownHash: knownHash));
   }
 

@@ -4,6 +4,7 @@
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 import 'dart:async';
 
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:path/path.dart' as p;
 
@@ -65,8 +66,8 @@ class SyncWatcher {
   }
 
   ({String relativePath, String deviceUuid})? _decode(String absoluteFilePath) {
-    final rel = p.relative(absoluteFilePath, from: _syncPagesPath).replaceAll('\\', '/');
-    if (rel.startsWith('..')) return null;
+    if (!p.isWithin(_syncPagesPath, absoluteFilePath)) return null;
+    final rel = relativeDocumentPath(absoluteFilePath, from: _syncPagesPath);
 
     final lastSlash = rel.lastIndexOf('/');
     if (lastSlash < 0) return null;

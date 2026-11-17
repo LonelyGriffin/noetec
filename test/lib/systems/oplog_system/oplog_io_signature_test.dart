@@ -5,6 +5,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/service/crypto_service.dart';
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
 import 'package:noetec/systems/oplog_system/oplog_reader.dart';
@@ -12,6 +13,7 @@ import 'package:noetec/systems/oplog_system/oplog_serializer.dart';
 import 'package:noetec/systems/oplog_system/oplog_signer.dart';
 import 'package:noetec/systems/oplog_system/oplog_verifier.dart';
 import 'package:noetec/systems/oplog_system/oplog_writer.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../helpers/test_fakes.dart';
 
@@ -128,7 +130,7 @@ void main() {
       await writer.append(relPath, e2);
       await writer.append(relPath, e3);
 
-      final raw = fs.files['/vault/.sync/$relPath/$deviceId.oplog.jsonl']!;
+      final raw = fs.files[p.join(resolveDocumentPath(p.join('/vault', '.sync'), relPath), '$deviceId.oplog.jsonl')]!;
       final lines = raw.split('\n').where((l) => l.isNotEmpty).toList();
       expect(lines, hasLength(3));
 
@@ -184,9 +186,9 @@ void main() {
     test('a mixed legacy + signed file verifies correctly on read', () async {
       // Legacy (unsigned) first line — no pubKey, no signature.
       const legacyLine = '{"v":1,"hlc":"100-0000-dev1","parent":null,"type":"file_create","device":"dev1-uuid-here-xxxx-xxxxxxxxxxxx"}';
-      await fs.appendToFile('/vault/.sync/$relPath/$deviceId.oplog.jsonl', '$legacyLine\n');
+      await fs.appendToFile(p.join(resolveDocumentPath(p.join('/vault', '.sync'), relPath), '$deviceId.oplog.jsonl'), '$legacyLine\n');
       // Ensure the directory exists for the writer.
-      await fs.createDirectory('/vault/.sync/$relPath');
+      await fs.createDirectory(resolveDocumentPath(p.join('/vault', '.sync'), relPath));
 
       // A signed second entry with no pubKey (mixed file) — verified via the
       // resolver (device.json key for the local device).

@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/service/device_service.dart';
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
 import 'package:noetec/systems/oplog_system/oplog_authorizer.dart';
@@ -20,6 +21,7 @@ import 'package:noetec/systems/sync_system/merge_engine.dart';
 import 'package:noetec/systems/sync_system/sync_watcher.dart';
 import 'package:noetec/systems/sync_system/vault_watcher.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 enum SyncStatus { idle, checking, merging, conflict, error }
 
@@ -108,7 +110,7 @@ class SyncSystem {
 
   Future<void> checkAll() async {
     if (_vaultRootPath == null) return;
-    final syncDir = '$_vaultRootPath/.sync';
+    final syncDir = p.join(_vaultRootPath!, '.sync');
     if (!await _fileSystem.directoryExists(syncDir)) return;
 
     // The attribution gate's registry input is loaded once per sync cycle and
@@ -137,9 +139,8 @@ class SyncSystem {
   }
 
   String _extractOplogRelativePath(String oplogFilePath) {
-    final rel = oplogFilePath.replaceAll('\\', '/').replaceFirst('$_vaultRootPath/.sync/', '');
-    final lastSlash = rel.lastIndexOf('/');
-    return rel.substring(0, lastSlash);
+    final syncDir = p.join(_vaultRootPath!, '.sync');
+    return relativeDocumentPath(p.dirname(oplogFilePath), from: syncDir);
   }
 
   Future<void> checkFile(String relativePath, {RegistrySnapshot? verification}) async {

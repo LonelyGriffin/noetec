@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:listen_it/listen_it.dart';
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/page_file_name_sanitizer.dart';
 import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
@@ -97,7 +98,7 @@ class VaultFileService {
         final subChildren = await _scanDirectory(entry.path, rootPath);
         children.add(PageFileFolder(name: entry.name, children: subChildren));
       } else if (entry.name.endsWith('.md')) {
-        final relativePath = p.relative(entry.path, from: rootPath).replaceAll('\\', '/');
+        final relativePath = relativeDocumentPath(entry.path, from: rootPath);
         String pageId = '';
         try {
           final raw = await _fileSystem.readFile(entry.path);
@@ -133,7 +134,7 @@ class VaultFileService {
 
     await scanFileTree(vaultRootPath);
 
-    final relativePath = p.relative(filePath, from: vaultRootPath).replaceAll('\\', '/');
+    final relativePath = relativeDocumentPath(filePath, from: vaultRootPath);
     return relativePath;
   }
 
@@ -143,10 +144,10 @@ class VaultFileService {
       finalName = '$finalName.md';
     }
 
-    final oldFileName = p.basename(oldRelativePath);
+    final oldFileName = p.posix.basename(oldRelativePath);
     if (finalName == oldFileName) return oldRelativePath;
 
-    final oldAbsolutePath = p.normalize(p.join(vaultRootPath, oldRelativePath));
+    final oldAbsolutePath = p.normalize(resolveDocumentPath(vaultRootPath, oldRelativePath));
     final newAbsolutePath = p.normalize(p.join(p.dirname(oldAbsolutePath), finalName));
 
     if (await _fileSystem.fileExists(newAbsolutePath)) {
@@ -156,7 +157,7 @@ class VaultFileService {
     await _fileSystem.renameFileOrDirectory(oldAbsolutePath, newAbsolutePath);
     await scanFileTree(vaultRootPath);
 
-    final newRelativePath = p.relative(newAbsolutePath, from: vaultRootPath).replaceAll('\\', '/');
+    final newRelativePath = relativeDocumentPath(newAbsolutePath, from: vaultRootPath);
     return newRelativePath;
   }
 
