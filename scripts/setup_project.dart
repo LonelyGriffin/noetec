@@ -11,9 +11,8 @@ import 'dart:io';
 ///
 /// We deliberately do NOT use `git_hooks`'s `CreateHooks.copyFile`: it writes
 /// to `<root>/.git/hooks/`, which fails in a linked worktree because `.git`
-/// is a *file* (a `gitdir:` pointer), not a directory. Agents work in linked
-/// worktrees (`multica repo checkout`), so we resolve the true hooks path via
-/// git (`git rev-parse --git-path hooks`) and write the hook wrapper directly.
+/// is a *file* (a `gitdir:` pointer). Resolve the true hooks path via git
+/// (`git rev-parse --git-path hooks`) and write the hook wrapper directly.
 ///
 /// The hook wrapper runs `dart scripts/git_hooks.dart pre-commit`, which does
 /// format + scoped analyze + copyright check on staged files.

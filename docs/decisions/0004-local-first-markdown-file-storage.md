@@ -1,28 +1,53 @@
-# 0004: Local-First File-Based Storage as Markdown with YAML Frontmatter
+# 0004: Local-First Markdown Storage and Page Identity
 
 ## Context
 
-Noetec needs a storage model for notes, tasks, and collaboration data. The product's core values are: fully functional offline, user ownership of data, human-readable content, and compatibility with existing tools (external editors, version control, file-sync services). A traditional approach — an app-owned database or a cloud-first service — conflicts with several of these values.
+Notes must remain usable offline, readable outside Noetec, and owned by the user.
+File-based storage supports external editors and independent synchronization, but
+requires explicit identity, source-preservation, and consistency rules.
 
 ## Decision
 
-Adopt local-first, file-based storage. All user data is stored as plain `.md` files on the user's filesystem, each beginning with a YAML frontmatter block carrying document metadata (a stable document `id`, a `content_hash` for integrity / external-edit detection, and modification timestamps — with `modified_by` deferred per ADR-0003). The files themselves are the source of truth; the application is fully functional without a network connection, and synchronization (file-based services such as Dropbox or Git, server-based, or P2P) is layered on top asynchronously as a later concern.
+Store pages as local UTF-8 Markdown files, not an application-owned database or a
+remote master copy. Synchronization is layered over local operation.
+
+An initial `noetec:page` HTML comment contains JSON page metadata: a stable UUID
+and optional properties. Block metadata follows the
+[in-band metadata decision](0002-in-band-block-metadata.md).
+YAML frontmatter, technical timestamps, and a page-wide hash are not required.
+Foreign frontmatter is preserved as unsupported source, not inferred as Noetec
+page metadata.
+
+Use own-state checks on blocks to detect accidental inconsistency without making
+every descendant edit change its ancestors' checks. Checks are not authentication,
+unique content identities, or authority to recover IDs. Save conflict detection
+verifies the source revision independently of those checks.
+
+The [page-file contract](../contracts/page-file-format-v3.md) defines representation
+and check inputs. The [editing and saving specification](../specs/02-page-editing-and-saving.spec)
+defines adoption, external-change handling, saving, and recovery.
 
 ## Status
 
-Accepted.
+Accepted. Implementation coverage is separate from this decision.
 
 ## Consequences
 
-- Positive: true offline operation — all operations work locally with no network dependency.
-- Positive: user owns the data in an open, human-readable, tool-compatible format; files can be read and edited outside Noetec and tracked by Git.
-- Positive: sync via existing file-sync services becomes possible without building a server.
-- Negative: the app must detect and tolerate external edits to its files (hence the `content_hash` integrity check), which a closed database would never face.
-- Negative: querying, indexing, and relational operations are harder over loose files than over a database; integrity and consistency checks must be implemented explicitly.
-- Negative: cross-device conflict handling becomes the app's problem rather than a database's — deferred to the sync phases.
+- Pages remain readable and editable with external tools, without a network.
+- JSON comments carry metadata without a visible frontmatter section in ordinary
+  Markdown rendering.
+- Own-state checks localize inconsistency to a block's content, properties, or
+  immediate-child structure; they do not authenticate external edits.
+- Queries and relationships require indexes that can be rebuilt from files.
+- External editing and cross-file operations require explicit preservation,
+  conflict detection, and recovery rather than database-provided transactions.
 
 ## Alternatives considered
 
-- **SQLite / embedded database as source of truth** — rejected: not human-readable, not directly editable by external tools, and locks user data inside an app-owned binary format; conflicts with the file-based ownership value.
-- **Cloud-first storage (remote server as source of truth, local cache)** — rejected: violates local-first; offline becomes a degraded mode instead of the default, and user data ownership is weakened.
-- **Plain markdown without frontmatter** — rejected: no place to carry a stable document ID or integrity hash, both of which are required for external-edit detection and later sync.
+- **Database as the primary page store** — does not provide directly editable,
+  human-readable files as the source of page content.
+- **Cloud-first page storage** — makes offline operation depend on a cache of
+  remotely authoritative content.
+- **YAML frontmatter and mandatory page-wide hashes** — not needed for the chosen
+  JSON metadata and localized own-state checks.
+- **Metadata-free Markdown** — cannot carry persistent page and block identities.

@@ -4,6 +4,11 @@
 
 **Status: draft** (retained from the original document; this move does not approve it)
 
+> **Archived.** This is the previous sync security model. Current work is defined
+> by the draft [sync security v2 contract](../../contracts/sync-security-v2.md).
+> This document is retained for historical reference and for references from
+> existing code and ADRs; it is not the target for new work.
+
 **Scope:** OpLog security extensions, registry formats, trust, verification,
 and backward compatibility. The base OpLog format is outside this contract.
 
@@ -690,7 +695,7 @@ with per-entry signatures.
 - Ed25519 — https://ed25519.cr.yp.to/
 - Hybrid Logical Clocks (Kulkarni et al.) — https://www.cse.buffalo.edu/tech-reports/2014-04.pdf
 - [Page file format](page-file-format.md) — page file format (style reference).
-- `docs/decisions/0007-user-device-identity-and-registry.md` — multi-user
+- `docs/archive/decisions/0007-user-device-identity-and-registry.md` — multi-user
   identity and registry model.
 - `docs/decisions/0008-hlc-drift-validation.md` — Phase 4b policy: rejecting
   the drifted suffix of another device's file.

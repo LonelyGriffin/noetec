@@ -8,7 +8,7 @@ import 'package:noetec/entity/hlc.dart';
 /// The common surface the registry reconciler needs from a record.
 ///
 /// Implemented by `UserRecord` and `DeviceRecord` so the per-record LWW merge
-/// (sync-security.md §3.7) is written once and applies identically to both
+/// (docs/archive/contracts/sync-security.md §3.7) is written once and applies identically to both
 /// registries.
 abstract interface class RegistryRecord {
   /// The record's merge key (a `userId` in `users.json`, a `deviceUuid` in

@@ -17,7 +17,7 @@ class OpLogWriter {
   final String _vaultRootPath;
   final OpLogSerializer _serializer;
 
-  /// When set, every appended entry is signed first (sync-security.md §2.3).
+  /// When set, every appended entry is signed first (docs/archive/contracts/sync-security.md §2.3).
   /// When `null` (e.g. low-level IO tests) entries are written unsigned,
   /// preserving the historical behavior.
   final OpLogSigner? _signer;

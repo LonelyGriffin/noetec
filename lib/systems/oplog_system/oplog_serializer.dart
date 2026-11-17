@@ -13,7 +13,7 @@ import 'package:noetec/systems/oplog_system/oplog_models.dart';
 class OpLogSerializer {
   const OpLogSerializer();
 
-  /// Builds the Phase-1 signing input per sync-security.md §2.2:
+  /// Builds the Phase-1 signing input per docs/archive/contracts/sync-security.md §2.2:
   ///
   /// ```text
   /// signingInput = canonicalJson(entryWithoutSignature) + documentPath

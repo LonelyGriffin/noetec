@@ -25,7 +25,7 @@ import '../../../helpers/test_fakes.dart';
 Hlc _h(int ms, String dev) => Hlc(physicalMs: ms, counter: 0, deviceId: dev);
 
 /// A minimal oplog entry (no blocks/file op). [pubKey] is set on the first
-/// entry of a device file per sync-security.md §2.3; `null` for legacy or
+/// entry of a device file per docs/archive/contracts/sync-security.md §2.3; `null` for legacy or
 /// non-first entries.
 OpLogEntry _entry({required Hlc hlc, required String device, String? pubKey, Hlc? parent}) => OpLogEntry(
   version: 1,

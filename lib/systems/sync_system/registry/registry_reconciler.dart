@@ -66,7 +66,7 @@ final class RegistryMergeResult<T extends RegistryRecord> {
 }
 
 /// N-way, last-write-wins **per record** registry merge
-/// (sync-security.md §3.7, ADR-0007 §5).
+/// (docs/archive/contracts/sync-security.md §3.7, ADR-0007 §5).
 ///
 /// Given the base (common ancestor, or the last known-good revision) and the
 /// candidate sides, each record (keyed by `userId`/`deviceUuid`) resolves to

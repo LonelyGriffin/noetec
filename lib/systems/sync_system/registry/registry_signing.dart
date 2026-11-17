@@ -11,7 +11,7 @@ import 'registry_models.dart';
 import 'registry_record.dart';
 
 /// Resolves a user's base64url Ed25519 **identity** public key for registry
-/// verification (sync-security.md §3.4 "Key resolution").
+/// verification (docs/archive/contracts/sync-security.md §3.4 "Key resolution").
 ///
 /// The owner's identity key is the root of trust (TOFU-pinned in NOET-30);
 /// other users' keys resolve from their `users.json` record. NOET-29 keeps
@@ -48,7 +48,7 @@ final class RegistryVerificationResult {
   final List<RegistryVerificationIssue> issues;
 }
 
-/// Signs and verifies the two registry files (sync-security.md §3.2–§3.4).
+/// Signs and verifies the two registry files (docs/archive/contracts/sync-security.md §3.2–§3.4).
 ///
 /// Per spec §3.2/§3.3 the signing input is the plain OLPC canonical JSON of
 /// the unsigned object — **without** a document path (unlike Phase-1 OpLog

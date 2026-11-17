@@ -11,7 +11,7 @@ import 'package:path/path.dart' as p;
 
 import 'file_system_service.dart';
 
-/// The outcome of a TOFU key observation (sync-security.md §5.2).
+/// The outcome of a TOFU key observation (docs/archive/contracts/sync-security.md §5.2).
 sealed class TrustDecision {
   const TrustDecision();
 }
@@ -44,7 +44,7 @@ final class TrustSubstituted extends TrustDecision {
   final String observedKey;
 }
 
-/// Trust-on-first-use (TOFU) key store (sync-security.md §5).
+/// Trust-on-first-use (TOFU) key store (docs/archive/contracts/sync-security.md §5).
 ///
 /// Pins device and identity public keys in `.noetec/trusted_keys.json`
 /// (per-device local state that MUST NOT be synced or shared between vaults,

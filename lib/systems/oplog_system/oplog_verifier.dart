@@ -10,7 +10,7 @@ import 'package:noetec/systems/oplog_system/oplog_models.dart';
 import 'package:noetec/systems/oplog_system/oplog_serializer.dart';
 import 'package:noetec/systems/oplog_system/oplog_signer.dart';
 
-/// Verifies OpLog entries on read (sync-security.md §2.4) and applies
+/// Verifies OpLog entries on read (docs/archive/contracts/sync-security.md §2.4) and applies
 /// **chain rejection** (§2.4.3): a signature failure — or an entry that is
 /// structurally unverifiable — rejects that entry **and every subsequent entry
 /// in the same device file**; earlier valid entries are kept.

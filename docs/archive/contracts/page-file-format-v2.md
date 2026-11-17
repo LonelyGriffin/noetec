@@ -2,6 +2,10 @@
 
 **Contract revision: 2. Status: rejected.**
 
+> **Archived.** The current accepted contract is
+> [Noetec Markdown page file format v3](../../contracts/page-file-format-v3.md).
+> This rejected revision is retained for historical reference only.
+
 This contract defines page files, block identity, serialization, and handling of
 external edits. It does not define editor controls, synchronization protocols, or
 the storage layout of history, transactions, or OpLogs.

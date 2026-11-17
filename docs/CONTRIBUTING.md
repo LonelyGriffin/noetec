@@ -11,11 +11,6 @@ By participating in this project, you agree to uphold our
 [Code of Conduct](CODE_OF_CONDUCT.md). Please report unacceptable behavior to the
 contact listed there.
 
-## How this project is built
-
-Noetec is a personal project developed in part with help from AI agents. All contributions
-are reviewed before merging; the repository owner makes the final decision.
-
 ## Report a bug
 
 Open a GitHub issue with the
@@ -33,34 +28,27 @@ follow [SECURITY.md](SECURITY.md) instead.
 
 ## Contribute a change
 
-### 1. Discuss the change
+Use the usual GitHub flow:
 
-Check existing issues before starting. If a relevant issue exists, read the
-discussion and leave a comment saying you would like to work on it; check whether
-someone is already doing so.
+1. Check existing issues; discuss substantial changes before implementing them.
+   Small fixes can go straight to a PR.
+2. Create a branch from `main`, in a fork if needed. Use a descriptive name;
+   no issue ID or naming scheme is required.
+3. Make a focused change and run the applicable checks below.
+4. Open a PR against `main` describing what changed, why, and how it was checked.
+   Link related issues; use `Closes #42` when resolving a GitHub issue.
+5. Address review feedback in the same branch. The repository owner reviews and
+   merges PRs.
 
-For substantial changes, open an issue using the bug or feature-request template
-if needed, and agree on the approach with the repository owner before implementation.
-Small fixes, such as typos or minor documentation corrections, can go straight to a PR.
+See [architecture.md](architecture.md) for the code map and
+[docs/README.md](README.md) for requirements and decisions. The same contribution
+workflow applies to human and AI-assisted changes.
 
-### 2. Fork and branch
-
-1. Fork the repository to your GitHub account (contributors with write access can
-   create a branch in this repository).
-2. Create a branch from `main` with a descriptive name, for example
-   `42-fix-page-rename` for issue #42. No particular naming format is required.
-
-### 3. Understand the codebase
-
-Before making changes, read [`architecture.md`](architecture.md) — a
-high-level map of the codebase. Follow [docs/README.md](README.md) to find
-relevant requirements and architecture decisions.
-
-### 4. Make the change
+## Project conventions
 
 - The "why" behind each major decision lives in
-  [decisions/](decisions/) (immutable ADRs — a change to an ADR is a new
-  ADR, not an edit).
+  [decisions/](decisions/README.md). Keep these current; archive a replaced
+  decision instead of keeping competing versions in the live catalog.
 - Add appropriate tests for new or changed behavior. Unit/widget tests mirror
   `lib/` under `test/lib/`; integration scenarios live in `integration_test/`.
 - Never edit generated files (`*.g.dart`, `*.freezed.dart`) — regenerate them with
@@ -68,7 +56,7 @@ relevant requirements and architecture decisions.
 - No `print()` in production code — use `package:logging`.
 - Update affected documentation when behavior, formats, or architectural decisions change.
 
-### 5. Verify the change
+## Checks
 
 For code changes:
 
@@ -84,18 +72,6 @@ required. Instead:
 - Check the rendered Markdown, especially tables and code blocks.
 - Update existing translations.
 - Run `git diff --check` and describe your checks in the PR.
-
-### 6. Open a PR
-
-Push your branch and open a pull request against `main`, filling in the PR
-template (what changed, why, and how it was verified). Link the related issue,
-if any; use `Closes #42` when the PR resolves it.
-
-### 7. Review and merge
-
-- The repository owner reviews the PR and makes the final decision on accepting changes.
-- Address the feedback by pushing to the same branch — do not open a new PR.
-- The repository owner merges PRs into `main`.
 
 ## Releasing
 

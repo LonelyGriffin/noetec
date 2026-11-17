@@ -11,7 +11,7 @@ import 'package:noetec/systems/sync_system/registry/registry_models.dart';
 import 'package:noetec/systems/sync_system/registry/registry_service.dart';
 
 /// The outcome of the verification chain for a single OpLog entry
-/// (sync-security.md §3.5, §7).
+/// (docs/archive/contracts/sync-security.md §3.5, §7).
 ///
 /// Signature verification (§7 steps 1–2, NOET-28) is performed by
 /// [OpLogVerifier] at read time, *before* the entries reach this gate. This
@@ -56,7 +56,7 @@ final class EntryUnauthorizedUser extends EntryAuthorization {
 }
 
 /// One line of the per-sync-cycle rejection report surfaced in the sync status
-/// and the logs (sync-security.md §9: rejections MUST be reported, never
+/// and the logs (docs/archive/contracts/sync-security.md §9: rejections MUST be reported, never
 /// silently dropped).
 final class EntryRejectionReport {
   const EntryRejectionReport({required this.reason, required this.devices, required this.entryCount, this.observedDriftMs});
@@ -73,7 +73,7 @@ final class EntryRejectionReport {
   final int entryCount;
 
   /// How far ahead of the reader's clock the rejected entries are, in
-  /// milliseconds (sync-security.md §6: the report names the *observed
+  /// milliseconds (docs/archive/contracts/sync-security.md §6: the report names the *observed
   /// drift*). `null` for reasons that carry no clock information; present
   /// (and positive) for `hlc-drift`, where it is the per-device maximum of
   /// `physicalMs - localTime` over the rejected suffix — drift reports are
@@ -131,7 +131,7 @@ final class RegistrySnapshot {
 }
 
 /// Runs the attribution/authorization portion of the verification chain
-/// (sync-security.md §7) that [OpLogVerifier] does not: **TOFU** (§5.2),
+/// (docs/archive/contracts/sync-security.md §7) that [OpLogVerifier] does not: **TOFU** (§5.2),
 /// **certificate** (§3.3), **registry filter** (§3.5) and, for every device
 /// file that is **not** the local device's, the **HLC drift** check (§6).
 ///
@@ -163,7 +163,7 @@ class OpLogAuthorizer {
   final IRegistryService _registry;
   final ITrustStore _trustStore;
 
-  /// The reader's wall clock in ms since the Unix epoch (sync-security.md §6:
+  /// The reader's wall clock in ms since the Unix epoch (docs/archive/contracts/sync-security.md §6:
   /// `localTime` is `DateTime.now().millisecondsSinceEpoch` at read time).
   /// Injected so tests can drive it deterministically; defaults to the real
   /// clock. Used as the fallback reference when [authorize] is called without

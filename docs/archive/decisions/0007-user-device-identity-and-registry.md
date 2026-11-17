@@ -1,5 +1,10 @@
 # 0007: Multi-User Identity and Sync Registry Model
 
+> **Archived.** Separate device keys and certificates are not part of the current
+> model. Current identity is defined by
+> [ADR-0010](../../decisions/0010-vault-scoped-user-keys-and-device-registry.md)
+> and [the sync security contract](../../contracts/sync-security-v2.md).
+
 ## Context
 
 File-based sync exchanges state only through the `.sync/` directory; `.noetec/`
@@ -91,7 +96,7 @@ deferred/optional — attribution lives in the OpLog (deviceId + signature).
 - Negative: two key pairs and two registry kinds (more concepts/code).
 - Negative: the identity key (or seed) is present on every device of a user,
   so compromising one device compromises the identity.
-- Negative (inherited file-based limit, unchanged from sync-security.md): no
+- Negative (inherited file-based limit, unchanged from [the sync security contract](../contracts/sync-security.md)): no
   physical write prevention (rejection happens at read time).
 
 ## Alternatives considered

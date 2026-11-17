@@ -86,7 +86,7 @@ final class AddUserResult {
 /// ([VaultSystem.currentVault]); they throw [StateError] when no vault is
 /// open.
 ///
-/// Flows (sync-security.md §3.6, ADR-0007):
+/// Flows (docs/archive/contracts/sync-security.md §3.6, ADR-0007):
 /// - [createVaultOnboarding] — vault creation: generate the owner identity +
 ///   the first device, write `users.json` (owner record, self-signed) and
 ///   `devices/<ownerId>.json` (first device certificate), and return the
@@ -328,7 +328,7 @@ class OnboardingServiceImpl implements IOnboardingService {
   }
 
   /// The device's public key normalized to base64url without padding
-  /// (sync-security.md §2.1 "Encoding migration": legacy `device.json` values
+  /// (docs/archive/contracts/sync-security.md §2.1 "Encoding migration": legacy `device.json` values
   /// are padded standard base64).
   String _devicePublicKey(DeviceIdentity device) {
     final key = device.publicKey;

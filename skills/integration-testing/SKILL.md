@@ -1,19 +1,33 @@
 ---
 name: integration-testing
-description: "Run the noetec integration test suite on the headless WSL2 daemon box — force Mesa software rendering, use the sequential runner, and understand the GPU/EGL launch quirks. Use when running integration_test/, scripts/run_integration_tests.dart, or hitting 'The log reader stopped unexpectedly' / 'Unable to start the app' failures."
+description: "Run Noetec integration tests with the project runner, use slow-motion mode, and troubleshoot GPU/EGL launch failures on WSLg."
 ---
 
-# Integration tests (headless WSL)
+# Integration tests
 
-Integration tests on the daemon box (WSL2 + WSLg, `DISPLAY=:0`) are sensitive to the GPU/EGL path. The app launches with WSLg's Vulkan/GPU stack, and the **second** app start within a single `flutter test` session fails with `The log reader stopped unexpectedly, or never started` / `Failed to load ...: Unable to start the app` — the first file in the session usually passes.
+Use the project runner from the repository root:
 
-## Rules (non-negotiable)
+```sh
+dart run scripts/run_integration_tests.dart
+dart run scripts/run_integration_tests.dart integration_test/<file>.dart
+```
 
-- **Run the full suite with `--jobs 1`** (sequential). This is the only supported mode on the WSL box.
-- **`--jobs > 1` is experimental and unsupported** — parallel runs flake under GPU/EGL contention even with software rendering. Do not rely on it.
-- **Before declaring a failure a regression**, re-run the failing file **alone** in clean single-file isolation (`dart run scripts/run_integration_tests.dart integration_test/<file>.dart`). Batch failures are usually WSLg contention, not code bugs.
+The runner uses one process per test file and defaults to `--jobs 1`. See
+[CONTRIBUTING](../../docs/CONTRIBUTING.md) for the contribution checks. These
+instructions do not require a particular agent platform or machine.
 
-## Fix
+## WSLg troubleshooting
+
+On headless WSL2 + WSLg, the GPU/EGL path can cause the second app start in one
+`flutter test` session to fail with `The log reader stopped unexpectedly, or
+never started` or `Failed to load ...: Unable to start the app`.
+
+- Use `--jobs 1` on affected WSLg environments; parallel runs are experimental
+  and may flake under GPU/EGL contention even with software rendering.
+- Re-run a failing file alone to distinguish batch/environment failures from
+  reproducible test failures. Do not assume every failure is an environment issue.
+
+### Software rendering
 
 Force Mesa software rendering for the app process:
 
@@ -21,9 +35,11 @@ Force Mesa software rendering for the app process:
 LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe flutter test integration_test/<file>.dart
 ```
 
-`scripts/run_integration_tests.dart` injects both variables into every `flutter test` child, so it works without the prefix. Notes:
+The runner injects these variables on non-Windows systems; Windows uses its
+native rendering path. The shell example above is for Linux/WSL. Notes:
 
-- `flutter test --concurrency` is **ignored for integration tests** (they run serially per file by design); parallelism is only possible via `--jobs N` in the runner (multiple processes) — but per the Rules above, parallel is experimental and flaky.
+- Use the runner's `--jobs N` for multiple test processes, not
+  `flutter test --concurrency`; prefer sequential runs on affected WSLg systems.
 - WSLg's EGL init also prints GPU warnings on first app start; harmless under software rendering.
 - This is an environment workaround for a WSLg/Flutter desktop launch bug, not an app issue.
 
