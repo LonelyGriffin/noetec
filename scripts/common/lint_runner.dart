@@ -8,6 +8,7 @@
 import 'changed_files.dart';
 import 'check_copyright.dart';
 import 'format_runner.dart';
+import 'path_audit.dart';
 import 'run_process.dart';
 
 /// Directories passed to `dart analyze`.
@@ -33,6 +34,9 @@ Future<bool> runLint({required bool stagedOnly}) async {
   print('🔄 Copyright check');
   final files = stagedOnly ? fetchStagedSourceFiles() : fetchChangedSourceFiles();
   if (!checkCopyrightInFiles(files)) failures.add('copyright');
+
+  print('');
+  reportPathAudit(files);
 
   return failures.isEmpty;
 }
