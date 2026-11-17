@@ -13,6 +13,15 @@ Project instructions for coding agents, independent of the tool or platform.
   `dart run build_runner build`.
 - Use `package:logging`, not `print()`, in production code. Use the project's
   reactive systems and notifiers rather than introducing a ViewModel layer.
+- Build and inspect filesystem paths with `package:path` (`join`, `basename`,
+  `dirname`, `relative`, etc.), not separator concatenation or string-prefix
+  stripping. Apply this to test fixtures and assertions too; do not hide path
+  mismatches by normalizing every access in filesystem fakes.
+- Distinguish native filesystem paths from canonical document/sync/signing
+  paths. Keep canonical paths slash-separated across platforms; convert at the
+  filesystem boundary. Test path changes with Windows and POSIX cases, preserving
+  wire formats and signing inputs. Path-audit warnings are review prompts, not
+  errors to suppress with maintained exception lists.
 - Run the checks applicable to the change, as described in CONTRIBUTING. Report
   what changed, what was checked, and anything that could not be verified.
 
