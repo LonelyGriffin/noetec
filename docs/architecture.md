@@ -131,7 +131,9 @@ a replayable, verifiable history. `OpLogSystem` coordinates the pipeline:
   entries (ADR-0006), using `ICryptoService` + `ISecureKeyStore`.
 
 Timestamps use `HlcService` (hybrid logical clocks) for causally-consistent
-ordering without wall-clock trust. See `docs/contracts/sync-security.md`.
+ordering without wall-clock trust. See the archived
+[sync security contract](archive/contracts/sync-security.md); the current target
+is the draft [sync security v2](contracts/sync-security-v2.md).
 
 ### Persistence — `lib/systems/persistence_system/`
 
@@ -154,7 +156,11 @@ Reconciles the local OpLog with changes from other devices/files (`.sync/`).
 - `ExternalEditHandler` — folds externally-made edits back into the OpLog.
 
 State surfaces as `SyncStatus` and per-document `DocumentSyncState`. Deep rules
-live in `docs/contracts/sync-security.md` and ADR-0006/0007.
+for the implemented model live in the archived
+[sync security contract](archive/contracts/sync-security.md) and
+[archived identity decision](archive/decisions/0007-user-device-identity-and-registry.md);
+[ADR-0010](decisions/0010-vault-scoped-user-keys-and-device-registry.md) records
+the current architectural direction.
 
 ### Markdown — `lib/systems/markdown_system/`
 
@@ -162,8 +168,9 @@ The boundary between the block tree and the Markdown file format.
 `MarkdownSystem` exposes `parseMarkdown` (text → `TextBlockEntity` list) and
 `serializeBlocks` (blocks → text), built on the `markdown` package. A custom
 `FencedDirectiveSyntax` (`markdown_parser.dart`) handles `::: {#id}` fenced
-directives that carry block IDs (ADR-0002). The canonical file format is
-`docs/contracts/page-file-format.md`.
+directives that carry block IDs. The format implemented today is
+[version 1](archive/contracts/page-file-format.md); the accepted contract is
+[version 3](contracts/page-file-format-v3.md).
 
 ### User Input — `lib/systems/user_input_system/`
 
@@ -191,8 +198,8 @@ Pure data, no Flutter UI and no service dependencies:
 | `TextSegment` (+ `FormattedSegment`, `LinkSegment`) | `page/block/text/` | styled text runs within a block |
 | `SelectionEntity` (+ `NoSelection`, `SingleCursor`, `Range`) | `page/selection.dart` | cursor / range state |
 | `PageEditAction` (sealed) | `page/page_edit_action.dart` | the edit operations the editor emits |
-| `DeviceIdentity` | `device/` | device key + id (ADR-0007) |
-| `UserIdentity` | `user/` | user identity (ADR-0007) |
+| `DeviceIdentity` | `device/` | device key + id (implemented model; archived ADR-0007) |
+| `UserIdentity` | `user/` | user identity (implemented model; archived ADR-0007) |
 
 ## Services — `lib/service/`
 
@@ -227,8 +234,9 @@ they call commands/handlers but never mutate entities directly.
 
 ## Pointers to decisions & specs
 
-ADRs live in `docs/decisions/` (immutable — supersede, never edit); behavior
-scenarios live in `docs/specs/`; technical contracts live in `docs/contracts/`
+Current decisions live in `docs/decisions/` (revise in place; archive replaced
+decisions); behavior scenarios live in `docs/specs/`; technical contracts live in `docs/contracts/`
 (RFC 2119, subject to explicit document status); product direction is in
 `docs/product/vision.md`, and the roadmap is `docs/product/ROADMAP.md`. The full topic →
-document index for agents stays in `CLAUDE.md`.
+document index is [docs/README.md](README.md); agent instructions are in
+[AGENTS.md](../AGENTS.md).

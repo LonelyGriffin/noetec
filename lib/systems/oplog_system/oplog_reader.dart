@@ -14,7 +14,7 @@ class OpLogReader {
   final String _vaultRootPath;
   final OpLogSerializer _serializer;
 
-  /// When set, each device file is verified on read (sync-security.md §2.4)
+  /// When set, each device file is verified on read (docs/archive/contracts/sync-security.md §2.4)
   /// and chain rejection drops the rejected tail. When `null` (e.g. low-level
   /// IO tests) the raw parsed entries are returned, preserving the historical
   /// behavior.

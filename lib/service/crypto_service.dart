@@ -10,7 +10,7 @@ import 'package:cryptography/cryptography.dart';
 
 /// Encodes [bytes] as base64url (RFC 4648 §5) **without** `=` padding.
 ///
-/// sync-security.md §2.1: public keys, signatures, and all other wire values
+/// docs/archive/contracts/sync-security.md §2.1: public keys, signatures, and all other wire values
 /// are base64url with no padding.
 String base64UrlEncodeNoPad(List<int> bytes) => base64Url.encode(Uint8List.fromList(bytes)).replaceAll('=', '');
 
@@ -19,7 +19,7 @@ String base64UrlEncodeNoPad(List<int> bytes) => base64Url.encode(Uint8List.fromL
 /// Accepts both base64url (RFC 4648 §5, `-`/`_`, with or without `=` padding)
 /// and standard base64 (RFC 4648 §4, `+`/`/`, `=` padding) so that legacy
 /// `device.json` values (padded standard base64) can still be read — see
-/// sync-security.md §2.1 "Encoding migration". Throws [FormatException] if the
+/// docs/archive/contracts/sync-security.md §2.1 "Encoding migration". Throws [FormatException] if the
 /// input is not valid base64.
 List<int> base64UrlDecode(String value) {
   final normalized = value.trim().replaceAll('-', '+').replaceAll('_', '/');
@@ -33,14 +33,14 @@ List<int> base64UrlDecode(String value) {
 ///
 /// Used to normalize legacy `device.json` `public_key` values — written in
 /// padded standard base64 by pre-Phase-1 versions — before they are stored on
-/// the first entry's `pubKey` (sync-security.md §2.1 "Encoding migration"). A
+/// the first entry's `pubKey` (docs/archive/contracts/sync-security.md §2.1 "Encoding migration"). A
 /// value already in base64url no-pad form is returned unchanged.
 String normalizeToBase64Url(String value) => base64UrlEncodeNoPad(base64UrlDecode(value));
 
 /// A derived Ed25519 identity key pair.
 ///
 /// [publicKeyBase64Url] is base64url (RFC 4648 §5, no padding) — the form
-/// required by sync-security.md §2.1. [privateKeyBase64Url] is the 32-byte
+/// required by docs/archive/contracts/sync-security.md §2.1. [privateKeyBase64Url] is the 32-byte
 /// Ed25519 secret seed, base64url, and must be kept only in secure storage.
 final class IdentityKeyPair {
   const IdentityKeyPair({required this.publicKeyBase64Url, required this.privateKeyBase64Url});
@@ -52,7 +52,7 @@ final class IdentityKeyPair {
 abstract interface class ICryptoService {
   /// Generates a fresh Ed25519 device key pair.
   ///
-  /// Both keys are base64url-encoded (no padding), per sync-security.md §2.1.
+  /// Both keys are base64url-encoded (no padding), per docs/archive/contracts/sync-security.md §2.1.
   Future<({String publicKeyBase64Url, String privateKeyBase64Url})> generateDeviceKeyPair();
 
   /// Derives the Ed25519 identity key pair deterministically from a 32-byte

@@ -1,5 +1,9 @@
 # 0003: No Device Identity Until Sync Is Implemented
 
+> **Archived.** Device-identity deferral no longer applies. Current identity is
+> defined by [ADR-0010](../../decisions/0010-vault-scoped-user-keys-and-device-registry.md)
+> and [the sync security contract](../../contracts/sync-security-v2.md).
+
 ## Context
 
 The target design attributes every change to the device that made it: a device identity (a per-device UUID, stored with other device-local state) and a `modified_by: <device-uuid>` field in each file's frontmatter. Device attribution is what makes multi-device merge, conflict resolution, and per-device operation logs meaningful.

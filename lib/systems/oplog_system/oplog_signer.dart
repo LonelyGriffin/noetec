@@ -10,7 +10,7 @@ import 'package:noetec/systems/oplog_system/oplog_models.dart';
 import 'package:noetec/systems/oplog_system/oplog_serializer.dart';
 
 /// Normalizes a page `relativePath` (e.g. `pages/notes/ideas.md`) to the
-/// `documentPath` used in the Phase-1 signing input (sync-security.md §2.2):
+/// `documentPath` used in the Phase-1 signing input (docs/archive/contracts/sync-security.md §2.2):
 /// the path relative to the vault root with the `.md` extension stripped and
 /// `/` separators (e.g. `notes/ideas`).
 ///
@@ -26,7 +26,7 @@ String documentPathFromRelativePath(String relativePath) {
 
 /// Signs OpLog entries on write with the authoring device's Ed25519 key.
 ///
-/// sync-security.md §2.2–2.3:
+/// docs/archive/contracts/sync-security.md §2.2–2.3:
 /// - `signature` = base64url Ed25519 over
 ///   `canonicalJson(entryWithoutSignature) + documentPath`, where the entry is
 ///   serialized as its **wire** representation (snake_case keys) — never the

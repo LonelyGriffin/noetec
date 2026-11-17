@@ -7,7 +7,7 @@ import 'package:noetec/entity/hlc.dart';
 
 import 'registry_record.dart';
 
-/// A user entry in the user registry (sync-security.md §3.2).
+/// A user entry in the user registry (docs/archive/contracts/sync-security.md §3.2).
 ///
 /// Wire keys (camelCase, exactly as the spec shows): `userId`, `name`,
 /// `publicKey`, `role`, `addedBy`, `updatedAt`, `removedAt`, `signature`.
@@ -98,7 +98,7 @@ final class UserRecord implements RegistryRecord {
   }
 }
 
-/// A device certificate entry in a device registry (sync-security.md §3.3).
+/// A device certificate entry in a device registry (docs/archive/contracts/sync-security.md §3.3).
 ///
 /// Wire keys: `deviceUuid`, `devicePublicKey`, `userId`, `deviceName`,
 /// `issuedAt`, `updatedAt`, `removedAt`, `signature`. The record is a
@@ -188,7 +188,7 @@ final class DeviceRecord implements RegistryRecord {
   }
 }
 
-/// The user registry: `.sync/users.json` (sync-security.md §3.2).
+/// The user registry: `.sync/users.json` (docs/archive/contracts/sync-security.md §3.2).
 ///
 /// Whole-file signature by the **owner's** identity key over the canonical
 /// JSON of the file without its top-level `signature` field.
@@ -265,7 +265,7 @@ final class UserRegistry {
     );
   }
 
-  /// Structural validation independent of signatures (sync-security.md §3.2):
+  /// Structural validation independent of signatures (docs/archive/contracts/sync-security.md §3.2):
   /// the version must be 1, roles must be `owner`/`member`, user ids unique,
   /// and the owner's record must exist and carry the `owner` role.
   void validate() {
@@ -368,7 +368,7 @@ final class DeviceRegistry {
     );
   }
 
-  /// Structural validation independent of signatures (sync-security.md
+  /// Structural validation independent of signatures (docs/archive/contracts/sync-security.md
   /// §3.3): the version must be 1, every record's `userId` must equal the
   /// file's `userId`, and device UUIDs must be unique.
   void validate() {

@@ -57,13 +57,13 @@ class OpLogSystem {
   final ICryptoService _crypto;
   final ISecureKeyStore _secureKeyStore;
 
-  /// Runs the attribution/authorization chain (sync-security.md §7 steps 3–6:
+  /// Runs the attribution/authorization chain (docs/archive/contracts/sync-security.md §7 steps 3–6:
   /// TOFU → certificate → registry filter → HLC drift) over the entries read
   /// by [buildDag]. When `null` (e.g. low-level tests) the DAG is built from
   /// every signature-verified entry, preserving the pre-gate behavior.
   final OpLogAuthorizer? _authorizer;
 
-  /// The reader's wall clock in ms since the Unix epoch (sync-security.md §6:
+  /// The reader's wall clock in ms since the Unix epoch (docs/archive/contracts/sync-security.md §6:
   /// `localTime` is `DateTime.now().millisecondsSinceEpoch` at read time),
   /// used to bound other devices' `physicalMs` in the drift gate. Read at
   /// each [buildDag] call, so the bound is always the clock *at read time*;
@@ -76,7 +76,7 @@ class OpLogSystem {
   static final Logger _log = Logger('OpLogSystem');
 
   /// The rejection reports accumulated over the current reporting scope
-  /// (sync-security.md §9 — rejections are surfaced, never silently dropped).
+  /// (docs/archive/contracts/sync-security.md §9 — rejections are surfaced, never silently dropped).
   /// Two scopes exist: a [checkAll] cycle — [prepareVerification] clears the
   /// list and every [buildDag] of the cycle appends, so the getter reports
   /// the whole cycle, not just the last file processed — and a standalone
@@ -293,7 +293,7 @@ class OpLogSystem {
   }
 
   /// Loads the registry snapshot **once per sync cycle** for the
-  /// attribution/authorization gate (sync-security.md §7 steps 3–5).
+  /// attribution/authorization gate (docs/archive/contracts/sync-security.md §7 steps 3–5).
   ///
   /// [SyncSystem] calls this at the start of a `checkAll` cycle and threads the
   /// result through every [buildDag] of the cycle, so the expensive
@@ -325,7 +325,7 @@ class OpLogSystem {
       _lastRejections.clear();
       return OpLogDag.fromEntries(logs);
     }
-    // Verification gate (sync-security.md §7, §2.4 rule 6): entries are
+    // Verification gate (docs/archive/contracts/sync-security.md §7, §2.4 rule 6): entries are
     // filtered through the attribution/authorization chain (TOFU →
     // certificate → registry filter → HLC drift) *before* they contribute to
     // the DAG, merge decisions, or witness state. Rejected entries never enter
@@ -336,7 +336,7 @@ class OpLogSystem {
     //
     // [localDeviceId] is the local device's UUID, so the §6 drift check applies
     // to every device file except the local device's own. [localNowMs] is the
-    // clock read **at read time** (sync-security.md §6 / ADR-0008: `localTime`
+    // clock read **at read time** (docs/archive/contracts/sync-security.md §6 / ADR-0008: `localTime`
     // = `DateTime.now().millisecondsSinceEpoch` when the file is read) — not
     // a value frozen at cycle start, because this method is also reached from
     // the watch path (`SyncSystem.checkFile` per event) where no cycle

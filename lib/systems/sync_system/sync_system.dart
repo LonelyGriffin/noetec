@@ -112,7 +112,7 @@ class SyncSystem {
     if (!await _fileSystem.directoryExists(syncDir)) return;
 
     // The attribution gate's registry input is loaded once per sync cycle and
-    // shared by every file checked in it (sync-security.md §7), so the
+    // shared by every file checked in it (docs/archive/contracts/sync-security.md §7), so the
     // registry is read+verified once per cycle, not once per oplog file.
     final verification = await _oplogSystem.prepareVerification();
 

@@ -5,7 +5,7 @@
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
 
 /// The default maximum clock drift (ms) an implementation tolerates when
-/// reading **other** devices' OpLog entries (sync-security.md §6).
+/// reading **other** devices' OpLog entries (docs/archive/contracts/sync-security.md §6).
 ///
 /// `entry.hlc.physicalMs` MUST be `<= localTime + kDefaultMaxClockDriftMs`.
 /// A configured bound MAY be larger (NOET-57) but MUST NOT be smaller — a
@@ -14,11 +14,11 @@ import 'package:noetec/systems/oplog_system/oplog_models.dart';
 /// far in the future (docs/decisions/0008-hlc-drift-validation.md).
 const int kDefaultMaxClockDriftMs = 60000;
 
-/// Pure, filesystem-free application of the sync-security.md §6 HLC drift
+/// Pure, filesystem-free application of the docs/archive/contracts/sync-security.md §6 HLC drift
 /// bound to a single device file's entries (in file order).
 ///
 /// [entries] are the device file's entries as read, already signature-verified
-/// and attribution-checked (sync-security.md §7 steps 1–5). Because
+/// and attribution-checked (docs/archive/contracts/sync-security.md §7 steps 1–5). Because
 /// `physicalMs` is non-decreasing across a device's own file
 /// (`Hlc.now` = `max(wallMs, last.physicalMs)`), the violating set is always a
 /// **suffix**: the first entry with `physicalMs > localMs + maxDriftMs` and

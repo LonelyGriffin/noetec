@@ -3,7 +3,7 @@
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 
-/// Local, non-synced user identity (ADR-0007 §1, sync-security.md §2.1).
+/// Local, non-synced user identity (ADR-0007 §1, docs/archive/contracts/sync-security.md §2.1).
 ///
 /// Mirrors [DeviceIdentity] (../device/device_identity.dart): the identity is
 /// an Ed25519 key pair derived deterministically from a 32-byte entropy seed

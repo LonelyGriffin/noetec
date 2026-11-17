@@ -18,8 +18,8 @@ Given/When/Then tables. The `.spec` extension does not imply executable Gherkin.
 - Group scenarios by user capability. Describe preconditions, actions, observable
   results, and relevant error cases using the existing Given/When/Then style.
 - Avoid implementation classes, development steps, and architectural rationale.
-  Link to [technical contracts](../contracts/README.md) or existing
-  [ADRs](../decisions/) where needed; do not duplicate them.
+  Link to [technical contracts](../contracts/README.md) or current
+  [architectural decisions](../decisions/README.md) where needed; do not duplicate them.
 - For new specifications, state scope and document status: `draft`, `accepted`,
   or `deprecated`. Acceptance requires explicit project-owner approval; a file
   location or a passing test does not grant acceptance.

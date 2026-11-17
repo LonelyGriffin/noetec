@@ -20,7 +20,7 @@
 - [ ] I ran relevant integration tests when the change affects user-facing workflows
 - [ ] I regenerated code with `dart run build_runner build` when required
 - [ ] I did not edit generated files (`*.g.dart`, `*.freezed.dart`)
-- [ ] I updated affected behavior specs, technical contracts, or ADRs when requirements or architecture changed (existing ADRs are immutable)
+- [ ] I updated affected behavior specs, technical contracts, or current ADRs when requirements or architecture changed, and archived replaced decisions
 - [ ] For documentation changes, I checked accuracy, links, paths, command examples, Markdown rendering, and `git diff --check`
 - [ ] I updated existing translations
 - [ ] I updated `CHANGELOG.md` for user-visible changes

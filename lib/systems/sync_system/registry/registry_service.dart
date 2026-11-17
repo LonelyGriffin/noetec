@@ -72,7 +72,7 @@ abstract interface class IIdentitySource {
 }
 
 /// Resolves the identity public keys used to verify the registry files
-/// (sync-security.md §3.4 "Key resolution").
+/// (docs/archive/contracts/sync-security.md §3.4 "Key resolution").
 ///
 /// Resolution order for a [userId]:
 /// 1. the local identity (the operator), when it is that user;
@@ -186,7 +186,7 @@ final class RegistryKnownGoodCache {
   void clear() => _entries.clear();
 }
 
-/// The user & device registry service (sync-security.md §3, ADR-0007).
+/// The user & device registry service (docs/archive/contracts/sync-security.md §3, ADR-0007).
 ///
 /// Responsibilities:
 /// - Discover registry candidate files in `.sync/` (the canonical file plus

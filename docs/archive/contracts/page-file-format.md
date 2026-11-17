@@ -4,6 +4,11 @@
 
 **Status: legacy** (existing version-1 contract; unchanged by the documentation move)
 
+> **Archived.** The current accepted contract is
+> [Noetec Markdown page file format v3](../../contracts/page-file-format-v3.md).
+> This document is retained for historical reference; it is not the target for
+> new work.
+
 **Scope:** page-file encoding, frontmatter, block directives, content hashing,
 and parser/serializer compatibility. This is not a specification of editor UX
 or the complete OpLog format.

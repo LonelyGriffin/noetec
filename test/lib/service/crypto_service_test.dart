@@ -191,7 +191,7 @@ void main() {
     });
   });
 
-  group('normalizeToBase64Url (sync-security.md §2.1 encoding migration) —', () {
+  group('normalizeToBase64Url (docs/archive/contracts/sync-security.md §2.1 encoding migration) —', () {
     test('re-encodes a legacy padded standard-base64 value to base64url no-pad', () {
       final bytes = List<int>.generate(32, (i) => (i * 13) % 251);
       final legacy = base64Encode(Uint8List.fromList(bytes));

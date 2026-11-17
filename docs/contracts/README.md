@@ -8,15 +8,17 @@ plans, or guides to the current code.
 
 | Contract | Scope | Document status |
 |---|---|---|
-| [Page file format](page-file-format.md) | Encoding, frontmatter, block directives, hashing, round-trip and version compatibility | Accepted, existing format version 1 |
-| [Page file format v2](page-file-format-v2.md) | Pandoc-based canonical files, block identity, safe external edits, hashing, and vault references | Draft; profile and conformance evidence pending |
-| [Noetec Markdown page file format v3](page-file-format-v3.md) | CommonMark-based files, JSON metadata, block identity, own-state checks, opaque source, and vault references | Draft; per-type check-state representations are implementation-defined |
-| [Sync security](sync-security.md) | Signatures, registries, witness references, TOFU, verification, compatibility | Draft, format version 1; retained status, not newly approved |
+| [Noetec Markdown page file format v3](page-file-format-v3.md) | CommonMark-based files, JSON metadata, block identity, own-state checks, opaque source, and vault references | Accepted, revision 3; per-type check-state representations are implementation-defined |
+| [Sync security v2](sync-security-v2.md) | User-key signatures, permissions, signed device registries, invitations, key rotation, and witnesses | Draft, format version 2 |
 
 Document status does not indicate implementation completeness. The base OpLog
 format does not yet have a standalone contract here; the security document is
 an extension, not a complete replacement for it. No new OpLog contract is
 invented as part of this reorganization.
+
+Archived contracts are listed in [the archive](../archive/README.md): page file
+format versions 1 and 2, and the previous sync security model. They are not
+current requirements.
 
 ## Contract structure
 
@@ -43,6 +45,7 @@ than adjusting prose solely to match implementation; follow their versioning
 rules for format changes. Moving a document does not change a wire format or
 approve a draft.
 
-Implementation-dependent advice and rollout material extracted from sync security
-are temporarily held in [the review notes](../sync-security-notes.tmp.md), outside
-this contract layer.
+Implementation-dependent advice and rollout material extracted from the previous
+sync security contract are archived with it in
+[the archived notes](../archive/sync-security-notes.tmp.md), outside this
+contract layer.

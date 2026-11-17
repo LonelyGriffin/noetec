@@ -198,7 +198,7 @@ Future<DeviceRegistry> _writeForeignDeviceFile(
   return signed;
 }
 
-/// Runs the attribution/authorization chain (sync-security.md §3.5, §7) for a
+/// Runs the attribution/authorization chain (docs/archive/contracts/sync-security.md §3.5, §7) for a
 /// single entry authored by [deviceUuid] under [observedKey].
 Future<AuthorizationOutcome> _runChain(_OnboardHarness h, {required String deviceUuid, required String? observedKey}) async {
   final entry = OpLogEntry(
@@ -445,7 +445,7 @@ void main() {
       final restored = await b.onboarding.restoreFromSeed(mnemonic: created.mnemonic);
 
       // The restored device writes an entry: it passes TOFU, the certificate
-      // check, and the registry filter (sync-security.md §3.5, §7).
+      // check, and the registry filter (docs/archive/contracts/sync-security.md §3.5, §7).
       final outcome = await _runChain(b, deviceUuid: restored.device.uuid, observedKey: restored.device.publicKey);
       expect(outcome.hasRejections, isFalse, reason: outcome.rejections.map((r) => r.toString()).join('; '));
     });

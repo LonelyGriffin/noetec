@@ -220,12 +220,12 @@ final class OpLogEntry {
   final String deviceId;
 
   /// Base64url Ed25519 signature over `canonicalJson(entry) + documentPath`
-  /// (sync-security.md §2.2). `null` for legacy (pre-Phase-1) entries, which
+  /// (docs/archive/contracts/sync-security.md §2.2). `null` for legacy (pre-Phase-1) entries, which
   /// are accepted during migration (§8.1).
   final String? signature;
 
   /// Base64url Ed25519 public key of the authoring device. Present **only** on
-  /// the first entry (the entry with no `parent`) per sync-security.md §2.3;
+  /// the first entry (the entry with no `parent`) per docs/archive/contracts/sync-security.md §2.3;
   /// `null` on all later entries and on legacy entries.
   final String? pubKey;
 
@@ -263,7 +263,7 @@ final class OpLogEntry {
 
   String get hlcKey => hlc.toKey();
 
-  /// The wire representation of this entry (snake_case keys, sync-security.md
+  /// The wire representation of this entry (snake_case keys, docs/archive/contracts/sync-security.md
   /// §1.2) **without** the `signature` field.
   ///
   /// `pubKey` is included when present, so this is exactly the

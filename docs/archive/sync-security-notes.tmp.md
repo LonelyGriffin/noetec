@@ -2,6 +2,9 @@
 
 **Status: temporary, non-normative; pending manual review.**
 
+> **Archived.** These notes describe the previous sync model and are not a
+> current implementation plan. They are retained for historical reference only.
+
 Material extracted from [the sync security contract](contracts/sync-security.md) to separate rollout and
 implementation notes from the security contract. This file is neither an
 approved implementation plan nor a technical guide. Statements about code and
