@@ -6,8 +6,8 @@
 // NOET-34: integration tests for multi-user / multi-device sync corner cases.
 //
 // Every test drives the REAL production stack against real on-disk vault
-// folders (no UI, so no WSLg app-launch flakiness — see the
-// `integration-testing` skill):
+// folders, without launching a native app. Run with
+// `flutter test test/integration/multi_device_sync_test.dart`:
 //
 //   * real Ed25519 signing   (OpLogSigner + OpLogWriter)
 //   * real verification      (OpLogReader + OpLogVerifier, chain rejection)
@@ -31,27 +31,24 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
-import 'package:path/path.dart' as p;
 import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/entity/page/block/text/text.dart';
 import 'package:noetec/entity/page/block/text/text_segment.dart';
 import 'package:noetec/service/crypto_service.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/id_service.dart';
+import 'package:noetec/systems/markdown_system/markdown_system.dart';
 import 'package:noetec/systems/oplog_system/oplog_authorizer.dart';
 import 'package:noetec/systems/oplog_system/oplog_dag.dart';
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
+import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
 import 'package:noetec/systems/sync_system/merge_applier.dart';
 import 'package:noetec/systems/sync_system/merge_engine.dart';
-import 'package:noetec/systems/markdown_system/markdown_system.dart';
-import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
+import 'package:path/path.dart' as p;
 
-import 'helpers/sync_harness.dart';
+import '../helpers/sync_harness.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
   late IFileSystemService fs;
   late CryptoServiceImpl crypto;
   late IIdService ids;
@@ -61,8 +58,7 @@ void main() {
   /// read (real verification) -> authorize (real TOFU/cert/registry gate)
   /// -> DAG -> merge (real MergeEngine). Exactly the decomposed form of the
   /// app's `OpLogSystem.buildDag` + `SyncSystem.checkFile`.
-  Future<({MergeResult result, Map<String, List<OpLogEntry>> accepted, List<EntryRejectionReport> rejections, OpLogDag dag})>
-      pipeline({
+  Future<({MergeResult result, Map<String, List<OpLogEntry>> accepted, List<EntryRejectionReport> rejections, OpLogDag dag})> pipeline({
     required String folderPath,
     required SyncDevice local,
     required String relativePath,
@@ -130,18 +126,74 @@ void main() {
       final a = owner.device;
       // --- Shared ancestor: A creates the page (parent=null, pubKey=A) ---
       // This is the single baseline both devices branch from (the LCA).
-      await a.append(rel, entry(physicalMs: 1000, deviceId: a.deviceUuid, type: OpEntryType.fileCreate, blockOps: null, fileOp: FileCreateOp(pageId: 'page-1', initialBlocks: [
-        TextBlockSnapshot(blockId: 'b1', afterBlockId: null, segments: [TextSegment(text: 'Line one')]),
-        TextBlockSnapshot(blockId: 'b2', afterBlockId: 'b1', segments: [TextSegment(text: 'Line two')]),
-      ])));
+      await a.append(
+        rel,
+        entry(
+          physicalMs: 1000,
+          deviceId: a.deviceUuid,
+          type: OpEntryType.fileCreate,
+          blockOps: null,
+          fileOp: const FileCreateOp(
+            pageId: 'page-1',
+            initialBlocks: [
+              TextBlockSnapshot(
+                blockId: 'b1',
+                afterBlockId: null,
+                segments: [TextSegment(text: 'Line one')],
+              ),
+              TextBlockSnapshot(
+                blockId: 'b2',
+                afterBlockId: 'b1',
+                segments: [TextSegment(text: 'Line two')],
+              ),
+            ],
+          ),
+        ),
+      );
       // A edits b1 — a branch off the shared baseline.
-      await a.append(rel, entry(physicalMs: 1100, deviceId: a.deviceUuid, parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)), type: OpEntryType.edit, blockOps: [BlockUpdate(blockId: 'b1', segments: [TextSegment(text: 'Line one by A')])]));
+      await a.append(
+        rel,
+        entry(
+          physicalMs: 1100,
+          deviceId: a.deviceUuid,
+          parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)),
+          type: OpEntryType.edit,
+          blockOps: [
+            const BlockUpdate(
+              blockId: 'b1',
+              segments: [TextSegment(text: 'Line one by A')],
+            ),
+          ],
+        ),
+      );
       // B's first entry: a no-op save (parent=null → carries pubKey=B so the
       // verifier can resolve B's key) linked to A's baseline via parentB=A1.
       // This is the cross-device LCA link that makes the DAG diverged.
-      await b.append(rel, entry(physicalMs: 1200, deviceId: b.deviceUuid, parentB: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)), type: OpEntryType.save));
+      await b.append(
+        rel,
+        entry(
+          physicalMs: 1200,
+          deviceId: b.deviceUuid,
+          parentB: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)),
+          type: OpEntryType.save,
+        ),
+      );
       // B edits b2 — a DIFFERENT block than A, branching from B's chain.
-      await b.append(rel, entry(physicalMs: 1300, deviceId: b.deviceUuid, parent: Hlc(physicalMs: 1200, counter: 0, deviceId: nodeId(b.deviceUuid)), type: OpEntryType.edit, blockOps: [BlockUpdate(blockId: 'b2', segments: [TextSegment(text: 'Line two by B')])]));
+      await b.append(
+        rel,
+        entry(
+          physicalMs: 1300,
+          deviceId: b.deviceUuid,
+          parent: Hlc(physicalMs: 1200, counter: 0, deviceId: nodeId(b.deviceUuid)),
+          type: OpEntryType.edit,
+          blockOps: [
+            const BlockUpdate(
+              blockId: 'b2',
+              segments: [TextSegment(text: 'Line two by B')],
+            ),
+          ],
+        ),
+      );
 
       // A real page file exists (for the merge applier to write into).
       await createPageFile(folderPath: folder, relativePath: rel, blocks: [blk('b1', 'Line one'), blk('b2', 'Line two')]);
@@ -182,11 +234,56 @@ void main() {
       await owner.registry.addDevice(deviceUuid: b.deviceUuid, devicePublicKey: b.publicKey, deviceName: 'Laptop B');
       final a = owner.device;
 
-      await a.append(rel, entry(physicalMs: 1000, deviceId: a.deviceUuid, type: OpEntryType.fileCreate, fileOp: FileCreateOp(pageId: 'page-1', initialBlocks: [TextBlockSnapshot(blockId: 'b1', afterBlockId: null, segments: [TextSegment(text: 'base')])])));
+      await a.append(
+        rel,
+        entry(
+          physicalMs: 1000,
+          deviceId: a.deviceUuid,
+          type: OpEntryType.fileCreate,
+          fileOp: const FileCreateOp(
+            pageId: 'page-1',
+            initialBlocks: [
+              TextBlockSnapshot(
+                blockId: 'b1',
+                afterBlockId: null,
+                segments: [TextSegment(text: 'base')],
+              ),
+            ],
+          ),
+        ),
+      );
       // BOTH edit b1 to the SAME new text -> identical change, no conflict.
-      await a.append(rel, entry(physicalMs: 1100, deviceId: a.deviceUuid, parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)), type: OpEntryType.edit, blockOps: [BlockUpdate(blockId: 'b1', segments: [TextSegment(text: 'same')])]));
+      await a.append(
+        rel,
+        entry(
+          physicalMs: 1100,
+          deviceId: a.deviceUuid,
+          parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)),
+          type: OpEntryType.edit,
+          blockOps: [
+            const BlockUpdate(
+              blockId: 'b1',
+              segments: [TextSegment(text: 'same')],
+            ),
+          ],
+        ),
+      );
       await b.append(rel, entry(physicalMs: 1200, deviceId: b.deviceUuid, type: OpEntryType.save));
-      await b.append(rel, entry(physicalMs: 1300, deviceId: b.deviceUuid, parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)), type: OpEntryType.edit, blockOps: [BlockUpdate(blockId: 'b1', segments: [TextSegment(text: 'same')])]));
+      await b.append(
+        rel,
+        entry(
+          physicalMs: 1300,
+          deviceId: b.deviceUuid,
+          parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)),
+          type: OpEntryType.edit,
+          blockOps: [
+            const BlockUpdate(
+              blockId: 'b1',
+              segments: [TextSegment(text: 'same')],
+            ),
+          ],
+        ),
+      );
 
       final authorizer = makeAuthorizer(owner);
       final snap = await snapshot(owner, authorizer);
@@ -207,15 +304,70 @@ void main() {
       final a = owner.device;
 
       // A edits b1 first.
-      await a.append(rel, entry(physicalMs: 1000, deviceId: a.deviceUuid, type: OpEntryType.fileCreate, fileOp: FileCreateOp(pageId: 'page-1', initialBlocks: [
-        TextBlockSnapshot(blockId: 'b1', afterBlockId: null, segments: [TextSegment(text: 'base')]),
-        TextBlockSnapshot(blockId: 'b2', afterBlockId: 'b1', segments: [TextSegment(text: 'two')]),
-      ])));
-      await a.append(rel, entry(physicalMs: 1100, deviceId: a.deviceUuid, parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)), type: OpEntryType.edit, blockOps: [BlockUpdate(blockId: 'b1', segments: [TextSegment(text: 'one')])]));
+      await a.append(
+        rel,
+        entry(
+          physicalMs: 1000,
+          deviceId: a.deviceUuid,
+          type: OpEntryType.fileCreate,
+          fileOp: const FileCreateOp(
+            pageId: 'page-1',
+            initialBlocks: [
+              TextBlockSnapshot(
+                blockId: 'b1',
+                afterBlockId: null,
+                segments: [TextSegment(text: 'base')],
+              ),
+              TextBlockSnapshot(
+                blockId: 'b2',
+                afterBlockId: 'b1',
+                segments: [TextSegment(text: 'two')],
+              ),
+            ],
+          ),
+        ),
+      );
+      await a.append(
+        rel,
+        entry(
+          physicalMs: 1100,
+          deviceId: a.deviceUuid,
+          parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)),
+          type: OpEntryType.edit,
+          blockOps: [
+            const BlockUpdate(
+              blockId: 'b1',
+              segments: [TextSegment(text: 'one')],
+            ),
+          ],
+        ),
+      );
       // B, already synced with A (parent = A's head A2), edits b2 -> B3 is the
       // single head of a linear chain (B3 -> B2 -> A2 -> A1).
-      await b.append(rel, entry(physicalMs: 1200, deviceId: b.deviceUuid, parent: Hlc(physicalMs: 1100, counter: 0, deviceId: nodeId(a.deviceUuid)), type: OpEntryType.save)); // B2 (pubKey=B, parent=A2)
-      await b.append(rel, entry(physicalMs: 1300, deviceId: b.deviceUuid, parent: Hlc(physicalMs: 1200, counter: 0, deviceId: nodeId(b.deviceUuid)), type: OpEntryType.edit, blockOps: [BlockUpdate(blockId: 'b2', segments: [TextSegment(text: 'two!')])]));
+      await b.append(
+        rel,
+        entry(
+          physicalMs: 1200,
+          deviceId: b.deviceUuid,
+          parent: Hlc(physicalMs: 1100, counter: 0, deviceId: nodeId(a.deviceUuid)),
+          type: OpEntryType.save,
+        ),
+      ); // B2 (pubKey=B, parent=A2)
+      await b.append(
+        rel,
+        entry(
+          physicalMs: 1300,
+          deviceId: b.deviceUuid,
+          parent: Hlc(physicalMs: 1200, counter: 0, deviceId: nodeId(b.deviceUuid)),
+          type: OpEntryType.edit,
+          blockOps: [
+            const BlockUpdate(
+              blockId: 'b2',
+              segments: [TextSegment(text: 'two!')],
+            ),
+          ],
+        ),
+      );
 
       final authorizer = makeAuthorizer(owner);
       final snap = await snapshot(owner, authorizer);
@@ -237,11 +389,42 @@ void main() {
       final a = owner.device;
 
       // A legitimate page (so the victim's file is well-formed + verifiable).
-      await a.append(rel, entry(physicalMs: 1000, deviceId: a.deviceUuid, type: OpEntryType.fileCreate, fileOp: FileCreateOp(pageId: 'page-1', initialBlocks: [TextBlockSnapshot(blockId: 'b1', afterBlockId: null, segments: [TextSegment(text: 'base')])])));
+      await a.append(
+        rel,
+        entry(
+          physicalMs: 1000,
+          deviceId: a.deviceUuid,
+          type: OpEntryType.fileCreate,
+          fileOp: const FileCreateOp(
+            pageId: 'page-1',
+            initialBlocks: [
+              TextBlockSnapshot(
+                blockId: 'b1',
+                afterBlockId: null,
+                segments: [TextSegment(text: 'base')],
+              ),
+            ],
+          ),
+        ),
+      );
       // A FOREIGN device (own key, valid signature) writes to the shared .sync/.
       final foreign = await makeSharedDevice(anchor: a, name: 'Foreign', crypto: crypto, fileSystem: fs);
       await foreign.append(rel, entry(physicalMs: 2000, deviceId: foreign.deviceUuid, type: OpEntryType.save)); // pubKey=foreign (verifiable)
-      await foreign.append(rel, entry(physicalMs: 2100, deviceId: foreign.deviceUuid, parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)), type: OpEntryType.edit, blockOps: [BlockUpdate(blockId: 'b1', segments: [TextSegment(text: 'foreign-edit')])]));
+      await foreign.append(
+        rel,
+        entry(
+          physicalMs: 2100,
+          deviceId: foreign.deviceUuid,
+          parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)),
+          type: OpEntryType.edit,
+          blockOps: [
+            const BlockUpdate(
+              blockId: 'b1',
+              segments: [TextSegment(text: 'foreign-edit')],
+            ),
+          ],
+        ),
+      );
 
       final authorizer = makeAuthorizer(owner);
       final snap = await snapshot(owner, authorizer);
@@ -293,13 +476,59 @@ void main() {
       final a = owner.device;
 
       // The victim's well-formed, verifiable oplog.
-      await a.append(rel, entry(physicalMs: 1000, deviceId: a.deviceUuid, type: OpEntryType.fileCreate, fileOp: FileCreateOp(pageId: 'page-1', initialBlocks: [TextBlockSnapshot(blockId: 'b1', afterBlockId: null, segments: [TextSegment(text: 'victim line')])])));
-      await a.append(rel, entry(physicalMs: 1100, deviceId: a.deviceUuid, parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)), type: OpEntryType.edit, blockOps: [BlockUpdate(blockId: 'b1', segments: [TextSegment(text: 'victim edit')])]));
+      await a.append(
+        rel,
+        entry(
+          physicalMs: 1000,
+          deviceId: a.deviceUuid,
+          type: OpEntryType.fileCreate,
+          fileOp: const FileCreateOp(
+            pageId: 'page-1',
+            initialBlocks: [
+              TextBlockSnapshot(
+                blockId: 'b1',
+                afterBlockId: null,
+                segments: [TextSegment(text: 'victim line')],
+              ),
+            ],
+          ),
+        ),
+      );
+      await a.append(
+        rel,
+        entry(
+          physicalMs: 1100,
+          deviceId: a.deviceUuid,
+          parent: Hlc(physicalMs: 1000, counter: 0, deviceId: nodeId(a.deviceUuid)),
+          type: OpEntryType.edit,
+          blockOps: [
+            const BlockUpdate(
+              blockId: 'b1',
+              segments: [TextSegment(text: 'victim edit')],
+            ),
+          ],
+        ),
+      );
 
       // A FORGER (different key) appends into the victim's oplog FILE.
       final forger = await makeSharedDevice(anchor: a, name: 'Forger', crypto: crypto, fileSystem: fs);
       final victimFile = a.oplogFilePath(rel);
-      await forger.appendSignedTo(rel, victimFile, entry(physicalMs: 1200, deviceId: a.deviceUuid, parent: Hlc(physicalMs: 1100, counter: 0, deviceId: nodeId(a.deviceUuid)), type: OpEntryType.edit, blockOps: [BlockUpdate(blockId: 'b1', segments: [TextSegment(text: 'FORGED')])]));
+      await forger.appendSignedTo(
+        rel,
+        victimFile,
+        entry(
+          physicalMs: 1200,
+          deviceId: a.deviceUuid,
+          parent: Hlc(physicalMs: 1100, counter: 0, deviceId: nodeId(a.deviceUuid)),
+          type: OpEntryType.edit,
+          blockOps: [
+            const BlockUpdate(
+              blockId: 'b1',
+              segments: [TextSegment(text: 'FORGED')],
+            ),
+          ],
+        ),
+      );
 
       // Read back: the real OpLogVerifier rejects the forged entry (it does not
       // verify under the victim's key) and applies chain rejection.

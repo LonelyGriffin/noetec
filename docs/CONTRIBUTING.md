@@ -50,7 +50,9 @@ workflow applies to human and AI-assisted changes.
   [decisions/](decisions/README.md). Keep these current; archive a replaced
   decision instead of keeping competing versions in the live catalog.
 - Add appropriate tests for new or changed behavior. Unit/widget tests mirror
-  `lib/` under `test/lib/`; integration scenarios live in `integration_test/`.
+  `lib/` under `test/lib/`; non-UI integration scenarios live in `test/integration/`
+  and run with `flutter test`. UI integration scenarios are grouped by workflow
+  in `integration_test/` to reduce native app launches.
 - Never edit generated files (`*.g.dart`, `*.freezed.dart`) — regenerate them with
   `dart run build_runner build` instead.
 - No `print()` in production code — use `package:logging`.
