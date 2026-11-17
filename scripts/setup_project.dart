@@ -6,6 +6,8 @@
 // ignore_for_file: avoid_print
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 /// Installs the git pre-commit hook into the repository's real hooks
 /// directory (linked-worktree safe).
 ///
@@ -25,7 +27,7 @@ Future<void> main() async {
     exit(1);
   }
 
-  final hookFile = File('$hooksDir/pre-commit');
+  final hookFile = File(p.join(hooksDir, 'pre-commit'));
   await hookFile.writeAsString(_hookWrapper);
   // Make executable (no-op on Windows).
   await Process.run('chmod', ['+x', hookFile.path]);

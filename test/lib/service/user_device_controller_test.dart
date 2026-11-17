@@ -7,6 +7,7 @@ import 'package:bip39/bip39.dart' as bip39;
 import 'package:command_it/command_it.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/service/user_device_controller.dart';
+import 'package:path/path.dart' as p;
 
 import '../../helpers/user_device_harness.dart';
 
@@ -271,7 +272,7 @@ void main() {
       expect(snapshot.devices, isNotNull);
       expect(snapshot.devices!.devices, hasLength(1));
       // The identity is persisted to disk.
-      expect(h.fs.files.containsKey('${UserDeviceHarness.root}/.noetec/identity.json'), isTrue);
+      expect(h.fs.files.containsKey(p.join(UserDeviceHarness.root, '.noetec', 'identity.json')), isTrue);
       // The one-time seed is NOT stored in reactive state.
       expect(snapshot.operator?.toString().contains(mnemonic), isFalse);
     });
@@ -320,7 +321,7 @@ void main() {
       // The local device is bound (a certificate in the operator's registry).
       expect(snapshot.devices, isNotNull);
       expect(snapshot.devices!.devices, isNotEmpty);
-      expect(b.fs.files.containsKey('${UserDeviceHarness.root}/.noetec/identity.json'), isTrue);
+      expect(b.fs.files.containsKey(p.join(UserDeviceHarness.root, '.noetec', 'identity.json')), isTrue);
     });
 
     test('rejects an empty seed', () async {

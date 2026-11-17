@@ -3,11 +3,11 @@
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
 import 'package:noetec/entity/page/block/text/text.dart';
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/markdown_system/markdown_system.dart';
 import 'package:noetec/systems/oplog_system/oplog_system.dart';
 import 'package:noetec/systems/page_system/page_frontmatter_codec.dart';
-import 'package:path/path.dart' as p;
 
 class ExternalEditHandler {
   ExternalEditHandler({required IFileSystemService fileSystem, required MarkdownSystem markdownSystem, required OpLogSystem oplogSystem, required String vaultRootPath})
@@ -22,7 +22,7 @@ class ExternalEditHandler {
   final String _vaultRootPath;
 
   Future<String?> handleExternalEdit(String relativePath, String? knownPageId) async {
-    final absolutePath = p.join(_vaultRootPath, relativePath);
+    final absolutePath = resolveDocumentPath(_vaultRootPath, relativePath);
     if (!await _fileSystem.fileExists(absolutePath)) return null;
 
     final raw = await _fileSystem.readFile(absolutePath);

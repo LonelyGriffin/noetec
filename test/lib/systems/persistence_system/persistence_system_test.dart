@@ -10,6 +10,7 @@ import 'package:noetec/systems/page_system/page_system.dart';
 import 'package:noetec/systems/persistence_system/persistence_system.dart';
 import 'package:noetec/systems/persistence_system/wal_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../helpers/test_fakes.dart';
 
@@ -52,8 +53,8 @@ void main() {
 
     setUp(() async {
       fs = _FakeFs();
-      fs.dirs.add('/vault/.noetec/wal');
-      fs.files['/vault/pages/welcome.md'] = '''---
+      fs.dirs.add(p.join('/vault', '.noetec', 'wal'));
+      fs.files[p.join('/vault', 'pages', 'welcome.md')] = '''---
 id: page1
 content_hash: ''
 modified: 2026-01-01T00:00:00.000Z

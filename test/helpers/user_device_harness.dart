@@ -14,6 +14,7 @@ import 'package:noetec/service/user_service.dart';
 import 'package:noetec/systems/sync_system/registry/registry_service.dart';
 import 'package:noetec/systems/sync_system/registry/registry_signing.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 import 'test_fakes.dart';
 
@@ -57,7 +58,7 @@ final class UserDeviceHarness {
   final UserDeviceController controller;
   final RegistrySigning signing;
 
-  static const String root = '/vault';
+  static final String root = p.join('vault');
   static const String vaultId = 'v1';
 }
 
@@ -150,20 +151,22 @@ String validPublicKey(int seed) {
 Future<UserDeviceHarness> buildFreshDeviceOf(UserDeviceHarness onboarded, String ownerUserId) async {
   final b = await buildUserDeviceHarness();
   // Bring over the synced registry files (users.json + the owner's device file).
-  b.fs.dirs.addAll({'${UserDeviceHarness.root}/.noetec', '${UserDeviceHarness.root}/.sync', '${UserDeviceHarness.root}/.sync/devices'});
-  final usersJson = onboarded.fs.files['${UserDeviceHarness.root}/.sync/users.json'];
+  b.fs.dirs.addAll({p.join(UserDeviceHarness.root, '.noetec'), p.join(UserDeviceHarness.root, '.sync'), p.join(UserDeviceHarness.root, '.sync', 'devices')});
+  final usersPath = p.join(UserDeviceHarness.root, '.sync', 'users.json');
+  final usersJson = onboarded.fs.files[usersPath];
   if (usersJson != null) {
-    b.fs.files['${UserDeviceHarness.root}/.sync/users.json'] = usersJson;
+    b.fs.files[usersPath] = usersJson;
   }
-  final deviceFile = onboarded.fs.files['${UserDeviceHarness.root}/.sync/devices/$ownerUserId.json'];
+  final devicePath = p.join(UserDeviceHarness.root, '.sync', 'devices', '$ownerUserId.json');
+  final deviceFile = onboarded.fs.files[devicePath];
   if (deviceFile != null) {
-    b.fs.files['${UserDeviceHarness.root}/.sync/devices/$ownerUserId.json'] = deviceFile;
+    b.fs.files[devicePath] = deviceFile;
   }
   // Wipe the local identity/device so this is a clean machine (restore
   // regenerates the device and re-binds it). This harness's key store is fresh
   // (buildUserDeviceHarness creates a new one), so no identity secret lingers.
-  b.fs.files.remove('${UserDeviceHarness.root}/.noetec/identity.json');
-  b.fs.files.remove('${UserDeviceHarness.root}/.noetec/device.json');
+  b.fs.files.remove(p.join(UserDeviceHarness.root, '.noetec', 'identity.json'));
+  b.fs.files.remove(p.join(UserDeviceHarness.root, '.noetec', 'device.json'));
   b.deviceService.clear();
   await b.keyStore.deleteDevicePrivateKey(UserDeviceHarness.vaultId);
   return b;

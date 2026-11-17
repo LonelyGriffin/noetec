@@ -13,6 +13,7 @@ import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/hlc_service.dart';
 import 'package:noetec/service/secure_key_store.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 import 'registry_models.dart';
 import 'registry_reconciler.dart';
@@ -149,7 +150,7 @@ final class RegistryKnownGoodCache {
 
   static const _fileName = 'registry_known_good.json';
 
-  static String path(String vaultRootPath) => '$vaultRootPath/.noetec/$_fileName';
+  static String path(String vaultRootPath) => p.join(vaultRootPath, '.noetec', _fileName);
 
   Future<void> load(String vaultRootPath) async {
     _entries.clear();
@@ -300,13 +301,13 @@ class RegistryServiceImpl implements IRegistryService {
 
   // --- Paths ---------------------------------------------------------------
 
-  String _syncDir(String root) => '$root/.sync';
+  String _syncDir(String root) => p.join(root, '.sync');
 
-  String _devicesDir(String root) => '$root/.sync/devices';
+  String _devicesDir(String root) => p.join(_syncDir(root), 'devices');
 
-  String _usersCanonicalPath(String root) => '${_syncDir(root)}/users.json';
+  String _usersCanonicalPath(String root) => p.join(_syncDir(root), 'users.json');
 
-  String _deviceCanonicalPath(String root, String userId) => '${_devicesDir(root)}/$userId.json';
+  String _deviceCanonicalPath(String root, String userId) => p.join(_devicesDir(root), '$userId.json');
 
   bool _isUsersFile(String name) => name == 'users.json' || (name.startsWith('users (') && name.endsWith('.json'));
 
@@ -318,7 +319,7 @@ class RegistryServiceImpl implements IRegistryService {
     return stem.isEmpty ? null : stem;
   }
 
-  String _nameOf(String path) => path.split('/').last;
+  String _nameOf(String path) => p.basename(path);
 
   // --- Identity / key resolution ------------------------------------------
 
@@ -336,7 +337,7 @@ class RegistryServiceImpl implements IRegistryService {
     }
     // Default source: read identity.json and the known-good users registry.
     UserIdentity? identity;
-    final identityPath = '$root/.noetec/identity.json';
+    final identityPath = p.join(root, '.noetec', 'identity.json');
     if (await _fileSystem.fileExists(identityPath)) {
       try {
         identity = UserIdentity.fromJson((jsonDecode(await _fileSystem.readFile(identityPath)) as Map).cast<String, dynamic>());

@@ -18,7 +18,7 @@
 //   * OpLogAuthorizer + TrustStore (real TOFU + certificate + registry filter)
 //   * RegistryService / OnboardingService (real registry signing)
 //   * OpLogDag / MergeEngine / StateReconstructionEngine (real merge)
-// The only fakes are the secure-storage boundary (InMemorySecureKeyStore —
+// The only fakes are the secure-storage boundary (FakeSecureKeyStore —
 // flutter_secure_storage is unavailable in the test env) and the vault-recent
 // list (a no-op IVaultRepository). No app logic is faked.
 library;
@@ -36,6 +36,7 @@ import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/hlc_service.dart';
 import 'package:noetec/service/id_service.dart';
 import 'package:noetec/service/onboarding_service.dart';
+import 'package:noetec/service/trust_store.dart';
 import 'package:noetec/service/user_service.dart';
 import 'package:noetec/systems/oplog_system/oplog_dag.dart';
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
@@ -47,9 +48,9 @@ import 'package:noetec/systems/oplog_system/oplog_writer.dart';
 import 'package:noetec/systems/sync_system/registry/registry_service.dart';
 import 'package:noetec/systems/vault/vault_repository.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
-import 'package:noetec/service/trust_store.dart';
+import 'package:path/path.dart' as p;
 
-import 'in_memory_secure_key_store.dart';
+import 'test_fakes.dart';
 
 /// A one-shot in-memory vault-recent repository (the real one needs a settings
 /// service; the recent list is irrelevant to sync).
@@ -66,7 +67,7 @@ class _NoopVaultRepository implements IVaultRepository {
 
 /// One real on-disk "device": its own vault folder (`.noetec/` + `.sync/`),
 /// its own Ed25519 device key pair (private key in its own
-/// [InMemorySecureKeyStore]), and real OpLog write/read/verify plumbing
+/// [FakeSecureKeyStore]), and real OpLog write/read/verify plumbing
 /// against that folder.
 final class SyncDevice {
   SyncDevice({
@@ -78,20 +79,13 @@ final class SyncDevice {
     required this.devicePrivateKey,
     required CryptoServiceImpl crypto,
     required IFileSystemService fileSystem,
-    required InMemorySecureKeyStore keyStore,
-  })  : _crypto = crypto,
-        _fileSystem = fileSystem,
-        _keyStore = keyStore,
-        _serializer = const OpLogSerializer() {
+    required FakeSecureKeyStore keyStore,
+  }) : _crypto = crypto,
+       _fileSystem = fileSystem,
+       _keyStore = keyStore,
+       _serializer = const OpLogSerializer() {
     _signer = OpLogSigner(crypto: _crypto, secureKeyStore: _keyStore, serializer: _serializer);
-    _writer = OpLogWriter(
-      _fileSystem,
-      folderPath,
-      _serializer,
-      signer: _signer,
-      vaultId: vaultId,
-      devicePublicKeyBase64Url: publicKey,
-    );
+    _writer = OpLogWriter(_fileSystem, folderPath, _serializer, signer: _signer, vaultId: vaultId, devicePublicKeyBase64Url: publicKey);
     // keyResolver only matters for an all-legacy file (no pubKey on any
     // entry); for the local device we can resolve our own key. Remote devices
     // carry their key on their first entry, so this is a no-op for them.
@@ -108,7 +102,7 @@ final class SyncDevice {
 
   final CryptoServiceImpl _crypto;
   final IFileSystemService _fileSystem;
-  final InMemorySecureKeyStore _keyStore;
+  final FakeSecureKeyStore _keyStore;
 
   final OpLogSerializer _serializer;
   late final OpLogSigner _signer;
@@ -117,13 +111,13 @@ final class SyncDevice {
   late final OpLogReader _reader;
 
   /// The on-disk `.sync/` directory (the shared, synced area).
-  String get syncDir => '$folderPath/.sync';
+  String get syncDir => p.join(folderPath, '.sync');
 
   /// The `.noetec/` local directory.
-  String get localDir => '$folderPath/.noetec';
+  String get localDir => p.join(folderPath, '.noetec');
 
   /// The oplog file path for [relativePath] on THIS device (in the shared `.sync/`).
-  String oplogFilePath(String relativePath) => '$syncDir/$relativePath/$deviceUuid.oplog.jsonl';
+  String oplogFilePath(String relativePath) => p.join(syncDir, relativePath, '$deviceUuid.oplog.jsonl');
 
   /// Appends [entry] to this device's oplog file for [relativePath], signing
   /// it with this device's real key (the real OpLogSigner + OpLogWriter path).
@@ -153,7 +147,7 @@ final class SyncDevice {
 }
 
 /// Builds a fresh real on-disk device in a temp folder with a real Ed25519 key
-/// pair (private key stored in its own [InMemorySecureKeyStore]).
+/// pair (private key stored in its own [FakeSecureKeyStore]).
 Future<SyncDevice> createDevice({
   required String folderPath,
   required String vaultId,
@@ -161,20 +155,14 @@ Future<SyncDevice> createDevice({
   required CryptoServiceImpl crypto,
   required IFileSystemService fileSystem,
 }) async {
-  final keyStore = InMemorySecureKeyStore();
+  final keyStore = FakeSecureKeyStore();
   final keyPair = await crypto.generateDeviceKeyPair();
   final deviceUuid = IdService().generateId();
-  await fileSystem.createDirectory('$folderPath/.noetec');
-  await fileSystem.createDirectory('$folderPath/.sync');
+  await fileSystem.createDirectory(p.join(folderPath, '.noetec'));
+  await fileSystem.createDirectory(p.join(folderPath, '.sync'));
   final identity = DeviceIdentity(uuid: deviceUuid, name: deviceName, createdAt: DateTime.now(), lastHlc: null, publicKey: keyPair.publicKeyBase64Url);
-  final deviceJson = {
-    'uuid': deviceUuid,
-    'name': deviceName,
-    'created_at': identity.createdAt.toIso8601String(),
-    'last_hlc': null,
-    'public_key': keyPair.publicKeyBase64Url,
-  };
-  await fileSystem.writeFile('$folderPath/.noetec/device.json', _jsonEncode(deviceJson));
+  final deviceJson = {'uuid': deviceUuid, 'name': deviceName, 'created_at': identity.createdAt.toIso8601String(), 'last_hlc': null, 'public_key': keyPair.publicKeyBase64Url};
+  await fileSystem.writeFile(p.join(folderPath, '.noetec', 'device.json'), _jsonEncode(deviceJson));
   await keyStore.storeDevicePrivateKey(vaultId, keyPair.privateKeyBase64Url);
   return SyncDevice(
     folderPath: folderPath,
@@ -236,7 +224,7 @@ Future<void> syncFrom(SyncDevice src, SyncDevice dst) async {
 
 Future<void> _copyTree(Directory src, Directory dst) async {
   await for (final entity in src.list()) {
-    final target = '${dst.path}/${entity.path.split(Platform.pathSeparator).last}';
+    final target = p.join(dst.path, p.basename(entity.path));
     if (entity is Directory) {
       await _copyTree(entity, Directory(target));
     } else if (entity is File) {
@@ -246,7 +234,10 @@ Future<void> _copyTree(Directory src, Directory dst) async {
 }
 
 /// A block helper (id + plain text) used across the scenario tests.
-TextBlockEntity blk(String id, String text) => TextBlockEntity(id: id, segments: [TextSegment(text: text)]);
+TextBlockEntity blk(String id, String text) => TextBlockEntity(
+  id: id,
+  segments: [TextSegment(text: text)],
+);
 
 /// A real owner "user device": the [SyncDevice] plus a real owner identity and
 /// a real, correctly-signed registry (`.sync/users.json` +
@@ -259,7 +250,7 @@ final class OwnerDevice {
   final String ownerName;
   final IRegistryService registry;
   final ITrustStore trustStore;
-  final InMemorySecureKeyStore keyStore;
+  final FakeSecureKeyStore keyStore;
 }
 
 /// Builds a real on-boarded owner vault in [folderPath]: owner identity +
@@ -274,7 +265,7 @@ Future<OwnerDevice> createOwnerVault({
   required IFileSystemService fileSystem,
 }) async {
   final device = await createDevice(folderPath: folderPath, vaultId: vaultId, deviceName: deviceName, crypto: crypto, fileSystem: fileSystem);
-  final keyStore = InMemorySecureKeyStore();
+  final keyStore = FakeSecureKeyStore();
   // The owner's device private key must be in the key store the registry /
   // onboarding services read from (keyed by vaultId).
   await keyStore.storeDevicePrivateKey(vaultId, device.devicePrivateKey);
@@ -288,7 +279,15 @@ Future<OwnerDevice> createOwnerVault({
   // `currentVault` listeners fire when `currentVault.value` is set below
   // (the developer's UserDeviceHarness uses this exact order).
   final registry = RegistryServiceImpl(fileSystem: fileSystem, hlcService: hlcService, crypto: crypto, secureKeyStore: keyStore, vaultSystem: vaultSystem);
-  final onboarding = OnboardingServiceImpl(fileSystem: fileSystem, deviceService: deviceService, userService: userService, registry: registry, crypto: crypto, idService: idService, vaultSystem: vaultSystem);
+  final onboarding = OnboardingServiceImpl(
+    fileSystem: fileSystem,
+    deviceService: deviceService,
+    userService: userService,
+    registry: registry,
+    crypto: crypto,
+    idService: idService,
+    vaultSystem: vaultSystem,
+  );
 
   await deviceService.ensureDevice(folderPath, vaultId);
   vaultSystem.currentVault.value = VaultEntity(id: vaultId, name: 'Vault', rootPath: folderPath, createdAt: DateTime(2026));
@@ -320,7 +319,17 @@ OpLogEntry entry({
   FileOp? fileOp,
   String? fileHash,
 }) {
-  return OpLogEntry(version: 1, hlc: Hlc(physicalMs: physicalMs, counter: 0, deviceId: nodeId(deviceId)), parent: parent, parentB: parentB, type: type, blockOps: blockOps, fileOp: fileOp, fileHash: fileHash, deviceId: deviceId);
+  return OpLogEntry(
+    version: 1,
+    hlc: Hlc(physicalMs: physicalMs, counter: 0, deviceId: nodeId(deviceId)),
+    parent: parent,
+    parentB: parentB,
+    type: type,
+    blockOps: blockOps,
+    fileOp: fileOp,
+    fileHash: fileHash,
+    deviceId: deviceId,
+  );
 }
 
 /// A 32-byte base64url Ed25519 public key derived from [seed] (a valid,
@@ -333,16 +342,11 @@ String foreignKey(int seed) {
 /// Makes a second device that shares [anchor]'s vault folder (its `.sync/`
 /// area is the same shared area), but has its OWN Ed25519 key pair and its OWN
 /// in-memory key store — i.e. a legitimate second device of the same user.
-Future<SyncDevice> makeSharedDevice({
-  required SyncDevice anchor,
-  required String name,
-  required CryptoServiceImpl crypto,
-  required IFileSystemService fileSystem,
-}) async {
-  final ks = InMemorySecureKeyStore();
+Future<SyncDevice> makeSharedDevice({required SyncDevice anchor, required String name, required CryptoServiceImpl crypto, required IFileSystemService fileSystem}) async {
+  final ks = FakeSecureKeyStore();
   final kp = await crypto.generateDeviceKeyPair();
   final uuid = IdService().generateId();
-  final vid = 'shared-${uuid}';
+  final vid = 'shared-$uuid';
   await ks.storeDevicePrivateKey(vid, kp.privateKeyBase64Url);
   return SyncDevice(
     folderPath: anchor.folderPath,

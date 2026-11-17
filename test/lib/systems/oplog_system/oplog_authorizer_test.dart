@@ -7,6 +7,7 @@ import 'package:noetec/entity/device/device_identity.dart';
 import 'package:noetec/entity/hlc.dart';
 import 'package:noetec/entity/vault.dart';
 import 'package:noetec/service/crypto_service.dart';
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/hlc_service.dart';
 import 'package:noetec/service/trust_store.dart';
@@ -19,6 +20,7 @@ import 'package:noetec/systems/oplog_system/oplog_system.dart';
 import 'package:noetec/systems/sync_system/registry/registry_models.dart';
 import 'package:noetec/systems/sync_system/registry/registry_service.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../helpers/test_fakes.dart';
 
@@ -389,9 +391,9 @@ void main() {
           vaultId: 'vault-$deviceId',
           devicePublicKeyBase64Url: key.publicKeyBase64Url,
         );
-        const dir = '/vault/.sync/$relPath';
+        final dir = resolveDocumentPath(p.join('/vault', '.sync'), relPath);
         if (!fs.dirs.contains(dir)) fs.dirs.add(dir);
-        await fs.appendToFile('$dir/$deviceId.oplog.jsonl', '${const OpLogSerializer().encode(signed)}\n');
+        await fs.appendToFile(p.join(dir, '$deviceId.oplog.jsonl'), '${const OpLogSerializer().encode(signed)}\n');
       }
 
       await writeFile('devA', a, _h(100, 'devA'));
@@ -476,9 +478,9 @@ void main() {
         vaultId: 'vault-$deviceId',
         devicePublicKeyBase64Url: pubKey,
       );
-      const dir = '/vault/.sync/$relPath';
+      final dir = resolveDocumentPath(p.join('/vault', '.sync'), relPath);
       if (!fs.dirs.contains(dir)) fs.dirs.add(dir);
-      await fs.appendToFile('$dir/$deviceId.oplog.jsonl', '${const OpLogSerializer().encode(signed)}\n');
+      await fs.appendToFile(p.join(dir, '$deviceId.oplog.jsonl'), '${const OpLogSerializer().encode(signed)}\n');
     }
 
     OpLogSystem buildOpLog({required UserRegistry? users, required Map<String, DeviceRegistry> devices, required ITrustStore trustStore}) {
@@ -771,7 +773,7 @@ void main() {
       await keyStore.storeDevicePrivateKey('vault-$deviceId', privKey);
       final signer = OpLogSigner(crypto: crypto, secureKeyStore: keyStore, serializer: const OpLogSerializer());
       const serializer = OpLogSerializer();
-      const dir = '/vault/.sync/$relPath';
+      final dir = resolveDocumentPath(p.join('/vault', '.sync'), relPath);
       if (!fs.dirs.contains(dir)) fs.dirs.add(dir);
       Hlc? prev;
       var buf = '';
@@ -794,7 +796,7 @@ void main() {
         final signed = await signer.sign(entry, relPath, vaultId: 'vault-$deviceId', devicePublicKeyBase64Url: pubKey);
         buf += '${serializer.encode(signed)}\n';
       }
-      await fs.appendToFile('$dir/$deviceId.oplog.jsonl', buf);
+      await fs.appendToFile(p.join(dir, '$deviceId.oplog.jsonl'), buf);
     }
 
     test('a drifted other-device suffix never reaches the DAG (§6, §8.4)', () async {
@@ -863,7 +865,7 @@ void main() {
         await keyStore.storeDevicePrivateKey('vault-$deviceId', priv);
         final signer = OpLogSigner(crypto: crypto, secureKeyStore: keyStore, serializer: const OpLogSerializer());
         const serializer = OpLogSerializer();
-        final dir = '/vault/.sync/$path';
+        final dir = resolveDocumentPath(p.join('/vault', '.sync'), path);
         if (!fs.dirs.contains(dir)) fs.dirs.add(dir);
         final entry = OpLogEntry(
           version: 1,
@@ -879,7 +881,7 @@ void main() {
           pubKey: key,
         );
         final signed = await signer.sign(entry, path, vaultId: 'vault-$deviceId', devicePublicKeyBase64Url: key);
-        await fs.appendToFile('$dir/$deviceId.oplog.jsonl', '${serializer.encode(signed)}\n');
+        await fs.appendToFile(p.join(dir, '$deviceId.oplog.jsonl'), '${serializer.encode(signed)}\n');
       }
 
       // Two different files, each with one drifted entry.

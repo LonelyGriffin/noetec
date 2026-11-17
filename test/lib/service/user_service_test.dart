@@ -9,6 +9,7 @@ import 'package:bip39/bip39.dart' as bip39;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noetec/service/crypto_service.dart';
 import 'package:noetec/service/user_service.dart';
+import 'package:path/path.dart' as p;
 import '../../helpers/test_fakes.dart';
 
 void main() {
@@ -16,15 +17,16 @@ void main() {
   late FakeSecureKeyStore keyStore;
   late UserServiceImpl service;
 
-  const vaultRoot = '/vault';
+  final vaultRoot = p.join('vault');
   const vaultId = 'vault-1';
-  const identityPath = '/vault/.noetec/identity.json';
+  late String identityPath;
 
   UserServiceImpl buildService(FakeFileSystemService f, FakeSecureKeyStore k) => UserServiceImpl(f, FakeIdService(), CryptoServiceImpl(), k);
 
   setUp(() {
     fs = FakeFileSystemService();
     keyStore = FakeSecureKeyStore();
+    identityPath = p.join(vaultRoot, '.noetec', 'identity.json');
     service = buildService(fs, keyStore);
   });
 

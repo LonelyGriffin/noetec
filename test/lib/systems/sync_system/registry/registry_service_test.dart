@@ -17,6 +17,7 @@ import 'package:noetec/systems/sync_system/registry/registry_models.dart';
 import 'package:noetec/systems/sync_system/registry/registry_service.dart';
 import 'package:noetec/systems/sync_system/registry/registry_signing.dart';
 import 'package:noetec/systems/vault/vault_system.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../../helpers/test_fakes.dart';
 
@@ -112,8 +113,8 @@ void main() {
   }
 
   void writeUsers(_FakeFs fs, String fileName, UserRegistry file) {
-    fs.files['/vault/.sync/$fileName'] = jsonEncode(file.toWireMap());
-    fs.dirs.add('/vault/.sync');
+    fs.files[p.join('/vault', '.sync', fileName)] = jsonEncode(file.toWireMap());
+    fs.dirs.add(p.join('/vault', '.sync'));
   }
 
   UserIdentity ownerIdentity() => UserIdentity(userId: 'o', name: 'Owner', publicKey: ownerPub, role: 'owner');
@@ -127,8 +128,8 @@ void main() {
       final report = await b.service.reconcileUserRegistry();
       expect(report.mode, 'fast-path');
       expect(report.merged, isTrue); // the conflicted copy was renamed to canonical
-      expect(b.fs.files.containsKey('/vault/.sync/users.json'), isTrue);
-      expect(b.fs.files.containsKey('/vault/.sync/users (conflicted copy 1).json'), isFalse);
+      expect(b.fs.files.containsKey(p.join('/vault', '.sync', 'users.json')), isTrue);
+      expect(b.fs.files.containsKey(p.join('/vault', '.sync', 'users (conflicted copy 1).json')), isFalse);
 
       final loaded = await b.service.loadUserRegistry();
       expect(loaded, isNotNull);
@@ -143,7 +144,7 @@ void main() {
       final report = await b.service.reconcileUserRegistry();
       expect(report.mode, 'fast-path');
       expect(report.merged, isFalse); // no rename needed
-      expect(b.fs.files.containsKey('/vault/.sync/users.json'), isTrue);
+      expect(b.fs.files.containsKey(p.join('/vault', '.sync', 'users.json')), isTrue);
     });
 
     test('three-way: two diverged candidates of one owner merge per record', () async {
@@ -186,7 +187,7 @@ void main() {
       expect(report.mode, 'three-way');
       expect(report.merged, isTrue);
       // The conflicted copy is removed after the commit.
-      expect(b.fs.files.containsKey('/vault/.sync/users (conflicted copy 1).json'), isFalse);
+      expect(b.fs.files.containsKey(p.join('/vault', '.sync', 'users (conflicted copy 1).json')), isFalse);
       // The merged file carries BOTH edits (no loss).
       final loaded = await b.service.loadUserRegistry();
       expect(loaded, isNotNull);
@@ -272,18 +273,18 @@ void main() {
       final b = await buildService(identity: ownerIdentity(), identityPrivKey: ownerPriv);
       final report = await b.service.reconcileUserRegistry();
       expect(report.mode, 'noop');
-      expect(b.fs.files.containsKey('/vault/.sync/users.json'), isFalse);
+      expect(b.fs.files.containsKey(p.join('/vault', '.sync', 'users.json')), isFalse);
     });
 
     test('an unparseable candidate is rejected and reported', () async {
       final b = await buildService(identity: ownerIdentity(), identityPrivKey: ownerPriv);
       final good = await signUsers(userFile(rev: _h(1000), users: [u('o')]));
       writeUsers(b.fs, 'users.json', good);
-      b.fs.files['/vault/.sync/users (conflicted copy 1).json'] = '{not json';
+      b.fs.files[p.join('/vault', '.sync', 'users (conflicted copy 1).json')] = '{not json';
 
       final report = await b.service.reconcileUserRegistry();
       expect(report.mode, 'fast-path');
-      expect(report.rejectedFiles, contains('/vault/.sync/users (conflicted copy 1).json'));
+      expect(report.rejectedFiles, contains(p.join('/vault', '.sync', 'users (conflicted copy 1).json')));
     });
   });
 
@@ -314,9 +315,9 @@ void main() {
           ],
         ),
       );
-      b.fs.files['/vault/.sync/devices/o.json'] = jsonEncode(devB.toWireMap());
-      b.fs.files['/vault/.sync/devices/o (conflicted copy 1).json'] = jsonEncode(devA.toWireMap());
-      b.fs.dirs.add('/vault/.sync/devices');
+      b.fs.files[p.join('/vault', '.sync', 'devices', 'o.json')] = jsonEncode(devB.toWireMap());
+      b.fs.files[p.join('/vault', '.sync', 'devices', 'o (conflicted copy 1).json')] = jsonEncode(devA.toWireMap());
+      b.fs.dirs.add(p.join('/vault', '.sync', 'devices'));
 
       final report = await b.service.reconcileDeviceRegistry('o');
       expect(report.mode, 'three-way');
@@ -333,7 +334,7 @@ void main() {
       final b = await buildService(identity: ownerIdentity(), identityPrivKey: ownerPriv);
       // Bootstrap: no canonical file → the operator becomes the owner.
       await b.service.addUser(userId: 'o', name: 'Owner', publicKey: ownerPub, role: 'owner');
-      expect(b.fs.files.containsKey('/vault/.sync/users.json'), isTrue);
+      expect(b.fs.files.containsKey(p.join('/vault', '.sync', 'users.json')), isTrue);
       // Add a member (a fresh key).
       final member = await crypto.deriveIdentityKeyPair(List.generate(32, (i) => 0xB0 + i));
       final withMember = await b.service.addUser(userId: 'm', name: 'Member', publicKey: member.publicKeyBase64Url);
@@ -364,7 +365,7 @@ void main() {
       final b = await buildService(identity: ownerIdentity(), identityPrivKey: ownerPriv);
       final added = await b.service.addDevice(deviceUuid: 'd1', devicePublicKey: 'pk-d1', deviceName: 'Dev 1');
       expect(added.devicesById['d1'], isNotNull);
-      expect(b.fs.files.containsKey('/vault/.sync/devices/o.json'), isTrue);
+      expect(b.fs.files.containsKey(p.join('/vault', '.sync', 'devices', 'o.json')), isTrue);
 
       final revoked = await b.service.revokeDevice('d1');
       expect(revoked.devicesById['d1']!.removedAt, isNotNull);

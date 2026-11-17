@@ -2,10 +2,12 @@
 // Copyright (c) 2026 The Noetec Authors.
 // See the AUTHORS file for the full list of contributors.
 // AGPLv3 License: https://www.gnu.org/licenses/agpl-3.0.html
+import 'package:noetec/service/document_paths.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/systems/oplog_system/oplog_models.dart';
 import 'package:noetec/systems/oplog_system/oplog_serializer.dart';
 import 'package:noetec/systems/oplog_system/oplog_signer.dart';
+import 'package:path/path.dart' as p;
 
 class OpLogWriter {
   const OpLogWriter(this._fs, this._vaultRootPath, this._serializer, {OpLogSigner? signer, String? vaultId, String? devicePublicKeyBase64Url})
@@ -49,11 +51,11 @@ class OpLogWriter {
   }
 
   String _oplogDir(String relativePath) {
-    return '$_vaultRootPath/.sync/$relativePath';
+    return resolveDocumentPath(p.join(_vaultRootPath, '.sync'), relativePath);
   }
 
   String _oplogFilePath(String relativePath, String deviceId) {
     final dir = _oplogDir(relativePath);
-    return '$dir/$deviceId.oplog.jsonl';
+    return p.join(dir, '$deviceId.oplog.jsonl');
   }
 }

@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:noetec/service/file_system_service.dart';
 import 'package:noetec/service/trust_store.dart';
+import 'package:path/path.dart' as p;
 
 import '../../helpers/test_fakes.dart';
 
@@ -19,8 +20,8 @@ void main() {
   final records = <LogRecord>[];
   late StreamSubscription<void> logSubscription;
 
-  const vaultRoot = '/vault';
-  const storePath = '/vault/.noetec/trusted_keys.json';
+  final vaultRoot = p.join('vault');
+  final storePath = p.join(vaultRoot, '.noetec', 'trusted_keys.json');
   const deviceA = 'device-a';
   const deviceB = 'device-b';
   const userA = 'user-a';
@@ -154,7 +155,7 @@ void main() {
       await store.observeKey(vaultRoot, deviceA, keyA);
 
       expect(fs.files.keys, contains(storePath));
-      expect(fs.files.keys.where((p) => p.contains('/.sync/')), isEmpty);
+      expect(fs.files.keys.where((path) => p.split(path).contains('.sync')), isEmpty);
     });
 
     test('the store is per-vault: a second vault starts empty', () async {
@@ -166,19 +167,19 @@ void main() {
     test('a malformed store file throws FormatException instead of silently re-arming trust', () async {
       fs.files[storePath] = 'not json at all';
 
-      expect(() => store.observeKey(vaultRoot, deviceA, keyA), throwsFormatException);
+      expect(store.observeKey(vaultRoot, deviceA, keyA), throwsFormatException);
     });
 
     test('a non-object store file throws FormatException', () async {
       fs.files[storePath] = jsonEncode(['a-list']);
 
-      expect(() => store.pinnedKeys(vaultRoot), throwsFormatException);
+      expect(store.pinnedKeys(vaultRoot), throwsFormatException);
     });
 
     test('a store entry that is not a string value throws FormatException', () async {
       fs.files[storePath] = jsonEncode({'device-a': 42});
 
-      expect(() => store.pinnedKeys(vaultRoot), throwsFormatException);
+      expect(store.pinnedKeys(vaultRoot), throwsFormatException);
     });
   });
 
