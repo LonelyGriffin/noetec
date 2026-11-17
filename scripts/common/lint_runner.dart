@@ -14,10 +14,9 @@ import 'run_process.dart';
 ///
 /// Scoped to the project's source directories instead of the whole package:
 /// `dart analyze` with no arguments walks every directory under the repo root,
-/// including the gitignored Multica/Hermes task artifacts under `noetec-ai-*/`
-/// (12k+ files, node_modules, …). On the WSL→Windows (9p) filesystem mount that
-/// scan is pathologically slow and used to hang the analyzer, so we scope it.
-/// Reuses the same list as the format step (`format_runner.dart`).
+/// including nested workspaces and their dependencies. On mounted filesystems
+/// that scan can be pathologically slow, so we scope it to the project's source
+/// directories. Reuses the same list as the format step (`format_runner.dart`).
 const analyzeDirectories = sourceDirectories;
 
 Future<bool> runLint({required bool stagedOnly}) async {

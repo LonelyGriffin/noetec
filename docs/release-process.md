@@ -65,7 +65,5 @@ A release is a small PR on the release branch plus a tag and a GitHub Release.
 - The `[Unreleased]` section is where all new PRs land: when your work
   adds, changes, or fixes something user-visible, add a line to
   `CHANGELOG.md` in the same PR. The release itself is then mostly mechanical.
-- Agents never push tags to `main`-protected history and never merge; the tag
-  push and release creation are repository owner actions (or an explicitly
-  delegated agent action with a fresh GitHub token, per the project's
-  git/GitHub workflow).
+- The repository owner publishes releases, or explicitly authorizes someone to
+  do so using the repository's configured GitHub access.

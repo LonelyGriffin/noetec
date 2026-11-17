@@ -8,10 +8,9 @@ import 'run_process.dart';
 /// Directories passed to `dart format`.
 ///
 /// Scoped to the project's source directories instead of the whole repo root:
-/// `dart format .` walks every directory under the repo root, including the
-/// gitignored Multica/Hermes task artifacts under `noetec-ai-*/` (full nested
-/// worktrees with hundreds of `.dart` files). Formatting those rewrites other
-/// tasks' working trees, so we scope it the same way `dart analyze` is scoped.
+/// `dart format .` walks every directory under the repo root, including nested
+/// workspaces with unrelated `.dart` files. Formatting those can rewrite other
+/// workspaces, so we scope it to the project's source directories.
 const sourceDirectories = ['lib', 'test', 'integration_test', 'scripts'];
 
 Future<bool> applyFormatting() => runProcess('dart', ['format', ...sourceDirectories], failMessage: 'Formatting failed.', successMessage: 'Formatting complete.');
